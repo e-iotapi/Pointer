@@ -202,7 +202,7 @@ class _CompulsoryPickPageState extends State<CompulsoryPickPage> {
     final found =
         q.length < 2
             ? const <Course>[]
-            : widen(
+            : _learner.widen(
               q,
               (ph) => [
                 for (final c in allCourses())
@@ -214,7 +214,6 @@ class _CompulsoryPickPageState extends State<CompulsoryPickPage> {
               ],
               (c) => c.id,
             ).take(5).toList();
-    if (q.length >= 2) _learner.typed(q, found: found.isNotEmpty);
     return PageFrame(
       header: const PageHeader(
         eyebrow: 'COMPULSORY REVIEWS',
@@ -289,7 +288,7 @@ class _CompulsoryPickPageState extends State<CompulsoryPickPage> {
                   icon: Icons.add_rounded,
                   title: '${c.id} · ${c.title}',
                   onTap: () {
-                    _learner.picked(q);
+                    _learner.picked(c.id);
                     _search.clear();
                     setState(() {
                       _drafts[c.id] = _Draft(c);

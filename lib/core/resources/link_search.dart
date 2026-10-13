@@ -4,17 +4,20 @@ import 'package:cgpa_calculator/core/search/hints.dart';
 export 'package:cgpa_calculator/core/search/hints.dart';
 
 /// The links matching [query] or one of [also], the query's own matches
-/// first, title matches before the rest.
+/// first, title matches before the rest. [learner] hears which phrase found
+/// each link.
 List<Resource> searchLinks(
   List<Resource> links,
   String query, {
   List<String> also = const [],
+  QueryLearner? learner,
   required String Function(String courseId) courseTitle,
   required String Function(String dept) departmentName,
 }) {
   final q = normQuery(query);
   if (q.isEmpty) return const [];
   final out = <Resource>[];
+  final rows = <(Object?, String)>[];
   final seen = <String>{};
   for (final phrase in [q, ...also.map(normQuery)]) {
     if (phrase.isEmpty) continue;
@@ -37,7 +40,9 @@ List<Resource> searchLinks(
     for (final r in [...titled, ...rest]) {
       seen.add(r.id);
       out.add(r);
+      rows.add((r.id, phrase));
     }
   }
+  learner?.saw(query, rows);
   return out;
 }

@@ -1,5 +1,5 @@
-// searchHints/{campus}: students on a campus vote one pair +1 at a time;
-// nobody rewrites the counts.
+// searchHints/{campus}: students on a campus move one pair's relevance by
+// +1 or -1 at a time; nobody rewrites the counts.
 import { describe, test } from 'node:test';
 import { assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import { doc, getDoc, increment, setDoc } from 'firebase/firestore';
@@ -11,10 +11,13 @@ const vote = (db, campus, k, t, by = increment(1)) =>
   setDoc(doc(db, 'searchHints', campus), { q: { [k]: { [t]: by } }, k, t }, { merge: true });
 
 describe('searchHints', () => {
-  test('a student votes a pair on their campus, +1 only', async () => {
+  test('a student votes a pair on their campus, +1 or -1 only', async () => {
     await assertSucceeds(vote(as(STUDENT), 'goa', 'pyq', 'previous year questions'));
     await assertSucceeds(vote(as(STUDENT), 'goa', 'pyq', 'previous year questions'));
+    await assertSucceeds(vote(as(STUDENT), 'goa', 'pyq', 'notes', increment(-1)));
+    await assertSucceeds(vote(as(STUDENT), 'goa', 'pyq', 'notes', increment(-1)));
     await assertFails(vote(as(STUDENT), 'goa', 'pyq', 'previous year questions', increment(5)));
+    await assertFails(vote(as(STUDENT), 'goa', 'pyq', 'notes', increment(-2)));
     await assertFails(vote(as(STUDENT), 'goa', 'pyq', 'notes', 9));
     await assertFails(vote(as(OTHER), 'goa', 'pyq', 'notes'));
     await assertFails(vote(as(STUDENT), 'goa', 'PYQ!', 'notes'));
@@ -24,6 +27,9 @@ describe('searchHints', () => {
   test('a vote names the pair it moves', async () => {
     await assertFails(setDoc(doc(as(STUDENT), 'searchHints', 'goa'),
       { q: { lab: { practical: increment(1) } }, k: 'lab', t: 'tut' }, { merge: true }));
+    await assertFails(setDoc(doc(as(STUDENT), 'searchHints', 'goa'),
+      { q: { lab: { practical: increment(1), tut: increment(-1) } }, k: 'lab', t: 'tut' },
+      { merge: true }));
   });
 
   test('a campus reads its own hints', async () => {

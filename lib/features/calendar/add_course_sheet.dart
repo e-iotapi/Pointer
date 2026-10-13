@@ -77,7 +77,7 @@ class _AddSheetState extends State<AddSheet> {
   final _learner = QueryLearner();
 
   void _pick(TtCourse c) {
-    _learner.picked(_q.text);
+    _learner.picked(c.id);
     if (c.sections.isEmpty) return Navigator.pop<Object>(context, (course: c, keys: <String>[]));
     _pickSections(c);
   }
@@ -97,12 +97,11 @@ class _AddSheetState extends State<AddSheet> {
   List<TtCourse> get _results {
     final t = widget.timetable;
     if (_q.text.trim().isNotEmpty) {
-      final found = widen(
+      final found = _learner.widen(
         _q.text,
         (ph) => searchCourses(_all, ph),
         (c) => c.id,
       ).take(50).toList();
-      _learner.typed(_q.text, found: found.isNotEmpty);
       return found;
     }
     return [for (final id in widget.suggested.toList()..sort()) if (t.courses[id] != null) t.courses[id]!];

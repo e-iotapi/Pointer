@@ -52,7 +52,9 @@ void main() {
     expect(find('notes'), ['c', 'b']);
   });
 
-  test('a learned pair counts at five votes, both ways, with half the top', () {
+  // Relevance (owner, 2026-10-13): a taught pair shows from 5, built-in
+  // synonyms start at 100 and hide below 0, most relevant first.
+  test('a taught pair shows at relevance five, both ways', () {
     expect(find('opsys'), isEmpty);
     expect(
       find('opsys', {
@@ -66,18 +68,57 @@ void main() {
       }),
       ['a', 'b'],
     );
-    // A stray jump below half the top vote stays out.
-    expect(
-      alsoSearch('opsys', {
-        'opsys': {'operating': 40, 'thermo': 6},
-      }),
-      ['operating'],
-    );
     expect(
       alsoSearch('operating', {
         'opsys': {'operating': 5},
       }),
       ['opsys'],
+    );
+    // Both directions' counts add up.
+    expect(
+      alsoSearch('opsys', {
+        'opsys': {'operating': 3},
+        'operating': {'opsys': 2},
+      }),
+      ['operating'],
+    );
+  });
+
+  test('the most relevant pairs come first', () {
+    expect(
+      alsoSearch('opsys', {
+        'opsys': {'thermo': 6, 'operating': 40},
+      }),
+      ['operating', 'thermo'],
+    );
+    // A built-in synonym students skip sinks below the rest.
+    expect(
+      alsoSearch('pyq', {
+        'pyq': {'pyqs': -50},
+      }),
+      ['previous year', 'question paper', 'past paper', 'pyqs'],
+    );
+  });
+
+  test('a built-in synonym hides below zero, a taught pair below five', () {
+    expect(
+      alsoSearch('pyq', {
+        'pyq': {'past paper': -100},
+      }),
+      contains('past paper'),
+    );
+    expect(
+      alsoSearch('pyq', {
+        'pyq': {'past paper': -101},
+      }),
+      isNot(contains('past paper')),
+    );
+    expect(
+      alsoSearch('opsys', {
+        'opsys': {'operating': 12},
+        'operating': {'opsys': -8},
+      }),
+      isEmpty,
     );
   });
 

@@ -172,8 +172,8 @@ class _AddCourseSheetState extends State<AddCourseSheet> {
       held: widget.held,
       discipline: widget.discipline,
       master: widget.master,
+      learner: _learner,
     );
-    _learner.typed(q, found: _hits.isNotEmpty);
     if (_picked != null && !_hits.any((h) => h.id == _picked!.id)) {
       _picked = null;
     }
@@ -183,7 +183,7 @@ class _AddCourseSheetState extends State<AddCourseSheet> {
       _hitsQuery == _query.text ? _hits : const [];
 
   void _pick(CourseHit h) => setState(() {
-    _learner.picked(_query.text);
+    _learner.picked(h.id);
     _picked = h;
     _category = h.category;
     _grade = GradeCode.clr;

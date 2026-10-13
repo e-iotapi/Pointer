@@ -941,8 +941,9 @@ service cloud.firestore {
     function markerCampus(c) { return c == 'all' ? 'goa' : c; }
 
     // searchHints/{campus} (owner, 2026-10-06): what students taught the
-    // resource search, q: {query: {otherQuery: votes}}. A vote moves one
-    // pair by +1, named by k and t. A bad pair is removed in the console.
+    // search boxes, q: {query: {otherQuery: relevance}}. A vote moves one
+    // pair by +1 or -1 (owner, 2026-10-13), named by k and t. A bad pair is
+    // removed in the console.
     function hintKey(s) { return s is string && s.matches('^[a-z0-9 ]{1,40}$'); }
 
     function hintVote() {
@@ -955,7 +956,7 @@ service cloud.firestore {
         && a.q.diff(b).affectedKeys().hasOnly([a.k])
         && a.q[a.k] is map && a.q[a.k].size() <= 20
         && a.q[a.k].diff(before).affectedKeys().hasOnly([a.t])
-        && a.q[a.k][a.t] == before.get(a.t, 0) + 1;
+        && a.q[a.k][a.t] in [before.get(a.t, 0) + 1, before.get(a.t, 0) - 1];
     }
 
     match /searchHints/{campus} {

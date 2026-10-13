@@ -383,7 +383,7 @@ class _CoursePickerState extends State<_CoursePicker> {
     final hits =
         q.isEmpty
             ? const <String>[]
-            : widen(
+            : _learner.widen(
               q,
               (ph) => [
                 for (final m in catalog.master)
@@ -393,7 +393,6 @@ class _CoursePickerState extends State<_CoursePicker> {
               ],
               (id) => id,
             ).take(8).toList();
-    if (q.isNotEmpty) _learner.typed(q, found: hits.isNotEmpty);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -405,7 +404,7 @@ class _CoursePickerState extends State<_CoursePicker> {
         for (final id in hits)
           InkWell(
             onTap: () {
-              _learner.picked(q);
+              _learner.picked(id);
               widget.onPick(id);
             },
             child: ConstrainedBox(

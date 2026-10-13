@@ -46,6 +46,15 @@ void main() {
         (await sharedDb.collection('searchHints').doc('goa').get()).data()?['q']
             as Map?;
     expect(q?['zzqq'], {'lab sheets': 1});
+    // A link found through a synonym moves that pair up (owner, 2026-10-13).
+    await t.enterText(find.byType(TextField), 'practical');
+    await settle(t);
+    await t.tap(find.text('OS lab sheets'));
+    await settle(t);
+    final r =
+        (await sharedDb.collection('searchHints').doc('goa').get()).data()?['q']
+            as Map?;
+    expect(r?['practical'], {'lab': 1});
     await t.enterText(find.byType(TextField), '');
     await settle(t);
     expect(find.text('Course resources'), findsOneWidget);

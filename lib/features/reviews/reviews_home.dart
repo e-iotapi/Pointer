@@ -296,14 +296,13 @@ class _ReviewsHomeState extends State<ReviewsHome> {
     final found =
         q.length < 2
             ? const []
-            : widen(
+            : _learner.widen(
               q,
               (ph) => catalog.master.where(
                 (m) => textMatches(ph, '${m.id} ${m.title}'),
               ),
               (m) => m.id,
             ).take(20).toList();
-    if (q.length >= 2) _learner.typed(q, found: found.isNotEmpty);
     final now = takingNow().toList()..sort();
     return Loaded<
       ({
@@ -393,7 +392,7 @@ class _ReviewsHomeState extends State<ReviewsHome> {
                         icon: Icons.menu_book_outlined,
                         title: '${m.id} · ${m.title}',
                         onTap: () {
-                          _learner.picked(q);
+                          _learner.picked(m.id);
                           _open(m.id);
                         },
                       ),

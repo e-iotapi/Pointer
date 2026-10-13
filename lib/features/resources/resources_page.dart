@@ -700,6 +700,7 @@ class _ResourcesPageState extends State<ResourcesPage> {
     _links ?? const [],
     _q,
     also: queryPhrases(_q).skip(1).toList(),
+    learner: _learner,
     courseTitle: courseTitle,
     departmentName: departmentName,
   );
@@ -709,17 +710,13 @@ class _ResourcesPageState extends State<ResourcesPage> {
     _links ??= resourceStore?.peekAll(campus);
     if (_links == null) {
       resourceStore?.all(campus).then((l) {
-        if (!mounted) return;
-        setState(() => _links = l);
-        _learner.typed(_q, found: _results().isNotEmpty);
+        if (mounted) setState(() => _links = l);
       }, onError: (Object _) {});
-    } else {
-      _learner.typed(_q, found: _results().isNotEmpty);
     }
   }
 
   void _open(Resource r) {
-    _learner.picked(_q);
+    _learner.picked(r.id);
     openUrl(r.url);
   }
 

@@ -107,9 +107,10 @@ List<CourseHit> searchCourses(
   required String discipline,
   List<Mastercourselist>? master,
   int limit = 40,
+  QueryLearner? learner,
 }) {
   // Synonyms and taught pairs widen it; each phrase's codes first.
-  final found = widen(
+  final found = (learner?.widen ?? widen)(
     query.trim(),
     (ph) => _found(ph.trim().toLowerCase(), master ?? catalog.master),
     (m) => m.id,

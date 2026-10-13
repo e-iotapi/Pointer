@@ -72,7 +72,7 @@ class _ResourceCoursesPageState extends State<ResourceCoursesPage> {
     // A search widens with synonyms and what students taught it.
     final courses =
         q.isNotEmpty
-            ? (widen(
+            ? (_learner.widen(
                 q,
                 // The typed query's own matches first.
                 (ph) => [
@@ -91,7 +91,6 @@ class _ResourceCoursesPageState extends State<ResourceCoursesPage> {
                 })
                   e.key,
             ]..sort());
-    if (q.isNotEmpty) _learner.typed(q, found: courses.isNotEmpty);
     return PageFrame(
       header: header,
       bottom:
@@ -140,7 +139,7 @@ class _ResourceCoursesPageState extends State<ResourceCoursesPage> {
             row:
                 (context, i) => InkWell(
                   onTap: () {
-                    _learner.picked(q);
+                    _learner.picked(courses[i]);
                     openRoute(
                       context,
                       Routes.resourceCourse(courses[i]),
