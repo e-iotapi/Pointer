@@ -73,6 +73,9 @@ void main() {
     expect(contribStateOf(v(RequestStatus.declined)), ContribState.declined);
     myRoles.value = const MyRoles(email: 'a@b.c', contributor: true);
     expect(contribStateOf(null), ContribState.approved);
+    // Staff hold no contributor grant, and contribute all the same.
+    myRoles.value = const MyRoles(email: 'a@b.c', owner: true);
+    expect(contribStateOf(null), ContribState.approved);
     myRoles.value = MyRoles.none;
   });
 

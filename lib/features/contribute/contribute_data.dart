@@ -42,9 +42,12 @@ String? myContribDept() {
   return null;
 }
 
-/// [ContribState] of [v]; a held grant wins (it is read at sign-in).
+/// [ContribState] of [v]; a held grant wins (it is read at sign-in), and staff
+/// contribute without one.
 ContribState contribStateOf(MyContrib? v) {
-  if (myRoles.value.contributor || v?.me.isContributor == true) {
+  if (myRoles.value.contributor ||
+      myRoles.value.staff ||
+      v?.me.isContributor == true) {
     return ContribState.approved;
   }
   return switch (v?.request?.status) {
