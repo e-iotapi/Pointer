@@ -274,6 +274,8 @@ final List<RouteBase> appRoutes = [
           _admin('open-as', () => admin.OpenAsPage(), _ownerOnly),
           _admin('publish', () => admin.PublishPage(), _ownerOnly),
           _admin('approvals', () => admin.Approvals(), _adminOnly),
+          _admin('course-tools', () => admin.CourseToolsPage(), _adminOnly),
+          _admin('reviews', () => admin.ReviewsToolsPage(), _adminOnly),
           _admin('professors/merge', () => admin.ProfessorMerge(), _staff),
         ],
       ),
@@ -298,6 +300,7 @@ final List<RouteBase> appRoutes = [
               () => admin.DeptHome(
                 campus: s.pathParameters['campus']!,
                 dept: s.pathParameters['dept']!,
+                hideReviews: s.uri.queryParameters['tools'] == '1',
               ),
             ),
         routes: [

@@ -64,6 +64,8 @@ abstract final class Routes {
   static const adminAnalytics = '/admin/analytics';
   static const adminMerge = '/admin/professors/merge';
   static const adminApprovals = '/admin/approvals';
+  static const adminCourseTools = '/admin/course-tools';
+  static const adminReviews = '/admin/reviews';
   static const openAs = '/admin/open-as';
   static const openAsDept = '/admin/open-as/department';
   static const openAsCourse = '/admin/open-as/course';

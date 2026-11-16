@@ -155,8 +155,16 @@ typedef DeptCoursesData =
 
 /// Board `DeptHome`: a president's department on their campus.
 class DeptHome extends StatelessWidget {
-  const DeptHome({super.key, required this.campus, required this.dept});
+  const DeptHome({
+    super.key,
+    required this.campus,
+    required this.dept,
+    this.hideReviews = false,
+  });
   final String campus, dept;
+
+  /// Opened from Controls › Course tools: Reviews has its own tile there.
+  final bool hideReviews;
 
   /// The key [DeptHome] is cached under, for [prefetchDeptScreens].
   static String cacheKey(String campus, String dept) =>
@@ -285,6 +293,7 @@ class DeptHome extends StatelessWidget {
               reload();
             },
           ),
+          if (!hideReviews)
           CardRow(
             leading: IconTile(Icons.rate_review_outlined),
             title: 'Reviews',

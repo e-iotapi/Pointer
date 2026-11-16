@@ -3,12 +3,14 @@ import 'dart:io';
 
 import 'package:cgpa_calculator/admin/admin_home.dart';
 import 'package:cgpa_calculator/admin/config_pages.dart';
+import 'package:cgpa_calculator/admin/course_tools.dart';
 import 'package:cgpa_calculator/admin/dept_resources.dart';
 import 'package:cgpa_calculator/admin/grant_form.dart';
 import 'package:cgpa_calculator/admin/maintain.dart';
 import 'package:cgpa_calculator/admin/open_as.dart';
 import 'package:cgpa_calculator/admin/people.dart';
 import 'package:cgpa_calculator/admin/professors.dart';
+import 'package:cgpa_calculator/admin/reviews_tools.dart';
 import 'package:cgpa_calculator/admin/publish_page.dart';
 import 'package:cgpa_calculator/admin/roster.dart';
 import 'package:cgpa_calculator/admin/scheme_editor.dart';
@@ -807,6 +809,68 @@ void main() {
       find.text('CR 1 semester · president 1 year · admin 2 years'),
       findsOneWidget,
     );
+  });
+
+  testWidgets('Controls groups course tools and reviews', (t) async {
+    signIn(
+      'owner@example.com',
+      roles: const MyRoles(email: 'owner@example.com', owner: true),
+    );
+    await t.pumpWidget(app(const AdminHome()));
+    await t.pumpAndSettle();
+    expect(find.text('TOOLS'), findsOneWidget);
+    expect(find.text('Course tools'), findsOneWidget);
+    expect(find.text('Reviews'), findsOneWidget);
+    expect(find.text('NEW'), findsNWidgets(2));
+    // They moved inside Course tools and Reviews.
+    expect(find.text('Merge professors'), findsNothing);
+    expect(find.text('Contributor approvals'), findsNothing);
+    expect(find.text('Compulsory reviews'), findsNothing);
+    // Grant terms stays until the Roles section (B10).
+    expect(find.text('Grant terms'), findsOneWidget);
+  });
+
+  testWidgets('Course tools lists its four tools', (t) async {
+    signIn(
+      'owner@example.com',
+      roles: const MyRoles(email: 'owner@example.com', owner: true),
+    );
+    await t.pumpWidget(app(const CourseToolsPage()));
+    await t.pumpAndSettle();
+    for (final x in [
+      'By department',
+      'By course',
+      'Merge professors',
+      'Bulk upload',
+    ]) {
+      expect(find.text(x), findsOneWidget);
+    }
+  });
+
+  testWidgets('Reviews holds moderation and the compulsory switch', (t) async {
+    signIn(
+      'owner@example.com',
+      roles: const MyRoles(email: 'owner@example.com', owner: true),
+    );
+    await t.pumpWidget(app(const ReviewsToolsPage()));
+    await t.pumpAndSettle();
+    expect(find.text('Review moderation'), findsOneWidget);
+    expect(find.text('Compulsory reviews'), findsOneWidget);
+  });
+
+  testWidgets('a department opened from Course tools hides Reviews', (t) async {
+    signIn(
+      'owner@example.com',
+      roles: const MyRoles(email: 'owner@example.com', owner: true),
+    );
+    await t.pumpWidget(app(const DeptHome(campus: 'goa', dept: 'ELEC')));
+    await t.pumpAndSettle();
+    expect(find.text('Reviews'), findsOneWidget);
+    await t.pumpWidget(
+      app(const DeptHome(campus: 'goa', dept: 'ELEC', hideReviews: true)),
+    );
+    await t.pumpAndSettle();
+    expect(find.text('Reviews'), findsNothing);
   });
 
   testWidgets('Controls offers staff a leaderboard username', (t) async {
