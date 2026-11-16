@@ -104,8 +104,14 @@ class RoleDefs {
     return RoleDefs(out);
   }
 
-  static Set<Capability> _caps(Object? keys) => {
-    for (final c in Capability.values)
-      if (keys is List && keys.contains(c.key)) c,
-  };
+  /// The ticked rows for [keys]. Averages live inside the eval scheme, so a
+  /// stored `averages` without `courseStructures` reads as not ticked.
+  static Set<Capability> _caps(Object? keys) {
+    final s = {
+      for (final c in Capability.values)
+        if (keys is List && keys.contains(c.key)) c,
+    };
+    if (!s.contains(Capability.courseStructures)) s.remove(Capability.averages);
+    return s;
+  }
 }

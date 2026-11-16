@@ -333,4 +333,119 @@ void main() {
     expect(cr.may(Capability.contribute, campus: 'hyderabad'), isFalse);
     expect(p.may(Capability.publish, campus: 'goa'), isFalse);
   });
+
+  group('mayAppoint (the rules\' one appointment rule)', () {
+    final defs = RoleDefs.defaults();
+    const elec = Reach(role: 'cr', campus: 'goa', dept: 'ELEC', course: 'EEE F211');
+    const csCr = Reach(role: 'cr', campus: 'goa', dept: 'CS', course: 'CS F211');
+    final president = MyRoles(
+      email: _goa,
+      grants: [_grant(GrantRole.dept, _goa, 'goa', 'ELEC')],
+    );
+    final admin = MyRoles(
+      email: _admin,
+      grants: [_grant(GrantRole.admin, _admin, 'all', 'all')],
+    );
+
+    RoleDef customRole(
+      String campus,
+      String dept, {
+      Set<Capability> caps = const {Capability.averages},
+    }) => RoleDef(
+      id: 't',
+      name: 'T',
+      tag: 'ROLE',
+      caps: caps,
+      termDays: 100,
+      builtin: false,
+      campus: campus,
+      dept: dept,
+    );
+
+    test('a president appoints a CR in their department, not another', () {
+      expect(president.mayAppoint(defs['cr']!, at: elec), isTrue);
+      expect(president.mayAppoint(defs['cr']!, at: csCr), isFalse);
+      expect(
+        president.mayAppoint(
+          defs['cr']!,
+          at: const Reach(role: 'cr', campus: 'hyderabad', course: 'EEE F211'),
+        ),
+        isFalse,
+      );
+      expect(president.mayAppoint(defs['admin']!), isFalse);
+    });
+
+    test('an admin appoints a president; only the owner appoints admins', () {
+      expect(admin.mayAppoint(defs['president']!), isTrue);
+      expect(admin.mayAppoint(defs['admin']!), isFalse);
+      const owner = MyRoles(email: 'o@x.com', owner: true);
+      expect(owner.mayAppoint(defs['admin']!), isTrue);
+      expect(owner.mayAppoint(customRole('all', 'all')), isTrue);
+    });
+
+    test('a president cannot appoint a CR once cr has a row they lack', () {
+      final wide = RoleDefs({
+        ...defs.byId,
+        'cr': RoleDef(
+          id: 'cr',
+          name: 'CR',
+          tag: 'CR',
+          caps: {...defs['cr']!.caps, Capability.publish},
+          termDays: 183,
+          builtin: true,
+          fixedReach: ReachKind.course,
+        ),
+      });
+      final p = MyRoles(email: _goa, grants: president.grants, defs: wide);
+      expect(p.mayAppoint(wide['cr']!, at: elec), isFalse);
+    });
+
+    test('an admin with manageRoles appoints a custom role inside its rows', () {
+      expect(admin.mayAppoint(customRole('goa', 'CS')), isTrue);
+      expect(admin.mayAppoint(customRole('all', 'all')), isTrue);
+      // A row admin lacks blocks it.
+      final noRow = Capability.values.firstWhere(
+        (c) => !defs['admin']!.caps.contains(c),
+      );
+      expect(admin.mayAppoint(customRole('goa', 'CS', caps: {noRow})), isFalse);
+      expect(president.mayAppoint(customRole('goa', 'CS')), isFalse);
+      expect(president.mayAppoint(customRole('goa', 'ELEC')), isFalse);
+      expect(president.mayAppoint(customRole('goa', 'all')), isFalse);
+    });
+
+    test('a custom manager grants inside its scope, never to themselves', () {
+      final mgr = _custom(
+        Capability.manageRoles,
+        'goa',
+        'CS',
+        email: _goa,
+      );
+      final mgrWith = MyRoles(
+        email: _goa,
+        defs: RoleDefs({
+          ...mgr.defs!.byId,
+          'r': RoleDef(
+            id: 'r',
+            name: 'r',
+            tag: 'ROLE',
+            caps: {Capability.manageRoles, Capability.averages},
+            termDays: 183,
+            builtin: false,
+            campus: 'goa',
+            dept: 'CS',
+          ),
+        }),
+        custom: mgr.custom,
+      );
+      expect(mgrWith.mayAppoint(customRole('goa', 'CS')), isTrue);
+      expect(mgrWith.mayAppoint(customRole('goa', 'all')), isFalse);
+      expect(mgrWith.mayAppoint(customRole('hyderabad', 'CS')), isFalse);
+      expect(mgrWith.mayAppoint(customRole('all', 'all')), isFalse);
+      expect(mgrWith.mayAppoint(customRole('goa', 'CS'), email: _goa), isFalse);
+      expect(
+        mgrWith.mayAppoint(customRole('goa', 'CS'), email: _hyd),
+        isTrue,
+      );
+    });
+  });
 }

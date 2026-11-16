@@ -26,7 +26,7 @@ void main() {
     final d = RoleDefs.fromDocs(
       {
         'admin': {
-          'caps': ['averages', 'noSuchRow'],
+          'caps': ['courseStructures', 'noSuchRow'],
           'termDays': 100,
         },
       },
@@ -40,7 +40,7 @@ void main() {
         },
       },
     );
-    expect(d['admin']!.caps, {Capability.averages});
+    expect(d['admin']!.caps, {Capability.courseStructures});
     expect(d['admin']!.termDays, 100);
     expect(d['president']!.caps, defaultBuiltinCaps()['president']);
     final c = d['x1']!;
@@ -50,5 +50,32 @@ void main() {
       ('Marks team', 'ROLE', false, null),
     );
     expect((c.campus, c.dept), ('goa', 'ELEC'));
+  });
+
+  test('averages without courseStructures reads as not ticked', () {
+    final d = RoleDefs.fromDocs(
+      {
+        'cr': {
+          'caps': ['averages', 'publish'],
+          'termDays': 10,
+        },
+        'admin': {
+          'caps': ['averages', 'courseStructures'],
+          'termDays': 10,
+        },
+      },
+      {
+        'x': {
+          'name': 'X',
+          'caps': ['averages'],
+        },
+      },
+    );
+    expect(d['cr']!.caps, {Capability.publish});
+    expect(d['admin']!.caps, {
+      Capability.averages,
+      Capability.courseStructures,
+    });
+    expect(d['x']!.caps, isEmpty);
   });
 }
