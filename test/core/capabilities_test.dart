@@ -36,11 +36,25 @@ void main() {
     }
   });
 
+  test('admins run course tools and moderation', () {
+    for (final c in [
+      Capability.courseStructures,
+      Capability.bulkUpload,
+      Capability.degreeRequirements,
+      Capability.averages,
+      Capability.professors,
+      Capability.moderateReviews,
+    ]) {
+      expect(can(Role.admin, c), isTrue, reason: c.label);
+    }
+    expect(can(Role.admin, Capability.publish), isFalse);
+    expect(can(Role.admin, Capability.appointAdmins), isFalse);
+  });
+
   test('admin is narrow: appointments, public contact, CR/president terms', () {
     expect(can(Role.admin, Capability.appointPresidents), isTrue);
     expect(can(Role.admin, Capability.appointAdmins), isFalse);
     expect(can(Role.admin, Capability.publish), isFalse);
-    expect(can(Role.admin, Capability.courseStructures), isFalse);
     expect(can(Role.admin, Capability.grantTermsAdmin), isFalse);
     expect(can(Role.admin, Capability.grantTermsCrPresident), isTrue);
   });

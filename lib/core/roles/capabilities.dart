@@ -27,12 +27,12 @@ enum Capability {
   courseStructures(
     'Course structures, eval schemes',
     '✓',
-    '—',
+    '✓',
     '✓',
     '✓ own courses',
   ),
-  bulkUpload('Bulk upload a JSON of eval schemes', '✓', '—', '✓', '—'),
-  degreeRequirements('Degree requirements', '✓', '—', '✓', '—'),
+  bulkUpload('Bulk upload a JSON of eval schemes', '✓', '✓', '✓', '—'),
+  degreeRequirements('Degree requirements', '✓', '✓', '✓', '—'),
   departmentResources('Department resources', '✓', '✓ own campus', '✓', '—'),
   courseResources(
     'Course resources',
@@ -44,12 +44,12 @@ enum Capability {
   averages(
     'Averages — course, component, part',
     '✓',
-    '—',
+    '✓',
     '✓',
     '✓ own courses',
   ),
-  professors('Professors — create, rename', '✓', '—', '✓', 'pick only'),
-  moderateReviews('Moderate reviews', '✓', '—', '✓ in scope', '—'),
+  professors('Professors — create, rename', '✓', '✓', '✓', 'pick only'),
+  moderateReviews('Moderate reviews', '✓', '✓', '✓ in scope', '—'),
   readAuditAndRoster(
     'Read the audit log and the roster',
     '✓',
