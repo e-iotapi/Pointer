@@ -134,6 +134,19 @@ service cloud.firestore {
                 && (r.dept == 'all' || r.dept == d || d == 'all')));
     }
 
+    // [customMay] for any of several rows (a site that takes either): one
+    // read of the grant and role, however many rows.
+    function customMayAny(caps, c, d) {
+      let e = me();
+      let g = get(/databases/$(db)/documents/grants/$('custom|' + e)).data;
+      let r = get(/databases/$(db)/documents/roles/$(g.roleId)).data;
+      return g.active == true && request.time < g.expiresAt && isStudent(e)
+        && r.caps.hasAny(caps)
+        && (c == 'all' || r.campus == 'all'
+            || (r.campus == c && campusOf(e) == c
+                && (r.dept == 'all' || r.dept == d || d == 'all')));
+    }
+
     // The one check every §4 row goes through. '' for d or k means "no
     // department / course at this site". Cap tests come before the grant
     // reads, so an unticked role costs no lookup. Worst case: owners 1 +
@@ -474,9 +487,25 @@ service cloud.firestore {
       return d.role == 'contributor' || staffListed(id, d);
     }
 
+    // The staff index's reach entry for a grant (CUSTOM_ROLES_DESIGN M3): who,
+    // where. A custom grant's entry is its role's scope, not the holder's.
+    // ponytail: rules cannot scan a list of maps, so the readers (readsRoster,
+    // staffOn, isPresidentOn, readsFlags) keep using presidentOf / courses /
+    // admin, which every write still maintains beside reach; reach is checked
+    // here and read by the app. Custom holders are read from their grant.
+    function reachOf(g) {
+      return g.role == 'admin' ? {'role': 'admin', 'campus': 'all'}
+        : g.role == 'dept' ? {'role': 'president', 'campus': g.campus, 'dept': g.scope}
+        : g.role == 'course' ? {'role': 'cr', 'campus': g.campus, 'course': g.scope}
+        : {'role': 'custom',
+           'campus': get(/databases/$(db)/documents/roles/$(g.roleId)).data.campus,
+           'dept': get(/databases/$(db)/documents/roles/$(g.roleId)).data.dept};
+    }
+
     function staffListed(id, d) {
       let s = getAfter(staffPath(d.email)).data;
       return s.lastGrant == id
+        && (!('reach' in s) || (reachOf(d) in s.reach) == d.active)
         && (d.role == 'admin' ? s.admin == d.active
           : d.role == 'dept' ? (d.scope in s.presidentOf) == d.active
           : (d.scope in s.courses) == d.active);
@@ -621,7 +650,17 @@ service cloud.firestore {
       return g.email == email && d.email == email
         && (resource == null || d.campus == before.campus)
         && same(before, d, 'owner', false)
-        && (g.role == 'admin'
+        // reach, when written, gains at most this grant's own entry (an old
+        // build leaves it out, and the old fields still stand).
+        && (!('reach' in d) || (d.reach is list
+            && (d.reach.toSet().difference(before.get('reach', []).toSet()).size() == 0
+                || (g.active
+                    && d.reach.toSet().difference(before.get('reach', []).toSet())
+                         .hasOnly([reachOf(g)])))))
+        && (g.role == 'custom'
+            ? same(before, d, 'presidentOf', []) && same(before, d, 'courses', [])
+              && same(before, d, 'admin', false)
+          : g.role == 'admin'
             ? same(before, d, 'presidentOf', []) && same(before, d, 'courses', [])
           : g.role == 'dept'
             ? moved(before, d, 'presidentOf').hasOnly([g.scope])
@@ -643,11 +682,19 @@ service cloud.firestore {
 
     // ---- Contacts (§13.5, §16.3 fix 8) --------------------------------------
 
-    // Privileged: an owner, or a live entry in the staff index.
+    // Privileged: an owner, or a live admin, president or CR in the staff index.
+    // A custom role's holder has an entry too (reach role 'custom') but stays
+    // out of the contacts directory, so only the built-in fields count.
     function privileged() {
       return isOwner()
         || (signedIn() && exists(staffPath(me()))
-            && request.time < get(staffPath(me())).data.expiresAt);
+            && privilegedEntry(get(staffPath(me())).data));
+    }
+
+    function privilegedEntry(s) {
+      return request.time < s.expiresAt
+        && (s.get('admin', false) == true || s.get('presidentOf', []).size() > 0
+            || s.get('courses', []).size() > 0);
     }
 
     function nameOk(n) { return n is string && n.size() > 0 && n.size() <= 80; }
@@ -1273,7 +1320,8 @@ service cloud.firestore {
       allow create, update: if (
           headDiff().hasOnly(['offerings'])
             && request.resource.data.offerings is map
-            && (isOwner() || isAdmin() || staffOn(campus)))
+            && (isOwner() || isAdmin() || staffOn(campus)
+                || customMayAny(['courseStructures', 'bulkUpload', 'averages'], campus, 'all')))
         || (headDiff().hasOnly(['catalog', 'catalogSchema'])
             && request.resource.data.catalog
                  == getAfter(/databases/$(db)/documents/catalog/marker).data.version
