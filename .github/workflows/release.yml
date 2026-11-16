@@ -25,7 +25,7 @@ env:
   # Kept on pointer-dev only.
   DEV_ONLY: >-
     test test_env tools agent_instructions agent_toolchains demo
-    docs/DEVELOPMENT.md server/test server/vitest.config.ts
+    docs/DEVELOPMENT.md server/test server/vitest.config.ts CLAUDE.md
     .github/workflows/check.yml .github/workflows/e2e.yml
 
 jobs:
