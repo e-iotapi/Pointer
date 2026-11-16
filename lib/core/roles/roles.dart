@@ -262,6 +262,7 @@ class StaffEntry {
     this.admin = false,
     this.presidentOf = const [],
     this.courses = const [],
+    this.reach = const [],
     this.expiresAt,
   });
 
@@ -273,6 +274,10 @@ class StaffEntry {
 
   /// Department keys presided over, and course ids managed.
   final List<String> presidentOf, courses;
+
+  /// Every place the person holds a role (admin, president, CR, custom);
+  /// empty on documents an older build wrote.
+  final List<Reach> reach;
 
   /// The latest expiry across live grants.
   final DateTime? expiresAt;
@@ -286,11 +291,46 @@ class StaffEntry {
     admin: m['admin'] as bool? ?? false,
     presidentOf: [for (final d in m['presidentOf'] as List? ?? const []) '$d'],
     courses: [for (final c in m['courses'] as List? ?? const []) '$c'],
+    reach: [
+      for (final r in m['reach'] as List? ?? const []) Reach.fromMap(r as Map),
+    ],
     expiresAt: asDate(m['expiresAt']),
   );
 
-  /// This entry once [g] is written: its field moved by exactly its scope.
-  Map<String, dynamic> after(Grant g) {
+  /// This entry once [g] is written: its field moved by exactly its scope,
+  /// and its reach entry added or removed. A custom grant's entry takes the
+  /// role's scope: [roleCampus] (its campus, `all` for an every-campus role)
+  /// and the grant's `dept`.
+  Map<String, dynamic> after(Grant g, {String? roleCampus}) {
+    final mine = switch (g.role) {
+      GrantRole.admin => Reach(role: 'admin', campus: 'all'),
+      GrantRole.dept => Reach(
+        role: 'president',
+        campus: g.campus,
+        dept: g.scope,
+      ),
+      GrantRole.course => Reach(role: 'cr', campus: g.campus, course: g.scope),
+      GrantRole.custom => Reach(
+        role: 'custom',
+        campus: roleCampus ?? g.campus,
+        dept: g.dept ?? 'all',
+      ),
+      GrantRole.contributor => null,
+    };
+    // A custom holder has one grant, so its entry is replaced whole.
+    bool same(Reach r) =>
+        mine != null &&
+        (g.role == GrantRole.custom
+            ? r.role == 'custom'
+            : r.role == mine.role &&
+                r.campus == mine.campus &&
+                r.dept == mine.dept &&
+                r.course == mine.course);
+    final nextReach = [
+      for (final r in reach)
+        if (!same(r)) r,
+      if (mine != null && g.active) mine,
+    ];
     List<String> move(List<String> l) =>
         g.active
             ? {...l, g.scope}.toList()
@@ -310,6 +350,7 @@ class StaffEntry {
       'admin': g.role == GrantRole.admin ? g.active : admin,
       'presidentOf': g.role == GrantRole.dept ? move(presidentOf) : presidentOf,
       'courses': g.role == GrantRole.course ? move(courses) : courses,
+      'reach': [for (final r in nextReach) r.toMap()],
       'expiresAt': latest.isEmpty ? g.expiresAt : latest.last,
       'lastGrant': g.id,
     };

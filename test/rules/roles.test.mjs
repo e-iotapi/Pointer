@@ -17,7 +17,8 @@ import {
 } from 'firebase/firestore';
 import {
   ADMIN, FACULTY, NEVER, OTHER, OWNER, PRES, STUDENT,
-  DEFAULT_CAPS, appoint, as, bump, days, grantId, name, seed, seedBuiltin, useEmulator,
+  CUSTOM, DEFAULT_CAPS, appoint, as, bump, customGrant, customRole, days, grantId, name, seed, seedBuiltin,
+  useEmulator,
 } from './helpers.mjs';
 
 useEmulator();
@@ -369,5 +370,70 @@ describe('one appointment rule', () => {
     await assertFails(mk(380));
     await seed((db) => setDoc(doc(db, 'config', 'grantTerms'), { crDays: 183, presidentDays: 400, adminDays: 730 }));
     await assertSucceeds(mk(380));
+  });
+});
+
+describe('the staff index reach list', () => {
+  const cr = { role: 'course', campus: 'goa', scope: 'EEE F211', email: STUDENT };
+  const crReach = { role: 'cr', campus: 'goa', course: 'EEE F211' };
+
+  test('a staff write without reach is still accepted (old build shape)', async () => {
+    await assertSucceeds(appoint(as(PRES), PRES, cr, { courses: ['EEE F211'] }));
+  });
+
+  test('a staff write with its own reach entry is accepted', async () => {
+    await assertSucceeds(appoint(as(PRES), PRES, cr, { courses: ['EEE F211'], reach: [crReach] }));
+  });
+
+  test('reach cannot carry an entry the grant does not give', async () => {
+    const forged = (reach) => appoint(as(PRES), PRES, cr, { courses: ['EEE F211'], reach });
+    await assertFails(forged([crReach, { role: 'admin', campus: 'all' }]));
+    await assertFails(forged([{ role: 'cr', campus: 'goa', course: 'CS F211' }]));
+    await assertFails(forged([{ role: 'president', campus: 'goa', dept: 'ELEC' }]));
+  });
+
+  test('a custom holder with readAuditAndRoster at goa|all lists the Goa roster', async () => {
+    await customRole('ro', ['readAuditAndRoster'], 365, 'goa', 'all');
+    await customGrant(CUSTOM, 'ro');
+    const q = (c) => getDocs(query(collection(as(CUSTOM), 'grants'), where('campus', '==', c)));
+    await assertSucceeds(q('goa'));
+    await assertFails(q('hyderabad'));
+  });
+
+  // A custom grant written with its staff index, as the app writes it.
+  const grantCustom = (actor, reach, extra = {}) => {
+    const db = as(actor);
+    const b = writeBatch(db);
+    const a = doc(collection(db, 'audit'));
+    const id = `custom|${CUSTOM}`;
+    b.set(doc(db, 'grants', id), {
+      role: 'custom', campus: 'goa', scope: 'role', email: CUSTOM, roleId: 'avg', name: name(CUSTOM),
+      active: true, expiresAt: days(30), grantedBy: { email: actor, name: name(actor) },
+      grantedAt: serverTimestamp(), auditId: a.id,
+    });
+    b.set(doc(db, 'staff', CUSTOM), {
+      email: CUSTOM, name: name(CUSTOM), campus: 'goa', owner: false, admin: false, presidentOf: [],
+      courses: [], expiresAt: days(30), lastGrant: id, reach, ...extra,
+    });
+    b.set(a, {
+      actor: { email: actor, name: name(actor), role: 'test' }, action: 'grant', path: `grants/${id}`,
+      campus: 'goa', before: null, after: 'custom', at: serverTimestamp(),
+    });
+    bump(b, db, 'goa', 'grants');
+    return b.commit();
+  };
+
+  test('a custom grant writes its index entry from the role scope', async () => {
+    await customRole('avg', ['averages'], 365, 'goa', 'ELEC');
+    await seed((db) => setDoc(doc(db, 'people', CUSTOM), { name: name(CUSTOM), campus: 'goa', firstSignIn: 1 }));
+    await assertSucceeds(grantCustom(ADMIN, [{ role: 'custom', campus: 'goa', dept: 'ELEC' }]));
+  });
+
+  test('a custom grant cannot write a wider index entry', async () => {
+    await customRole('avg', ['averages'], 365, 'goa', 'ELEC');
+    await seed((db) => setDoc(doc(db, 'people', CUSTOM), { name: name(CUSTOM), campus: 'goa', firstSignIn: 1 }));
+    await assertFails(grantCustom(ADMIN, [{ role: 'custom', campus: 'all', dept: 'all' }]));
+    await assertFails(grantCustom(ADMIN, [{ role: 'admin', campus: 'all' }]));
+    await assertFails(grantCustom(ADMIN, [{ role: 'custom', campus: 'goa', dept: 'ELEC' }], { admin: true }));
   });
 });

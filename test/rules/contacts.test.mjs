@@ -19,7 +19,7 @@ import {
 } from 'firebase/firestore';
 import {
   ADMIN, NEVER, OTHER, OWNER, PRES, STUDENT,
-  appoint, as, bump, days, name, putBumped, seed, useEmulator,
+  CUSTOM, appoint, as, bump, customGrant, customRole, days, name, putBumped, seed, useEmulator,
 } from './helpers.mjs';
 
 useEmulator();
@@ -276,6 +276,18 @@ describe('staff contacts', () => {
     const data = { name: 'R', phone: '+91 98765 43210', email: fac, updatedAt: serverTimestamp() };
     await assertFails(putBumped(db, 'pilani', 'staff', doc(db, 'staffContacts', fac), data));
     await assertSucceeds(putBumped(db, 'goa', 'staff', doc(db, 'staffContacts', fac), data));
+  });
+
+  test('a custom-only holder cannot write staffContacts, even with an index entry', async () => {
+    await customRole('avg', ['averages'], 365, 'goa', 'ELEC');
+    await customGrant(CUSTOM, 'avg');
+    await seed((db) => setDoc(doc(db, 'staff', CUSTOM), {
+      email: CUSTOM, name: name(CUSTOM), campus: 'goa', owner: false, admin: false, presidentOf: [],
+      courses: [], expiresAt: days(30), lastGrant: `custom|${CUSTOM}`,
+      reach: [{ role: 'custom', campus: 'goa', dept: 'ELEC' }],
+    }));
+    await assertFails(put(CUSTOM, c(CUSTOM)));
+    await assertFails(getDoc(doc(as(CUSTOM), 'staffContacts', PRES)));
   });
 
   test('a phone is required', async () => {

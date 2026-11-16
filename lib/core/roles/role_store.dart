@@ -587,8 +587,13 @@ class RoleStore {
       ? bumpPathOnAllHeads(b, db, Paths.grants)
       : bumpPath(b, db, campus, Paths.grants);
 
-  void _staffInto(WriteBatch b, StaffEntry staff, Grant g) {
-    final s = staff.after(g);
+  void _staffInto(
+    WriteBatch b,
+    StaffEntry staff,
+    Grant g, {
+    String? roleCampus,
+  }) {
+    final s = staff.after(g, roleCampus: roleCampus);
     b.set(db.collection('staff').doc(g.email), {
       ...s,
       if (s['expiresAt'] case final DateTime e)
