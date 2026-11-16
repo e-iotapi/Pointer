@@ -72,10 +72,7 @@ class GrantTile extends StatelessWidget {
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
                       // A custom grant goes by its role's name and scope.
-                      if (def != null)
-                        TierTag(def.name.toUpperCase())
-                      else
-                        TierTag.of(g.role),
+                      TierTag.ofGrant(g, myRoles.value.roleDefs),
                       if (def != null) ...[
                         ScopeChip(
                           campusName(def.campus ?? g.campus),

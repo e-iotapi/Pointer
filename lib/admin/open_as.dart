@@ -7,8 +7,8 @@ import 'package:cgpa_calculator/app/theme/tokens.dart';
 import 'package:cgpa_calculator/core/catalog/catalog.dart';
 import 'package:cgpa_calculator/core/models/offering.dart';
 import 'package:cgpa_calculator/core/professors/professor_store.dart';
-import 'package:cgpa_calculator/core/roles/capabilities.dart';
 import 'package:cgpa_calculator/core/roles/maintain_store.dart';
+import 'package:cgpa_calculator/core/roles/role_defs.dart';
 import 'package:cgpa_calculator/core/roles/roles.dart';
 import 'package:cgpa_calculator/core/roles/session.dart';
 import 'package:cgpa_calculator/core/storage/cache_boxes.dart';
@@ -57,6 +57,7 @@ class OpenAsPage extends StatelessWidget {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final name = roleStore?.myName ?? '';
+    final defs = roleStore?.peekRoleDefs() ?? RoleDefs.defaults();
     void open(ViewAs? v, String to) {
       viewAs.value = v;
       context.go(to);
@@ -67,8 +68,9 @@ class OpenAsPage extends StatelessWidget {
       bool strong,
       String title,
       String line,
-      VoidCallback go,
-    ) => CardRow(
+      VoidCallback go, {
+      bool plain = false,
+    }) => CardRow(
       minHeight: 56,
       // 58 wide on the board, so the titles line up; never narrower than
       // the tag itself.
@@ -77,7 +79,7 @@ class OpenAsPage extends StatelessWidget {
         child: Align(
           widthFactor: 1,
           alignment: Alignment.centerLeft,
-          child: TierTag(tag, strong: strong),
+          child: TierTag(tag, strong: strong, plain: plain),
         ),
       ),
       title: title,
@@ -161,7 +163,7 @@ class OpenAsPage extends StatelessWidget {
                 true,
                 'Admin',
                 'Controls without Owner only',
-                () => open(const ViewAs(Role.admin), Routes.admin),
+                () => open(ViewAs(defs['admin']!), Routes.admin),
               ),
               const CardDivider(),
               row(
@@ -181,11 +183,20 @@ class OpenAsPage extends StatelessWidget {
               ),
               const CardDivider(),
               row(
+                'ROLE',
+                false,
+                'Custom role',
+                "Pick a role; it opens at the role's own scope",
+                () => context.push(Routes.openAsRole),
+                plain: true,
+              ),
+              const CardDivider(),
+              row(
                 'STUDENT',
                 false,
                 'Student',
                 'Your own grades, as any student sees them',
-                () => open(const ViewAs(Role.student), Routes.home),
+                () => open(ViewAs.student, Routes.home),
               ),
             ],
           ),
@@ -268,6 +279,67 @@ Widget _rows(List<(String, String, VoidCallback)> rows) => AppCard(
   ),
 );
 
+/// Board `Rl_OpenAs`, Custom role ›: the owner's custom roles by name and
+/// scope. A pick opens Controls as that role's holder, at the role's own
+/// scope.
+class ViewAsRolePage extends StatelessWidget {
+  const ViewAsRolePage({super.key});
+
+  @override
+  Widget build(BuildContext context) => Loaded<List<RoleDef>>(
+    cacheKey: 'open-as-roles',
+    load: () async => _custom(await roleStore!.roleDefs()),
+    peek: () => switch (roleStore!.peekRoleDefs()) {
+      final d? => _custom(d),
+      null => null,
+    },
+    builder:
+        (context, roles, _) => PageFrame(
+          header: const PageHeader(
+            eyebrow: 'OPEN AS · CUSTOM ROLE',
+            title: 'Which role?',
+          ),
+          children: [
+            if (roles.isEmpty)
+              const Note('No custom roles yet. Make one in Controls › Roles.')
+            else
+              AppCard(
+                padding: EdgeInsets.zero,
+                child: Column(
+                  children: [
+                    for (final (i, d) in roles.indexed) ...[
+                      if (i > 0) const CardDivider(),
+                      CardRow(
+                        minHeight: 56,
+                        leading: ConstrainedBox(
+                          constraints: const BoxConstraints(minWidth: 58),
+                          child: const Align(
+                            widthFactor: 1,
+                            alignment: Alignment.centerLeft,
+                            child: TierTag('ROLE', plain: true),
+                          ),
+                        ),
+                        title: d.name,
+                        subtitle: customScopeLabel(d),
+                        onTap: () {
+                          viewAs.value = ViewAs(d);
+                          context.go(Routes.admin);
+                        },
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+          ],
+        ),
+  );
+
+  static List<RoleDef> _custom(RoleDefs d) => [
+    for (final r in d.byId.values)
+      if (!r.builtin) r,
+  ]..sort((a, b) => a.name.compareTo(b.name));
+}
+
 /// Board `ViewAsDept`: which department to open as its president; the last
 /// opened sits on top. ELEC has a row per programme, since each has its own
 /// presidents, and every row opens the ELEC they manage together.
@@ -309,7 +381,11 @@ class _ViewAsDeptPageState extends State<ViewAsDeptPage> {
       return;
     }
     await _remember('dept:$_campus:$dept');
-    viewAs.value = ViewAs(Role.president, campus: _campus, scope: dept);
+    viewAs.value = ViewAs(
+      roleStore?.peekRoleDefs()?['president'] ??
+          RoleDefs.defaults()['president']!,
+      at: Reach(role: 'president', campus: _campus, dept: dept),
+    );
     if (mounted) context.go(Routes.dept(_campus, dept));
   }
 
@@ -458,7 +534,15 @@ class _ViewAsCoursePageState extends State<ViewAsCoursePage> {
       return;
     }
     await _remember('course:$_campus:$id');
-    viewAs.value = ViewAs(Role.cr, campus: _campus, scope: id);
+    viewAs.value = ViewAs(
+      roleStore?.peekRoleDefs()?['cr'] ?? RoleDefs.defaults()['cr']!,
+      at: Reach(
+        role: 'cr',
+        campus: _campus,
+        dept: deptOf(id),
+        course: id,
+      ),
+    );
     if (mounted) context.go(Routes.crCourse(_campus, id));
   }
 

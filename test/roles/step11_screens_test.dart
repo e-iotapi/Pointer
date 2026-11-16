@@ -1767,4 +1767,163 @@ void main() {
     );
     expect(o!.courseAverage, 70);
   });
+
+  // ---- B11 Open as any role, names and badges from the role ---------------
+
+  const leadMail = 'f20231014@goa.bits-pilani.ac.in';
+  final lead = RoleDef(
+    id: 'reslead',
+    name: 'Resources lead',
+    tag: 'ROLE',
+    caps: {Capability.departmentResources, Capability.courseResources},
+    termDays: 183,
+    builtin: false,
+    campus: 'goa',
+    dept: 'ELEC',
+  );
+  final ownerRoles = const MyRoles(email: 'owner@example.com', owner: true);
+
+  testWidgets('Open as a custom role scoped goa|ELEC shows Course tools, not '
+      'Roles', (t) async {
+    signIn('owner@example.com', roles: ownerRoles);
+    viewAs.value = ViewAs(lead);
+    addTearDown(() => viewAs.value = null);
+    expect(lead.dept, 'ELEC');
+    // The lens answers as the holder would: ELEC on Goa only.
+    final held = viewAs.value!.roles;
+    expect(
+      held.may(Capability.courseResources, campus: 'goa', scope: 'ELEC'),
+      isTrue,
+    );
+    expect(
+      held.may(Capability.courseResources, campus: 'goa', scope: 'CS'),
+      isFalse,
+    );
+    expect(held.may(Capability.manageRoles), isFalse);
+    await t.pumpWidget(app(const AdminHome()));
+    await t.pumpAndSettle();
+    expect(find.text('Course tools'), findsOneWidget);
+    expect(find.text('Roles'), findsNothing);
+    expect(find.text('Open Pointer as'), findsNothing);
+    expect(find.textContaining('Resources lead · ELEC · Goa'), findsOneWidget);
+    expect(viewAs.value!.label, 'Resources lead · ELEC · Goa');
+  });
+
+  testWidgets('the custom role entry on Open as lists roles at their own '
+      'scope', (t) async {
+    signIn('owner@example.com', roles: ownerRoles);
+    await db.collection('roles').doc(lead.id).set({
+      'name': lead.name,
+      'caps': [for (final c in lead.caps) c.key],
+      'termDays': 183,
+      'campus': 'goa',
+      'dept': 'ELEC',
+    });
+    final router = GoRouter(
+      initialLocation: Routes.openAs,
+      routes: [
+        GoRoute(path: Routes.openAs, builder: (_, _) => const OpenAsPage()),
+        GoRoute(
+          path: Routes.openAsRole,
+          builder: (_, _) => const ViewAsRolePage(),
+        ),
+        GoRoute(path: Routes.admin, builder: (_, _) => const AdminHome()),
+      ],
+    );
+    addTearDown(() => viewAs.value = null);
+    await t.pumpWidget(
+      MaterialApp.router(
+        theme: AppPalette.light.materialTheme,
+        routerConfig: router,
+      ),
+    );
+    await t.pumpAndSettle();
+    await t.tap(find.text('Custom role'));
+    await t.pumpAndSettle();
+    expect(find.text('Resources lead'), findsOneWidget);
+    expect(find.text('ELEC · Goa'), findsOneWidget);
+    await t.tap(find.text('Resources lead'));
+    await t.pumpAndSettle();
+    expect(viewAs.value?.role.id, 'reslead');
+    expect(find.text('Course tools'), findsOneWidget);
+  });
+
+  test('a custom role scope label', () {
+    String label(String c, String d) => customScopeLabel(
+      RoleDef(
+        id: 'x',
+        name: 'X',
+        tag: 'ROLE',
+        caps: const {},
+        termDays: 1,
+        builtin: false,
+        campus: c,
+        dept: d,
+      ),
+    );
+    expect(label('goa', 'ELEC'), 'ELEC · Goa');
+    expect(label('goa', 'all'), 'Every department · Goa');
+    expect(label('all', 'all'), 'Every campus');
+  });
+
+  testWidgets("a custom grant's badge shows the role's name and its scope "
+      'label', (t) async {
+    signIn('owner@example.com', roles: ownerRoles);
+    await db.collection('roles').doc(lead.id).set({
+      'name': lead.name,
+      'caps': [for (final c in lead.caps) c.key],
+      'termDays': 183,
+      'campus': 'goa',
+      'dept': 'ELEC',
+    });
+    await seedGrant(
+      Grant(
+        role: GrantRole.custom,
+        email: leadMail,
+        name: 'Ishaan Semwal',
+        campus: 'goa',
+        scope: 'role',
+        active: true,
+        expiresAt: far,
+      ),
+      extra: {'roleId': lead.id},
+    );
+    final defs = await roleStore!.roleDefs();
+    myRoles.value = MyRoles(email: 'owner@example.com', owner: true, defs: defs);
+    await t.pumpWidget(app(const AdminPeople()));
+    await t.pumpAndSettle();
+    expect(find.text('RESOURCES LEAD'), findsOneWidget);
+    expect(find.text('ELEC'), findsOneWidget);
+    expect(
+      Grant.fromMap({
+        'role': 'custom',
+        'email': leadMail,
+        'campus': 'goa',
+        'scope': 'role',
+        'roleId': lead.id,
+      }).scopeLabelIn(defs),
+      'ELEC · Goa',
+    );
+  });
+
+  testWidgets('roster filter chips list each role by name', (t) async {
+    signIn('owner@example.com', roles: ownerRoles);
+    await db.collection('roles').doc(lead.id).set({
+      'name': lead.name,
+      'caps': [for (final c in lead.caps) c.key],
+      'termDays': 183,
+      'campus': 'goa',
+      'dept': 'ELEC',
+    });
+    myRoles.value = MyRoles(
+      email: 'owner@example.com',
+      owner: true,
+      defs: await roleStore!.roleDefs(),
+    );
+    await t.pumpWidget(app(const RosterPage()));
+    await t.pumpAndSettle();
+    for (final chip in ['All', 'Presidents', 'CRs', 'Resources lead']) {
+      expect(find.text(chip), findsOneWidget);
+    }
+  });
 }

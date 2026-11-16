@@ -276,7 +276,7 @@ class _RepProfilePageState extends State<RepProfilePage> {
                             runSpacing: 6,
                             crossAxisAlignment: WrapCrossAlignment.center,
                             children: [
-                              TierTag.of(g.role),
+                              TierTag.ofGrant(g, myRoles.value.roleDefs),
                               if (g.role != GrantRole.admin) ...[
                                 ScopeChip(
                                   campusName(g.campus),

@@ -44,7 +44,11 @@ class _RosterPageState extends State<RosterPage> {
     'CRs' => g.role == GrantRole.course,
     'Expiring' =>
       g.active && g.expiresAt.difference(DateTime.now()).inDays <= 14,
-    _ => true,
+    'All' => true,
+    // A custom role's own name.
+    final name =>
+      g.role == GrantRole.custom &&
+          myRoles.value.roleDefs[g.roleId ?? '']?.name == name,
   };
 
   @override
@@ -141,7 +145,14 @@ class _RosterPageState extends State<RosterPage> {
               widget.volunteersTab!(tabCampus)
             else ...[
               ChoicePills<String>(
-                values: const ['All', 'Presidents', 'CRs', 'Expiring'],
+                values: [
+                'All',
+                'Presidents',
+                'CRs',
+                for (final d in r.roleDefs.byId.values)
+                  if (!d.builtin) d.name,
+                'Expiring',
+              ],
                 selected: _filter,
                 label: (v) => v,
                 equal: true,
