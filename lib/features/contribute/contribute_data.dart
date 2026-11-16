@@ -1,6 +1,7 @@
 import 'package:cgpa_calculator/core/contrib/contributor_store.dart';
 import 'package:cgpa_calculator/core/contrib/leaderboard_store.dart';
 import 'package:cgpa_calculator/core/resources/resource.dart';
+import 'package:cgpa_calculator/core/roles/capabilities.dart';
 import 'package:cgpa_calculator/core/roles/roles.dart';
 import 'package:cgpa_calculator/core/roles/session.dart';
 import 'package:cgpa_calculator/features/resources/resources_page.dart';
@@ -46,7 +47,7 @@ String? myContribDept() {
 /// contribute without one.
 ContribState contribStateOf(MyContrib? v) {
   if (myRoles.value.contributor ||
-      myRoles.value.staff ||
+      contributesDirectly ||
       v?.me.isContributor == true) {
     return ContribState.approved;
   }
@@ -105,6 +106,14 @@ LinkState? linkStateOf(Resource r, DateTime now) {
   return r.hiddenAt(now) ? LinkState.expired : LinkState.awaiting;
 }
 
-/// Whether the student may add links (a grant), or is staff (who publish
-/// at once).
-bool get contributesDirectly => myRoles.value.staff;
+/// Whether the person holds `publishDirectly` somewhere: their links publish
+/// at once, and they need no contributor grant.
+bool get contributesDirectly => myRoles.value.may(Capability.publishDirectly);
+
+/// Whether a link for [campus] and [dept] publishes at once; otherwise it
+/// waits for approval.
+bool publishesDirectly(String campus, String dept) => myRoles.value.may(
+  Capability.publishDirectly,
+  campus: campus,
+  scope: dept,
+);

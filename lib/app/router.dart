@@ -239,44 +239,72 @@ final List<RouteBase> appRoutes = [
         redirect: (_, _) => _staff() ? null : Routes.home,
         builder: (_, _) => _deferred(() => admin.AdminHome()),
         routes: [
-          _admin('people', () => admin.AdminPeople(), _adminOnly),
+          _admin('people', () => admin.AdminPeople(), appointCaps),
+          _admin('grant', () => admin.AdminGrant(), appointCaps),
           _admin(
-            'grant',
-            () => admin.AdminGrant(),
-            () => _adminOnly() || myRoles.value.presidencies.isNotEmpty,
+            'owners',
+            () => admin.OwnersPage(),
+            Capability.addRemoveOwners,
           ),
-          _admin('owners', () => admin.OwnersPage(), _ownerOnly),
-          _admin('analytics', () => admin.SiteAnalytics(), _ownerOnly),
-          _admin('terms', () => admin.TermsPage(), _adminOnly),
-          _admin('contact', () => admin.PublicContactPage(), _adminOnly),
-          _admin('audit', () => admin.AuditLogPage(), _staff),
+          _admin('analytics', () => admin.SiteAnalytics(), Capability.publish),
+          _admin(
+            'terms',
+            () => admin.TermsPage(),
+            Capability.grantTermsCrPresident,
+          ),
+          _admin(
+            'contact',
+            () => admin.PublicContactPage(),
+            Capability.publicContact,
+          ),
+          _admin(
+            'audit',
+            () => admin.AuditLogPage(),
+            Capability.readAuditAndRoster,
+          ),
           _admin(
             'roster/volunteers',
             () => admin.RosterPage(
               initialVolunteers: true,
               volunteersTab: (c) => admin.VolunteersTab(campus: c),
             ),
-            _staff,
+            Capability.readAuditAndRoster,
           ),
           _admin(
             'roster',
             () => admin.RosterPage(
               volunteersTab: (c) => admin.VolunteersTab(campus: c),
             ),
-            _staff,
+            Capability.readAuditAndRoster,
           ),
           _admin(
             'open-as/department',
             () => admin.ViewAsDeptPage(),
-            _ownerOnly,
+            Capability.openAs,
           ),
-          _admin('open-as/course', () => admin.ViewAsCoursePage(), _ownerOnly),
-          _admin('open-as', () => admin.OpenAsPage(), _ownerOnly),
-          _admin('publish', () => admin.PublishPage(), _ownerOnly),
-          _admin('approvals', () => admin.Approvals(), _adminOnly),
-          _admin('course-tools', () => admin.CourseToolsPage(), _adminOnly),
-          _admin('reviews', () => admin.ReviewsToolsPage(), _adminOnly),
-          _admin('professors/merge', () => admin.ProfessorMerge(), _staff),
+          _admin(
+            'open-as/course',
+            () => admin.ViewAsCoursePage(),
+            Capability.openAs,
+          ),
+          _admin('open-as', () => admin.OpenAsPage(), Capability.openAs),
+          _admin('publish', () => admin.PublishPage(), Capability.publish),
+          _admin(
+            'approvals',
+            () => admin.Approvals(),
+            Capability.approveContributors,
+          ),
+          _admin(
+            'course-tools',
+            () => admin.CourseToolsPage(),
+            courseToolsCaps,
+          ),
+          _admin('reviews', () => admin.ReviewsToolsPage(), reviewsCaps),
+          _admin(
+            'professors/merge',
+            () => admin.ProfessorMerge(),
+            Capability.mergeProfessors,
+          ),
         ],
       ),
       // Presidents and CRs (§13): the scope is in the path. The course route
@@ -406,24 +434,50 @@ Page<void> _homePage(int? profile) => MaterialPage(
   child: MyHomePage(title: 'Pointer', profile: profile),
 );
 
-bool _mayMaintain(GoRouterState s, {bool course = false}) => myRoles.value.may(
-  course ? Capability.courseStructures : Capability.bulkUpload,
-  campus: s.pathParameters['campus'],
-  scope: course ? s.pathParameters['courseId'] : s.pathParameters['dept'],
+/// Whether the signed-in person holds at least one of [caps] somewhere.
+bool anyOf(Iterable<Capability> caps) =>
+    caps.any((c) => myRoles.value.reach(c).isNotEmpty);
+
+/// The department screen (presidents, custom holders) and the course screen
+/// (CRs, custom holders) open to anyone who may do one of their rows on that
+/// campus and scope.
+bool _mayMaintain(GoRouterState s, {bool course = false}) {
+  final campus = s.pathParameters['campus'];
+  final scope = s.pathParameters[course ? 'courseId' : 'dept'];
+  return (course ? _courseScreenCaps : _deptScreenCaps).any(
+    (c) => myRoles.value.may(c, campus: campus, scope: scope),
+  );
+}
+
+const _deptScreenCaps = [
+  Capability.bulkUpload,
+  Capability.degreeRequirements,
+  Capability.departmentResources,
+  Capability.professors,
+  Capability.moderateReviews,
+  Capability.approveContributors,
+];
+const _courseScreenCaps = [
+  Capability.courseStructures,
+  Capability.averages,
+  Capability.courseResources,
+];
+
+/// Controls opens for an owner, an admin, a custom holder or a president
+/// (display of the role itself, no row to ask: the screens inside ask).
+bool _staff() =>
+    myRoles.value.reachesAdmin || myRoles.value.presidencies.isNotEmpty;
+
+/// An admin screen behind [caps]: one row, or a list of which any opens it.
+GoRoute _admin(String path, Widget Function() page, Object caps) => GoRoute(
+  path: path,
+  redirect:
+      (_, _) =>
+          anyOf(caps is Capability ? [caps] : caps as Iterable<Capability>)
+              ? null
+              : Routes.home,
+  builder: (_, _) => _deferred(page),
 );
-
-bool _ownerOnly() => myRoles.value.owner;
-bool _adminOnly() => myRoles.value.reachesAdmin;
-
-/// Owners, admins and presidents reach Controls (§4).
-bool _staff() => _adminOnly() || myRoles.value.presidencies.isNotEmpty;
-
-GoRoute _admin(String path, Widget Function() page, bool Function() may) =>
-    GoRoute(
-      path: path,
-      redirect: (_, _) => may() ? null : Routes.home,
-      builder: (_, _) => _deferred(page),
-    );
 
 /// Admin screens live in a deferred library (§13): loaded on first visit.
 Widget _deferred(Widget Function() page) =>
@@ -434,7 +488,8 @@ Future<void> _loadAdmin() =>
     _adminLoad ??= admin.loadLibrary().then((_) => _adminReady = true);
 
 /// For a department president: loads the admin code and their board's data
-/// in the background, so the department pages open with data (TM-16).
+/// in the background, so the department pages open with data (TM-16). A
+/// warm-up of their own grants' boards, not a permission check.
 Future<void> prefetchPresidentPages() async {
   final presidencies = myRoles.value.presidencies;
   if (presidencies.isEmpty) return;

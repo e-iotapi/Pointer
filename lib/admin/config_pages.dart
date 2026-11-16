@@ -3,6 +3,7 @@ import 'package:cgpa_calculator/admin/maintain.dart' show courseTitle;
 import 'package:cgpa_calculator/admin/widgets.dart';
 import 'package:cgpa_calculator/app/theme/palette.dart';
 import 'package:cgpa_calculator/app/theme/tokens.dart';
+import 'package:cgpa_calculator/core/roles/capabilities.dart';
 import 'package:cgpa_calculator/core/roles/role_store.dart';
 import 'package:cgpa_calculator/core/roles/session.dart';
 import 'package:cgpa_calculator/features/semester/add_course_controller.dart';
@@ -978,11 +979,12 @@ class _AuditLogPageState extends State<AuditLogPage> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final r = myRoles.value;
-    // Owners and admins read everything; a president their campus.
+    // Wide reach reads everything; narrower reach reads its own campus.
+    final reach = r.reach(Capability.readAuditAndRoster);
     final campus =
-        r.owner || r.admin
+        reach.any((x) => x.campus == 'all')
             ? widget.campus
-            : widget.campus ?? r.presidencies.firstOrNull?.campus;
+            : widget.campus ?? reach.firstOrNull?.campus;
     final actorName = _actors.where((a) => a.email == _actor).firstOrNull?.name;
     return PageFrame(
       header: const PageHeader(eyebrow: 'APPEND-ONLY', title: 'Audit log'),

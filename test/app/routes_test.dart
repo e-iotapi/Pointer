@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:cgpa_calculator/admin/roster.dart';
 import 'package:cgpa_calculator/app/router.dart';
+import 'package:cgpa_calculator/core/roles/capabilities.dart';
+import 'package:cgpa_calculator/core/roles/role_defs.dart';
 import 'package:cgpa_calculator/core/roles/roles.dart';
 import 'package:cgpa_calculator/core/roles/session.dart';
 import 'package:cgpa_calculator/script.dart';
@@ -115,6 +117,111 @@ void main() {
       await t.pumpWidget(MaterialApp.router(routerConfig: router));
       await t.pumpAndSettle();
       expect(find.byType(NotFoundPage), findsOneWidget);
+    });
+  });
+
+  group('B8: routes ask for their capability', () {
+    setUp(() => myRoles.value = MyRoles.none);
+    tearDown(() => myRoles.value = MyRoles.none);
+
+    const goa = 'f20230001@goa.bits-pilani.ac.in';
+
+    MyRoles holder(Set<Capability> caps, {String dept = 'ELEC'}) => MyRoles(
+      email: goa,
+      defs: RoleDefs({
+        ...RoleDefs.defaults().byId,
+        'r': RoleDef(
+          id: 'r',
+          name: 'R',
+          tag: 'ROLE',
+          caps: caps,
+          termDays: 100,
+          builtin: false,
+          campus: 'goa',
+          dept: dept,
+        ),
+      }),
+      custom: Grant(
+        role: GrantRole.custom,
+        email: goa,
+        name: 'X',
+        campus: 'all',
+        scope: 'role',
+        active: true,
+        expiresAt: DateTime(2100),
+        roleId: 'r',
+      ),
+    );
+
+    /// Where [path] lands: the admin and maintain routes with their real
+    /// redirects, under '/', each page an empty box.
+    Future<String> land(WidgetTester t, String path) async {
+      GoRoute stub(GoRoute r, {String? as}) => GoRoute(
+        path: as ?? r.path,
+        redirect: r.redirect,
+        builder: (_, _) => const SizedBox(),
+        routes: [for (final c in r.routes.whereType<GoRoute>()) stub(c)],
+      );
+      final all = home.routes.whereType<GoRoute>();
+      final router = GoRouter(
+        initialLocation: path,
+        errorBuilder: (_, _) => const SizedBox(),
+        routes: [
+          stub(all.firstWhere((r) => r.path == 'admin'), as: '/admin'),
+          for (final r in all.where((r) => r.path.startsWith('maintain/')))
+            stub(r, as: '/${r.path}'),
+        ],
+      );
+      await t.pumpWidget(MaterialApp.router(routerConfig: router));
+      await t.pumpAndSettle();
+      return router.routerDelegate.currentConfiguration.uri.path;
+    }
+
+    testWidgets(
+      'a custom holder with averages at goa|ELEC opens Course tools and the '
+      'ELEC course screen, not Reviews',
+      (t) async {
+        myRoles.value = holder({Capability.averages});
+        expect(await land(t, '/admin/course-tools'), '/admin/course-tools');
+        expect(
+          await land(t, '/maintain/goa/course/EEE%20F111'),
+          '/maintain/goa/course/EEE%20F111',
+        );
+        expect(await land(t, '/admin/reviews'), isNot('/admin/reviews'));
+        expect(
+          await land(t, '/maintain/goa/course/CS%20F111'),
+          isNot('/maintain/goa/course/CS%20F111'),
+        );
+      },
+    );
+
+    testWidgets(
+      'a custom holder without readAuditAndRoster is redirected from the '
+      'roster',
+      (t) async {
+        myRoles.value = holder({Capability.averages});
+        expect(await land(t, '/admin/roster'), isNot('/admin/roster'));
+        expect(await land(t, '/admin/audit'), isNot('/admin/audit'));
+        myRoles.value = holder({Capability.readAuditAndRoster});
+        expect(await land(t, '/admin/roster'), '/admin/roster');
+      },
+    );
+
+    testWidgets('owner-only screens stay closed to an admin', (t) async {
+      final admin = Grant(
+        role: GrantRole.admin,
+        email: goa,
+        name: 'A',
+        campus: 'all',
+        scope: 'all',
+        active: true,
+        expiresAt: DateTime(2100),
+      );
+      myRoles.value = MyRoles(email: goa, grants: [admin]);
+      expect(await land(t, '/admin/people'), '/admin/people');
+      expect(await land(t, '/admin/owners'), isNot('/admin/owners'));
+      expect(await land(t, '/admin/publish'), isNot('/admin/publish'));
+      expect(await land(t, '/admin/open-as'), isNot('/admin/open-as'));
     });
   });
 }

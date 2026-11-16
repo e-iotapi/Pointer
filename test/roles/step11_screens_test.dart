@@ -22,7 +22,9 @@ import 'package:cgpa_calculator/app/theme/palette.dart';
 import 'package:cgpa_calculator/core/cache/cache_first.dart';
 import 'package:cgpa_calculator/core/catalog/catalog.dart';
 import 'package:cgpa_calculator/core/models/programmes.dart';
+import 'package:cgpa_calculator/core/roles/capabilities.dart';
 import 'package:cgpa_calculator/core/roles/contacts.dart';
+import 'package:cgpa_calculator/core/roles/role_defs.dart';
 import 'package:cgpa_calculator/core/roles/role_store.dart';
 import 'package:cgpa_calculator/core/roles/maintain_store.dart';
 import 'package:cgpa_calculator/core/roles/roles.dart';
@@ -1426,6 +1428,88 @@ void main() {
     expect(find.text('KEEP'), findsOneWidget);
     expect(find.text('Merge into Ramesh Menon'), findsOneWidget);
     expect(find.textContaining('Also known as Dr. R. Menon'), findsOneWidget);
+  });
+
+  testWidgets('the professors picker for a custom holder at goa|CS starts on '
+      'goa/CS', (t) async {
+    await t.runAsync(() => seedFirestore(db));
+    final custom = Grant(
+      role: GrantRole.custom,
+      email: pres,
+      name: 'X',
+      campus: 'all',
+      scope: 'role',
+      active: true,
+      expiresAt: far,
+      roleId: 'r',
+    );
+    signIn(
+      pres,
+      roles: MyRoles(
+        email: pres,
+        defs: RoleDefs({
+          ...RoleDefs.defaults().byId,
+          'r': const RoleDef(
+            id: 'r',
+            name: 'R',
+            tag: 'ROLE',
+            caps: {Capability.mergeProfessors},
+            termDays: 100,
+            builtin: false,
+            campus: 'goa',
+            dept: 'CS',
+          ),
+        }),
+        custom: custom,
+      ),
+    );
+    await t.pumpWidget(app(const ProfessorMerge()));
+    await t.pumpAndSettle();
+    expect(find.text('Pick the one to keep'), findsOneWidget);
+    expect(find.text('Ramesh Menon'), findsOneWidget);
+  });
+
+  testWidgets('Controls shows a custom holder only the tiles its rows open', (
+    t,
+  ) async {
+    final custom = Grant(
+      role: GrantRole.custom,
+      email: pres,
+      name: 'X',
+      campus: 'all',
+      scope: 'role',
+      active: true,
+      expiresAt: far,
+      roleId: 'r',
+    );
+    signIn(
+      pres,
+      roles: MyRoles(
+        email: pres,
+        defs: RoleDefs({
+          ...RoleDefs.defaults().byId,
+          'r': const RoleDef(
+            id: 'r',
+            name: 'R',
+            tag: 'ROLE',
+            caps: {Capability.averages},
+            termDays: 100,
+            builtin: false,
+            campus: 'goa',
+            dept: 'ELEC',
+          ),
+        }),
+        custom: custom,
+      ),
+    );
+    await t.pumpWidget(app(const AdminHome()));
+    await t.pumpAndSettle();
+    expect(find.text('Course tools'), findsOneWidget);
+    expect(find.text('Reviews'), findsNothing);
+    expect(find.text('Maintainers'), findsNothing);
+    expect(find.text('Roster'), findsNothing);
+    expect(find.text('Public contact'), findsNothing);
+    expect(find.text('Open Pointer as'), findsNothing);
   });
 
   testWidgets('merge suggests likely duplicates and picks both', (t) async {

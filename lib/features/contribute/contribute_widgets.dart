@@ -171,7 +171,7 @@ Future<void> maybeShowContributePrompt(
       viewCampus() == null) {
     return;
   }
-  if (myRoles.value.staff) return;
+  if (contributesDirectly) return;
   if (!reviews) contributePromptShown = true;
   await refreshContribState();
   if (!context.mounted) return;

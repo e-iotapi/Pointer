@@ -6,6 +6,7 @@ import 'package:cgpa_calculator/app/theme/tokens.dart';
 import 'package:cgpa_calculator/core/analytics/analytics_store.dart';
 import 'package:cgpa_calculator/core/catalog/publish.dart';
 import 'package:cgpa_calculator/core/roles/capabilities.dart';
+import 'package:cgpa_calculator/core/roles/role_defs.dart';
 import 'package:cgpa_calculator/core/roles/role_store.dart';
 import 'package:cgpa_calculator/core/roles/roles.dart';
 import 'package:cgpa_calculator/core/roles/session.dart';
@@ -93,7 +94,14 @@ class _AdminHomeState extends State<AdminHome> {
     final p = AppPalette.of(context);
     final r = myRoles.value;
     // Under Open as › Admin an owner sees what an admin sees.
-    final owner = r.owner && viewAs.value?.role != Role.admin;
+    final lens = r.owner && viewAs.value?.role == Role.admin;
+    final owner = r.owner && !lens;
+    // A tile shows when a row behind it reaches somewhere; the admin lens
+    // asks the admin's default rows.
+    bool can(Iterable<Capability> caps) =>
+        lens
+            ? caps.any(RoleDefs.defaults()['admin']!.caps.contains)
+            : caps.any((c) => r.reach(c).isNotEmpty);
     final name = roleStore?.myName ?? '';
     final live = _live;
     void go(String to) => context.push(to);
@@ -158,8 +166,10 @@ class _AdminHomeState extends State<AdminHome> {
           ),
         ),
         const LeaderboardNameCard(),
+        if (can(appointCaps) || can([Capability.readAuditAndRoster])) ...[
         const SectionLabel('People'),
         _Rows([
+          if (can(appointCaps)) ...[
           _Row(
             Icons.group_outlined,
             'Maintainers',
@@ -176,6 +186,8 @@ class _AdminHomeState extends State<AdminHome> {
             () => go(Routes.adminGrant),
             mint: true,
           ),
+          ],
+          if (can([Capability.readAuditAndRoster]))
           _Row(
             Icons.badge_outlined,
             'Roster',
@@ -183,8 +195,11 @@ class _AdminHomeState extends State<AdminHome> {
             () => go(Routes.adminRoster),
           ),
         ]),
+        ],
+        if (can(courseToolsCaps) || can(reviewsCaps)) ...[
         const SectionLabel('Tools'),
         _Rows([
+          if (can(courseToolsCaps))
           _Row(
             Icons.build_outlined,
             'Course tools',
@@ -192,6 +207,7 @@ class _AdminHomeState extends State<AdminHome> {
             () => go(Routes.adminCourseTools),
             titleBadge: const CountBadge('NEW', tone: CountTone.on),
           ),
+          if (can(reviewsCaps))
           _Row(
             Icons.rate_review_outlined,
             'Reviews',
@@ -200,8 +216,15 @@ class _AdminHomeState extends State<AdminHome> {
             titleBadge: const CountBadge('NEW', tone: CountTone.on),
           ),
         ]),
+        ],
+        if (can([
+          Capability.grantTermsCrPresident,
+          Capability.publicContact,
+          Capability.readAuditAndRoster,
+        ])) ...[
         const SectionLabel('Owners and admins'),
         _Rows([
+          if (can([Capability.grantTermsCrPresident]))
           _Row(
             Icons.event_outlined,
             'Grant terms',
@@ -212,6 +235,7 @@ class _AdminHomeState extends State<AdminHome> {
                     'admin ${termSpan(live.terms.adminDays)}',
             () => go(Routes.adminTerms),
           ),
+          if (can([Capability.publicContact]))
           _Row(
             Icons.chat_bubble_outline_rounded,
             'Public contact',
@@ -227,6 +251,7 @@ class _AdminHomeState extends State<AdminHome> {
                     ? const CountBadge('ON', tone: CountTone.on)
                     : const CountBadge('OFF', tone: CountTone.neutral),
           ),
+          if (can([Capability.readAuditAndRoster]))
           _Row(
             Icons.notes_rounded,
             'Audit log',
@@ -234,9 +259,15 @@ class _AdminHomeState extends State<AdminHome> {
             () => go(Routes.adminAudit),
           ),
         ]),
-        if (owner) ...[
+        ],
+        if (can([
+          Capability.addRemoveOwners,
+          Capability.publish,
+          Capability.openAs,
+        ])) ...[
           const SectionLabel('Owner only'),
           _Rows([
+            if (can([Capability.addRemoveOwners]))
             _Row(
               Icons.person_outline_rounded,
               'Owners',
@@ -245,6 +276,7 @@ class _AdminHomeState extends State<AdminHome> {
                   : '${live.owners} active · you cannot remove yourself',
               () => go(Routes.adminOwners),
             ),
+            if (can([Capability.publish]))
             _Row(
               Icons.publish_rounded,
               'Publish catalogue',
@@ -259,12 +291,14 @@ class _AdminHomeState extends State<AdminHome> {
                       ? CountBadge('${live!.drafts}')
                       : null,
             ),
+            if (can([Capability.openAs]))
             _Row(
               Icons.visibility_outlined,
               'Open Pointer as',
               'See the app as any role; saves stay yours',
               () => go(Routes.openAs),
             ),
+            if (can([Capability.publish]))
             _Row(
               Icons.insights_outlined,
               'Site analytics',

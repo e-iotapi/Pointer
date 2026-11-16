@@ -86,7 +86,7 @@ class _AddPageState extends State<AddPage> {
     }
   }
 
-  Future<void> _publish(String campus, bool direct) async {
+  Future<void> _publish(String campus) async {
     var ok = true;
     final filled = <_Row>[];
     for (final r in _rows) {
@@ -118,6 +118,8 @@ class _AddPageState extends State<AddPage> {
           courseIds: _course ? [_courseId!] : const [],
         ),
     ];
+    // Where I hold publishDirectly the links go live; elsewhere they wait.
+    final direct = publishesDirectly(campus, dept);
     setState(() {
       _busy = true;
       _error = null;
@@ -191,7 +193,7 @@ class _AddPageState extends State<AddPage> {
                   : _error != null && !_error!.startsWith('Choose')
                   ? 'Try again'
                   : 'Publish $n ${n == 1 ? 'link' : 'links'}',
-          onPressed: _busy ? null : () => _publish(campus, direct),
+          onPressed: _busy ? null : () => _publish(campus),
         ),
       ),
       children: [
@@ -303,11 +305,12 @@ class _AddPageState extends State<AddPage> {
 /// The departments on [campus] where I publish links at once.
 List<String> linkDepts(String campus) => [
   for (final d in departmentsAt(campus))
-    if (myRoles.value.may(
-      Capability.departmentResources,
-      campus: campus,
-      scope: d,
-    ))
+    if (publishesDirectly(campus, d) &&
+        myRoles.value.may(
+          Capability.departmentResources,
+          campus: campus,
+          scope: d,
+        ))
       d,
 ];
 
