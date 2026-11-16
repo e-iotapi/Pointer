@@ -17,7 +17,7 @@ import {
 } from 'firebase/firestore';
 import {
   ADMIN, FACULTY, NEVER, OTHER, OWNER, PRES, STUDENT,
-  appoint, as, bump, days, grantId, name, seed, useEmulator,
+  DEFAULT_CAPS, appoint, as, bump, days, grantId, name, seed, seedBuiltin, useEmulator,
 } from './helpers.mjs';
 
 useEmulator();
@@ -310,5 +310,64 @@ describe('config', () => {
     await assertSucceeds(write(as(ADMIN), ADMIN, 'public', c));
     await assertFails(write(as(PRES), PRES, 'public', c));
     await assertSucceeds(getDoc(doc(as(STUDENT), 'config', 'public')));
+  });
+});
+
+describe('one appointment rule', () => {
+  const cr = { role: 'course', campus: 'goa', scope: 'EEE F211', email: STUDENT };
+  const pres = { role: 'dept', campus: 'goa', scope: 'CS', programme: 'A7', email: STUDENT };
+
+  test('a president still appoints a CR; an admin still appoints a president', async () => {
+    await seedBuiltin();
+    await assertSucceeds(appoint(as(PRES), PRES, cr, { courses: ['EEE F211'] }));
+    const S3 = 'f20230777@goa.bits-pilani.ac.in';
+    await seed((db) => setDoc(doc(db, 'people', S3), { name: name(S3), campus: 'goa', firstSignIn: 1 }));
+    await assertSucceeds(appoint(as(ADMIN), ADMIN, { ...pres, email: S3 }, { presidentOf: ['CS'] }));
+  });
+
+  test('a president cannot appoint a CR once cr has a row president lacks', async () => {
+    await seedBuiltin({ cr: [...DEFAULT_CAPS.cr, 'publish'] });
+    await assertFails(appoint(as(PRES), PRES, cr, { courses: ['EEE F211'] }));
+    await assertFails(appoint(as(ADMIN), ADMIN, cr, { courses: ['EEE F211'] }));
+    await assertSucceeds(appoint(as(OWNER), OWNER, cr, { courses: ['EEE F211'] }));
+  });
+
+  test('an admin without the appoint row appoints no president', async () => {
+    await seedBuiltin({ admin: DEFAULT_CAPS.admin.filter((c) => c !== 'appointPresidents') });
+    await assertFails(appoint(as(ADMIN), ADMIN, pres, { presidentOf: ['CS'] }));
+  });
+
+  test('an admin with appointAdmins appoints an admin', async () => {
+    const admin = { role: 'admin', campus: 'all', scope: 'all', email: STUDENT };
+    await assertFails(appoint(as(ADMIN), ADMIN, admin, { admin: true }));
+    await seedBuiltin({ admin: [...DEFAULT_CAPS.admin, 'appointAdmins'] });
+    await assertSucceeds(appoint(as(ADMIN), ADMIN, admin, { admin: true }));
+  });
+
+  // The stable app writes terms to config/grantTerms until B12.
+  test('the older config/grantTerms term still bounds a grant', async () => {
+    const mk = (n) => {
+      const db = as(ADMIN);
+      const id = grantId(pres);
+      const b = writeBatch(db);
+      const a = doc(collection(db, 'audit'));
+      b.set(doc(db, 'grants', id), {
+        ...pres, name: name(STUDENT), active: true, expiresAt: days(n),
+        grantedBy: { email: ADMIN, name: name(ADMIN) }, grantedAt: serverTimestamp(), auditId: a.id,
+      });
+      b.set(doc(db, 'staff', STUDENT), {
+        email: STUDENT, campus: 'goa', owner: false, admin: false, presidentOf: ['CS'], courses: [],
+        expiresAt: days(n), lastGrant: id,
+      });
+      b.set(a, {
+        actor: { email: ADMIN, name: name(ADMIN), role: 'admin' }, action: 'grant',
+        path: `grants/${id}`, campus: 'goa', at: serverTimestamp(),
+      });
+      bump(b, db, 'goa', 'grants');
+      return b.commit();
+    };
+    await assertFails(mk(380));
+    await seed((db) => setDoc(doc(db, 'config', 'grantTerms'), { crDays: 183, presidentDays: 400, adminDays: 730 }));
+    await assertSucceeds(mk(380));
   });
 });

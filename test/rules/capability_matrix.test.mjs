@@ -13,8 +13,8 @@ import {
   as, customGrant, customRole, days, name, seed, seedBuiltin, useEmulator,
 } from './helpers.mjs';
 import {
-  APP_ONLY, COURSE_SITES, CR, CUSTOM_EXCLUDED, IN, OUT, OWN_CAMPUS_SITES, PRESIDENT_CAMPUS_SITES,
-  PROBES, UNENFORCED,
+  APP_ONLY, APPOINT_ROWS, COURSE_SITES, CR, CUSTOM_EXCLUDED, IN, OUT, OWN_CAMPUS_SITES, PRESIDENT_CAMPUS_SITES,
+  PROBES, TARGET_SCOPED, UNENFORCED,
 } from './capability_probes.mjs';
 
 useEmulator();
@@ -108,8 +108,9 @@ function customCovers(reach, scope, t) {
 
 /// Whether [actor] may do [cap] at target [t], from the seeded built-in rows.
 function expected(cap, actor, t, caps = DEFAULT_CAPS) {
-  const reach = REACH[cap];
+  const reach = TARGET_SCOPED.includes(cap) ? 'dept' : REACH[cap];
   if (actor.kind === 'owner') return true;
+  if (actor.kind === 'custom' && APPOINT_ROWS.includes(cap)) return false;
   // Contributors queue pending links; built-in staff publish directly instead.
   if (cap === 'contribute' && actor.kind === 'contributor') return t.campus === 'goa';
   if (cap === 'contribute' && ['admin', 'president', 'cr'].includes(actor.kind)) return false;
