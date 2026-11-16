@@ -163,7 +163,11 @@ bool expiresSoon(Grant g, [DateTime? now]) {
   return g.active && left >= 0 && left <= 7;
 }
 
-List<Grant> _byRole(List<Grant> all) => all..sort((a, b) {
+/// Maintainer grants only: contributors are listed on Approvals (B7).
+List<Grant> _byRole(List<Grant> all) => [
+  for (final g in all)
+    if (g.role != GrantRole.contributor) g,
+]..sort((a, b) {
   final r = a.role.index.compareTo(b.role.index);
   return r != 0 ? r : a.name.compareTo(b.name);
 });

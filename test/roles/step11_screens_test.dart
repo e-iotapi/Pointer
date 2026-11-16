@@ -985,6 +985,42 @@ void main() {
     expect(expiresSoon(later), isFalse);
   });
 
+  testWidgets('Maintainers leaves contributors to Approvals', (t) async {
+    signIn(
+      'owner@example.com',
+      roles: const MyRoles(email: 'owner@example.com', owner: true),
+    );
+    final until = DateTime.now().add(const Duration(days: 300));
+    await seedGrant(
+      Grant(
+        role: GrantRole.dept,
+        email: 'p2@goa.bits-pilani.ac.in',
+        name: 'Rohan Deshpande',
+        campus: 'goa',
+        scope: 'CS',
+        active: true,
+        expiresAt: until,
+      ),
+    );
+    await seedGrant(
+      Grant(
+        role: GrantRole.contributor,
+        email: 'f20231014@goa.bits-pilani.ac.in',
+        name: 'Ishaan Semwal',
+        campus: 'goa',
+        scope: 'goa',
+        dept: 'CS',
+        active: true,
+        expiresAt: until,
+      ),
+    );
+    await t.pumpWidget(app(const AdminPeople()));
+    await t.pumpAndSettle();
+    expect(find.text('Rohan Deshpande'), findsOneWidget);
+    expect(find.text('Ishaan Semwal'), findsNothing);
+    expect(find.text('1 PEOPLE'), findsOneWidget);
+  });
+
   // ---- T8.6 Appoint --------------------------------------------------------
 
   Future<void> appointForm(WidgetTester t, String address) async {

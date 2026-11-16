@@ -77,7 +77,12 @@ class _RosterPageState extends State<RosterPage> {
         return (all, phones, owners, offers);
       },
       builder: (context, data, reload) {
-        final (all, phones, owners, offers) = data;
+        final (grants, phones, owners, offers) = data;
+        // Contributors are not maintainers; Approvals lists them (B7).
+        final all = [
+          for (final g in grants)
+            if (g.role != GrantRole.contributor) g,
+        ];
         final live =
             all.where((g) => g.active).where(_shows).toList()..sort((a, b) {
               final c = a.campus.compareTo(b.campus);
