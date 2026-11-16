@@ -161,14 +161,17 @@ bool _expected(Capability cap, MyRoles a, _Target t) {
       (!ownCampusOnly || t.campus == campusOfAddress(a.email))) {
     return true;
   }
-  if (deptRow && ticked('president')) {
+  final campusRow = cap.reach == CapReach.campus;
+  if ((deptRow || campusRow) && ticked('president')) {
     for (final g in a.grants.where((g) => g.role == GrantRole.dept)) {
-      if (g.campus == t.campus && g.scope == t.dept) return true;
+      if (g.campus == t.campus && (campusRow || g.scope == t.dept)) return true;
     }
   }
-  if (deptRow && ticked('cr')) {
+  if ((deptRow || campusRow) && ticked('cr')) {
     for (final g in a.grants.where((g) => g.role == GrantRole.course)) {
-      if (g.campus == t.campus && g.scope == t.course) return true;
+      if (g.campus == t.campus && (campusRow || g.scope == t.course)) {
+        return true;
+      }
     }
   }
   final g = a.custom;
@@ -314,5 +317,20 @@ void main() {
     const c = Reach(role: 'custom', campus: 'goa', dept: 'all');
     expect(c.covers('goa', 'CS', null), isTrue);
     expect(c.covers('pilani', 'CS', null), isFalse);
+  });
+
+  test('presidents and CRs keep their own-campus campus rows', () {
+    final p = _actors[2].build(Capability.averages);
+    for (final c in [
+      Capability.readAuditAndRoster,
+      Capability.reviewGateSwitch,
+    ]) {
+      expect(p.may(c, campus: 'goa'), isTrue);
+      expect(p.may(c, campus: 'hyderabad'), isFalse);
+    }
+    final cr = _actors[4].build(Capability.averages);
+    expect(cr.may(Capability.contribute, campus: 'goa'), isTrue);
+    expect(cr.may(Capability.contribute, campus: 'hyderabad'), isFalse);
+    expect(p.may(Capability.publish, campus: 'goa'), isFalse);
   });
 }

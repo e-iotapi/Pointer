@@ -465,11 +465,13 @@ class MyRoles {
   /// Whether this person may do [action] on [campus]/[scope] ([scope] is a
   /// department key or a course id), through any role they hold. The same
   /// answer as the rules' `may()`: a null [campus] or [scope] asks "anywhere".
-  /// Presidents and CRs only hold department-reach rows; campus and
-  /// everywhere rows are admin's, owner's and custom roles'.
+  /// Presidents and CRs hold department rows in their scope and campus rows
+  /// on their grant's campus; everywhere rows are admin's, owner's and custom
+  /// roles'.
   bool may(Capability action, {String? campus, String? scope}) {
     if (owner) return true;
     final deptRow = action.reach == CapReach.dept;
+    final campusRow = action.reach == CapReach.campus;
     if (admin &&
         _ticked('admin', action) &&
         (!_ownCampus.contains(action) ||
@@ -477,18 +479,20 @@ class MyRoles {
             campus == campusOfAddress(email))) {
       return true;
     }
-    if (deptRow && _ticked('president', action)) {
+    if ((deptRow || campusRow) && _ticked('president', action)) {
       for (final g in presidencies) {
         if ((campus == null || campus == g.campus) &&
-            (scope == null || scope == g.scope || deptOf(scope) == g.scope)) {
+            (campusRow ||
+                scope == null || scope == g.scope ||
+                deptOf(scope) == g.scope)) {
           return true;
         }
       }
     }
-    if (deptRow && _ticked('cr', action)) {
+    if ((deptRow || campusRow) && _ticked('cr', action)) {
       for (final g in courses) {
         if ((campus == null || campus == g.campus) &&
-            (scope == null || scope == g.scope)) {
+            (campusRow || scope == null || scope == g.scope)) {
           return true;
         }
       }
@@ -517,12 +521,20 @@ class MyRoles {
           _ticked('admin', action) &&
           own != null) // own-campus rows
         Reach(role: 'admin', campus: own),
-      if (action.reach == CapReach.dept && _ticked('president', action))
+      if (action.reach != CapReach.everywhere && _ticked('president', action))
         for (final g in presidencies)
-          Reach(role: 'president', campus: g.campus, dept: g.scope),
-      if (action.reach == CapReach.dept && _ticked('cr', action))
+          Reach(
+            role: 'president',
+            campus: g.campus,
+            dept: action.reach == CapReach.dept ? g.scope : null,
+          ),
+      if (action.reach != CapReach.everywhere && _ticked('cr', action))
         for (final g in courses)
-          Reach(role: 'cr', campus: g.campus, course: g.scope),
+          Reach(
+            role: 'cr',
+            campus: g.campus,
+            course: action.reach == CapReach.dept ? g.scope : null,
+          ),
       if (_customRole(action) case final r?)
         action.reach == CapReach.everywhere
             ? const Reach(role: 'custom', campus: 'all')
