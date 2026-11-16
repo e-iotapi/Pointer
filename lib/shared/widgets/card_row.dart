@@ -27,6 +27,7 @@ class CardRow extends StatelessWidget {
     this.onTap,
     this.minHeight = 52,
     this.titleLines = 1,
+    this.titleBadge,
   });
 
   final Widget? leading;
@@ -39,9 +40,18 @@ class CardRow extends StatelessWidget {
   /// How many lines the title may take before it ellipsizes.
   final int titleLines;
 
+  /// A small badge drawn right after the title (the board's NEW).
+  final Widget? titleBadge;
+
   @override
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
+    final titleText = Text(
+      title,
+      maxLines: titleLines,
+      overflow: TextOverflow.ellipsis,
+      style: TypeScale.body.copyWith(fontSize: 13, fontWeight: FontWeight.w700),
+    );
     final row = ConstrainedBox(
       constraints: BoxConstraints(minHeight: minHeight),
       child: Padding(
@@ -53,15 +63,16 @@ class CardRow extends StatelessWidget {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(
-                    title,
-                    maxLines: titleLines,
-                    overflow: TextOverflow.ellipsis,
-                    style: TypeScale.body.copyWith(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
+                  if (titleBadge == null)
+                    titleText
+                  else
+                    Row(
+                      children: [
+                        Flexible(child: titleText),
+                        const SizedBox(width: 6),
+                        titleBadge!,
+                      ],
                     ),
-                  ),
                   if (subtitle != null)
                     Text(
                       subtitle!,

@@ -51,17 +51,8 @@ CardRow gateSwitchEntry(BuildContext context, String campus, {String? dept}) =>
 /// The switch for a campus. Switching on asks first (`SwitchOn`); off does
 /// not.
 class GateSwitchRow extends StatefulWidget {
-  const GateSwitchRow({
-    super.key,
-    required this.campus,
-    this.dept,
-    this.pills = true,
-  });
+  const GateSwitchRow({super.key, required this.campus, this.dept});
   final String campus;
-
-  /// False when the page above already has campus pills (and re-keys this
-  /// row on a campus change).
-  final bool pills;
 
   /// The department the writer holds; null for owners and admins.
   final String? dept;
@@ -152,7 +143,7 @@ class _GateSwitchRowState extends State<GateSwitchRow> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (widget.dept == null && widget.pills) ...[
+        if (widget.dept == null) ...[
           ChoicePills<String>(
             values: _gateCampuses,
             selected: _campus,

@@ -126,6 +126,12 @@ describe('catalogue', () => {
     await assertFails(draft(as(STUDENT), STUDENT, 'CS F211', { credits: 3 }));
   });
 
+  test('an admin drafts a course on any campus; a student still cannot', async () => {
+    await assertSucceeds(draft(as(ADMIN), ADMIN, 'CS F211', { credits: 4 }));
+    await assertSucceeds(draft(as(ADMIN), ADMIN, 'EEE F111', { title: 'Electrical Sciences' }));
+    await assertFails(draft(as(STUDENT), STUDENT, 'EEE F111', { credits: 3 }));
+  });
+
   test('only an owner publishes, and the marker names the new version', async () => {
     await seed((db) => setDoc(doc(db, 'catalog', 'marker'), { version: 3, schema: 1 }));
     await assertFails(publish(as(PRES), PRES, 4));
