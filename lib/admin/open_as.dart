@@ -301,7 +301,7 @@ class ViewAsRolePage extends StatelessWidget {
           ),
           children: [
             if (roles.isEmpty)
-              const Note('No custom roles yet. Make one in Controls › Roles.')
+              const Note('No custom roles yet. Make one in Roles, on Controls.')
             else
               AppCard(
                 padding: EdgeInsets.zero,

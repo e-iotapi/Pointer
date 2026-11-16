@@ -383,30 +383,26 @@ class _RoleFormState extends State<_RoleForm> {
         c == Capability.courseStructures &&
         _caps.contains(Capability.averages) &&
         _mayTick(Capability.averages);
-    return Opacity(
-      opacity: on || locked ? 1 : 0.55,
-      child: CardRow(
-        minHeight: 46,
-        leading: Checkbox(
-          value: _caps.contains(c),
-          onChanged: on ? (_) => _toggle(c) : null,
-        ),
-        title: c.label,
-        titleLines: 2,
-        subtitle:
-            locked
-                ? 'Averages live inside the eval scheme, so this also needs '
-                    'Course structures'
-                : null,
-        onTap: on ? () => _toggle(c) : null,
-        trailing:
-            tag == null
-                ? null
-                : Text(
-                  tag,
-                  style: TypeScale.label.copyWith(color: p.textMuted),
-                ),
+    // A row the author lacks shows a disabled box and its tag (no Opacity:
+    // test/perf/no_opacity_test.dart).
+    return CardRow(
+      minHeight: 46,
+      leading: Checkbox(
+        value: _caps.contains(c),
+        onChanged: on ? (_) => _toggle(c) : null,
       ),
+      title: c.label,
+      titleLines: 2,
+      subtitle:
+          locked
+              ? 'Averages live inside the eval scheme, so this also needs '
+                  'Course structures'
+              : null,
+      onTap: on ? () => _toggle(c) : null,
+      trailing:
+          tag == null
+              ? null
+              : Text(tag, style: TypeScale.label.copyWith(color: p.textMuted)),
     );
   }
 

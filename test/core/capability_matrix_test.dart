@@ -36,7 +36,7 @@ typedef _Target = ({String campus, String dept, String course});
 const _in = (campus: 'goa', dept: 'ELEC', course: 'EEE F211');
 const _out = (campus: 'hyderabad', dept: 'CS', course: 'CS F211');
 
-/// A holder: what it is built from, and a fresh MyRoles for a row [cap].
+/// A holder: what it is built from, and a fresh MyRoles for a row `cap`.
 class _Actor {
   _Actor(this.name, this.build);
   final String name;
