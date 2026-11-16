@@ -172,6 +172,8 @@ document no longer has to carry the catalogue.
 | Open Pointer as | ✓ | — | — | — |
 | Links publish without approval | ✓ | ✓ | ✓ | — |
 
+**How the rules enforce the table (custom roles).** Every row above goes through one `may(cap, campus, dept, course)` in `firestore.rules`. Two rows share a site and are not separable there: *Bulk upload* writes the same offering documents as a save (the offering site accepts *Course structures*, *Bulk upload* or *Averages*), and a save that moves only `courseAverage` needs *Averages*; component and part averages sit inside the components list, so an *Averages*-only role can also edit a scheme (the app offers it only the averages). *Degree requirements* has no writer yet. *Open Pointer as* is app-only. Presidents and CRs reach the campus-level rows (roster, review switch) through the staff index or their department grant, as before. Rules stop at 1000 evaluated expressions per request: no row is currently excluded from custom roles for lack of room.
+
 **Admin is deliberately narrow.** It exists so appointments do not queue behind one person,
 and to run course tools and moderation. An admin can edit course structures, bulk upload,
 degree requirements, averages and professors, moderate reviews, and add resource links, on

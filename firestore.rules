@@ -111,17 +111,26 @@ service cloud.firestore {
       return /databases/$(db)/documents/grants/$('custom|' + me());
     }
 
+    // A grant that is active and unexpired. (Rules count every expression
+    // evaluated in a request, 1000 at most, so may() below is written lean:
+    // one me(), no repeated signedIn(), no grantPath() round trips.)
+    function live(p) {
+      let g = get(p).data;
+      return g.active == true && request.time < g.expiresAt;
+    }
+
     // The signed-in person's live custom grant covers [cap] at campus [c],
     // department [d]. An everywhere row is asked with c == 'all'; a campus row
     // with d == 'all'. A missing grant errors, so this is always the last term
     // of an || chain.
     function customMay(cap, c, d) {
-      let g = get(customGrantPath()).data;
+      let e = me();
+      let g = get(/databases/$(db)/documents/grants/$('custom|' + e)).data;
       let r = get(/databases/$(db)/documents/roles/$(g.roleId)).data;
-      return g.active == true && request.time < g.expiresAt && isStudent(me())
+      return g.active == true && request.time < g.expiresAt && isStudent(e)
         && cap in r.caps
         && (c == 'all' || r.campus == 'all'
-            || (r.campus == c && campusOf(me()) == c
+            || (r.campus == c && campusOf(e) == c
                 && (r.dept == 'all' || r.dept == d || d == 'all')));
     }
 
@@ -132,12 +141,49 @@ service cloud.firestore {
     // role 2 = 7 lookups, before the site's own.
     function may(cap, c, d, k) {
       let b = builtin();
-      return isOwner()
-        || (cap in b.admin.caps && isAdmin()
-            && (!(cap in ['departmentResources', 'courseResources']) || c == campusOf(me())))
-        || (d != '' && cap in b.president.caps && isPresident(c, d))
-        || (k != '' && cap in b.cr.caps && isCr(c, k))
-        || customMay(cap, c, d);
+      let e = me();
+      return signedIn() && (
+        get(/databases/$(db)/documents/owners/$(e)).data.active == true
+        || (cap in b.admin.caps && isStudent(e)
+            && live(/databases/$(db)/documents/grants/$('admin|all|all|' + e))
+            && (!(cap in ['departmentResources', 'courseResources']) || c == campusOf(e)))
+        || (d != '' && cap in b.president.caps && isStudent(e) && campusOf(e) == c
+            && live(/databases/$(db)/documents/grants/$('dept|' + c + '|' + d + '|' + e)))
+        || (k != '' && cap in b.cr.caps && isStudent(e) && campusOf(e) == c
+            && live(/databases/$(db)/documents/grants/$('course|' + c + '|' + k + '|' + e)))
+        || customMay(cap, c, d));
+    }
+
+    function staffCrOn(c) {
+      let s = get(staffPath(me())).data;
+      return s.campus == c && request.time < s.expiresAt && s.get('courses', []).size() > 0;
+    }
+
+    // A row of campus reach (ARCHITECTURE.md §4 "own campus" and the like):
+    // sites pass d == 'all', which only a campus or everywhere role covers. A
+    // built-in president reaches it on their own campus through the
+    // department grant [pd] the site names ('' when it names none).
+    function mayCampus(cap, c, pd) {
+      let b = builtin();
+      return may(cap, c, 'all', '')
+        || (pd != '' && cap in b.president.caps && isPresident(c, pd))
+        // A CR on that campus, from the staff index (read-trusted, as in readsRoster).
+        || (cap in b.cr.caps && staffCrOn(c));
+    }
+
+    // A course's structure and class averages. Saves of the whole scheme (and
+    // a bulk upload, which writes the same documents) need courseStructures,
+    // bulkUpload or averages; a save that moves only courseAverage needs
+    // averages. ponytail: component and part averages live inside the
+    // components list, which rules cannot compare field by field, so an
+    // averages-only holder can also edit a scheme; the app only offers them
+    // the averages.
+    function mayOffering(campus, course, avgOnly) {
+      let d = managingDept(campus, course);
+      return avgOnly ? may('averages', campus, d, course)
+        : (may('courseStructures', campus, d, course)
+           || may('bulkUpload', campus, d, course)
+           || may('averages', campus, d, course));
     }
 
     // [caps] lie inside the rows the signed-in author holds: an admin's current
@@ -161,8 +207,13 @@ service cloud.firestore {
     }
 
     function readsRoster(campus) {
-      return isOwner() || isAdmin() || isPresidentOn(campus)
-        || (campus == 'all' && isPresidentOn(campusOf(me())));
+      let b = builtin();
+      return isOwner()
+        || ('readAuditAndRoster' in b.admin.caps && isAdmin())
+        || ('readAuditAndRoster' in b.president.caps
+            && (isPresidentOn(campus) || (campus == 'all' && isPresidentOn(campusOf(me())))))
+        || ('readAuditAndRoster' in b.cr.caps && campus != 'all' && staffCrOn(campus))
+        || customMay('readAuditAndRoster', campus, 'all');
     }
 
     // ---- The audit log (§4) ------------------------------------------------
@@ -239,7 +290,7 @@ service cloud.firestore {
     // count (once a day) and hour count; owners read it. ponytail: sampling
     // is not checked server-side; a forged ping only skews the estimate.
     match /analytics/{day} {
-      allow read: if isOwner();
+      allow read: if may('publish', 'all', 'all', '');
       allow create, update: if mayUse()
         && day.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$')
         && request.resource.data.keys().hasOnly(['sample', 'goa', 'hyderabad', 'pilani'])
@@ -269,14 +320,14 @@ service cloud.firestore {
       allow get: if (signedIn() && me() == email) || isOwner();
       // The roster names the owners to everyone who may open it.
       allow list: if readsRoster('all');
-      allow create: if isOwner()
+      allow create: if may('addRemoveOwners', 'all', 'all', '')
         && request.resource.data.email == email
         && request.resource.data.active == true
         && request.resource.data.addedBy.email == me()
         && request.resource.data.addedAt == request.time
         && audited('owners/' + email)
         && pathBumped('goa', 'owners');
-      allow update: if isOwner()
+      allow update: if may('addRemoveOwners', 'all', 'all', '')
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['active', 'name', 'auditId'])
         && (email != me() || request.resource.data.active == true)
@@ -668,7 +719,7 @@ service cloud.firestore {
 
     // Owner, admin, or the dept's president or secretary (holds() covers both).
     function approves(campus, dept) {
-      return isOwner() || isAdmin() || isPresident(campus, dept);
+      return may('approveContributors', campus, dept, '');
     }
 
     // volunteers pattern: id campus|dept|email.
@@ -742,15 +793,14 @@ service cloud.firestore {
         && request.resource.data.campus in ['goa', 'hyderabad', 'pilani', 'dubai']
         && deptOf(request.resource.data.courseId) == 'GEN'
         && request.resource.data.dept is string && request.resource.data.dept != 'GEN'
-        && (isOwner() || isAdmin()
-            || isPresident(request.resource.data.campus, request.resource.data.dept))
+        && may('claimElectives', request.resource.data.campus, request.resource.data.dept, '')
         && request.resource.data.by.email == me()
         && request.resource.data.at == request.time
         && audited('courseClaims/' + id)
         && pathBumped(request.resource.data.campus, 'courseClaims');
       allow update: if false;
       allow delete: if mayUse()
-        && (isOwner() || isAdmin() || isPresident(resource.data.campus, resource.data.dept))
+        && may('claimElectives', resource.data.campus, resource.data.dept, '')
         // A deleted doc cannot name its audit entry; its id is derived.
         && getAfter(/databases/$(db)/documents/audit/$('del|' + id + '|' + string(resource.data.at.toMillis()))).data.path
              == 'courseClaims/' + id
@@ -1057,6 +1107,14 @@ service cloud.firestore {
         && (s.presidentOf.size() > 0 || s.get('courses', []).size() > 0);
     }
 
+    // A live custom role that spans every campus moves the markers of any
+    // campus (its holder's writes there carry a marker bump).
+    function wideCustom() {
+      let g = get(customGrantPath()).data;
+      return g.active == true && request.time < g.expiresAt && isStudent(me())
+        && get(/databases/$(db)/documents/roles/$(g.roleId)).data.campus == 'all';
+    }
+
     function headDiff() {
       return request.resource.data.diff(resource == null ? {} : resource.data).affectedKeys();
     }
@@ -1135,17 +1193,19 @@ service cloud.firestore {
       // not tied to the offering written; a stray bump only costs students
       // one re-read of that course, never wrong data.
       allow create, update: if (
-          (isOwner() || isAdmin() || staffOn(campus))
-            && headDiff().hasOnly(['offerings'])
-            && request.resource.data.offerings is map)
-        || (isOwner() && headDiff().hasOnly(['catalog', 'catalogSchema'])
+          headDiff().hasOnly(['offerings'])
+            && request.resource.data.offerings is map
+            && (isOwner() || isAdmin() || staffOn(campus)))
+        || (headDiff().hasOnly(['catalog', 'catalogSchema'])
             && request.resource.data.catalog
-                 == getAfter(/databases/$(db)/documents/catalog/marker).data.version)
-        || ((isOwner() || isAdmin()) && headDiff().hasOnly(['contact'])
+                 == getAfter(/databases/$(db)/documents/catalog/marker).data.version
+            && may('publish', 'all', 'all', ''))
+        || (headDiff().hasOnly(['contact'])
             && request.resource.data.contact.contactEnabled
                  == getAfter(/databases/$(db)/documents/config/public).data.contactEnabled
             && request.resource.data.contact.contactTarget
-                 == getAfter(/databases/$(db)/documents/config/public).data.contactTarget)
+                 == getAfter(/databases/$(db)/documents/config/public).data.contactTarget
+            && may('publicContact', 'all', 'all', ''))
         // Markers move by writes that bumped them elsewhere (pathBumped, in
         // the source rule, enforces the exact +1). This only limits who moves
         // markers, how many at once, how big the map grows, and that none is
@@ -1154,8 +1214,8 @@ service cloud.firestore {
         // equality, so a decrease costs a re-read, never a freeze. A stray
         // string is healed by pathBumped (a non-int counts as 0) and skipped
         // by Head.fromMap.
-        || (mayUse() && (campus == campusOf(me()) || isOwner() || isAdmin())
-            && headDiff().hasOnly(['v']) && request.resource.data.v is map
+        || (mayUse() && headDiff().hasOnly(['v']) && request.resource.data.v is map
+            && (campus == campusOf(me()) || isOwner() || isAdmin() || wideCustom())
             && request.resource.data.v.size() <= 3000
             && request.resource.data.v.diff(resource == null ? {} : resource.data.get('v', {}))
                  .removedKeys().size() == 0
@@ -1170,8 +1230,8 @@ service cloud.firestore {
       allow read: if mayUse();
       // A president or secretary (a dept grant; holds() covers both) names the
       // dept whose grant authorises the write; owners and admins need none.
-      allow create, update: if (isOwner() || isAdmin()
-          || isPresident(campus, request.resource.data.get('dept', '')))
+      allow create, update: if mayCampus('reviewGateSwitch', campus,
+            request.resource.data.get('dept', ''))
         && request.resource.data.keys().hasOnly(['on', 'by', 'at', 'auditId', 'dept'])
         && request.resource.data.on is bool
         && request.resource.data.by.email == me()
@@ -1183,7 +1243,7 @@ service cloud.firestore {
 
     match /config/public {
       allow read: if mayUse();
-      allow write: if (isOwner() || isAdmin())
+      allow write: if may('publicContact', 'all', 'all', '')
         && request.resource.data.contactMethod in ['whatsapp', 'phone', 'email']
         && request.resource.data.contactEnabled is bool
         && audited('config/public');
@@ -1195,7 +1255,7 @@ service cloud.firestore {
     // the pointer <campus>|current (marker equal to the head's after the batch).
     match /timetable/{id} {
       allow read: if mayUse();
-      allow create, update: if (isOwner() || isAdmin()) && ttOk(id);
+      allow create, update: if may('publishTimetable', 'all', 'all', '') && ttOk(id);
       allow delete: if false;
     }
 
@@ -1232,12 +1292,12 @@ service cloud.firestore {
     // marker moved to it with an audit entry in the same batch (§11).
     match /catalog/{doc} {
       allow read: if mayUse();
-      allow create: if doc != 'marker' && isOwner()
+      allow create: if doc != 'marker' && may('publish', 'all', 'all', '')
         && doc == 'v' + string(request.resource.data.version)
         && request.resource.data.json is string
         && getAfter(afterPath('catalog/marker')).data.version
              == request.resource.data.version;
-      allow create, update: if doc == 'marker' && isOwner()
+      allow create, update: if doc == 'marker' && may('publish', 'all', 'all', '')
         && request.resource.data.keys().hasOnly(['version', 'schema', 'auditId'])
         && existsAfter(afterPath('catalog/v' + string(request.resource.data.version)))
         && audited('catalog/marker');
@@ -1245,13 +1305,6 @@ service cloud.firestore {
     }
 
     // ---- Maintainer writes (§13.2, §13.3) -----------------------------------
-
-    // An owner, an admin, the department's president or the course's CR, on
-    // the campus in the path. Each is checked against the grant, not the index.
-    function maintains(campus, courseId) {
-      return isOwner() || isAdmin() || isPresident(campus, managingDept(campus, courseId))
-        || isCr(campus, courseId);
-    }
 
     function stamped() {
       return request.resource.data.updatedBy.email == me()
@@ -1263,8 +1316,7 @@ service cloud.firestore {
     match /courses/{courseId} {
       allow read: if isOwner() || isAdmin();
       allow create, update: if mayUse()
-        && (isOwner() || isAdmin()
-            || isPresident(campusOf(me()), managingDept(campusOf(me()), courseId)))
+        && may('courseStructures', campusOf(me()), managingDept(campusOf(me()), courseId), '')
         && request.resource.data.id == courseId
         && request.resource.data.draft == true
         && request.resource.data.keys().hasOnly(['id', 'title', 'credits',
@@ -1290,7 +1342,9 @@ service cloud.firestore {
       allow read: if mayUse()
         && (offering.split('_')[0] == campusOf(me()) || isOwner() || isAdmin());
       allow create, update: if mayUse()
-        && maintains(offering.split('_')[0], courseId)
+        && mayOffering(offering.split('_')[0], courseId,
+             resource != null && request.resource.data.diff(resource.data).affectedKeys()
+               .hasOnly(['courseAverage', 'updatedAt', 'updatedBy', 'auditId']))
         && request.resource.data.courseId == courseId
         && offering == request.resource.data.campus + '_' + request.resource.data.term
         && request.resource.data.components is list
@@ -1304,8 +1358,8 @@ service cloud.firestore {
 
     // Presidents in scope, admins and owners add, rename and merge; CRs only
     // pick one for their offering.
-    function editsProfessors(campus, dept) {
-      return isOwner() || isAdmin() || isPresident(campus, dept);
+    function editsProfessors(campus, dept, merging) {
+      return may(merging ? 'mergeProfessors' : 'professors', campus, dept, '');
     }
 
     function professorOk(d) {
@@ -1350,7 +1404,7 @@ service cloud.firestore {
         && (resource.data.campus == campusOf(me()) || isOwner() || isAdmin());
       allow create: if mayUse()
         && professorOk(request.resource.data)
-        && editsProfessors(request.resource.data.campus, request.resource.data.department)
+        && editsProfessors(request.resource.data.campus, request.resource.data.department, false)
         && request.resource.data.mergedIds.size() == 0
         && !('mergedInto' in request.resource.data)
         && request.resource.data.get('removed', false) == false
@@ -1363,7 +1417,9 @@ service cloud.firestore {
         && request.resource.data.department == resource.data.department
         && !('mergedInto' in resource.data)
         && removalOk()
-        && editsProfessors(resource.data.campus, resource.data.department)
+        && editsProfessors(resource.data.campus, resource.data.department,
+             request.resource.data.mergedIds != resource.data.mergedIds
+             || 'mergedInto' in request.resource.data)
         && stamped()
         && (audited('professors/' + id) || mergedHere(id))
         && pathBumped(resource.data.campus, 'professors/' + resource.data.department);
@@ -1420,11 +1476,8 @@ service cloud.firestore {
         || (d.professorId is string && exists(p) && get(p).data.campus == d.campus);
     }
 
-    // Moderators read through the staff index; writes check the grant.
     function readsModeration(d) {
-      let s = get(staffPath(me())).data;
-      return isOwner() || isAdmin() || (s.campus == d.campus && request.time < s.expiresAt
-        && d.department in s.presidentOf);
+      return may('moderateReviews', d.campus, d.department, '');
     }
 
     function reviewPath(c, id) {
@@ -1524,7 +1577,7 @@ service cloud.firestore {
       // Moderation is hide-only, with a reason and an audit entry; a hide
       // takes the review off the counters and an unhide puts it back.
       allow update: if mayUse()
-        && (isOwner() || isAdmin() || isPresident(resource.data.campus, managingDept(resource.data.campus, c)))
+        && may('moderateReviews', resource.data.campus, managingDept(resource.data.campus, c), '')
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['hidden', 'reason', 'hiddenBy', 'reports', 'auditId', 'moderatedAt'])
         && request.resource.data.moderatedAt == request.time
@@ -1625,12 +1678,15 @@ service cloud.firestore {
         && mayUse()
         && resourceOk(request.resource.data)
         && (isOwner() || request.resource.data.campus == campusOf(me()))
-        && (isOwner() || isAdmin()
-            || isPresident(request.resource.data.campus, request.resource.data.department)
-            || (request.resource.data.scope == 'course'
-                && request.resource.data.actingFor == request.resource.data.courseIds[0]
-                && crOn(request.resource.data.campus, request.resource.data.actingFor,
-                        [], request.resource.data.courseIds)))
+        // The kind of link names the row; a role that publishes directly may
+        // add either kind. A CR acts for their course, named by actingFor.
+        && ((request.resource.data.scope == 'department'
+              ? may('departmentResources', request.resource.data.campus,
+                    request.resource.data.department, '')
+              : may('courseResources', request.resource.data.campus, request.resource.data.department,
+                    request.resource.data.get('actingFor', '') == request.resource.data.courseIds[0]
+                    ? request.resource.data.get('actingFor', '') : ''))
+            || may('publishDirectly', request.resource.data.campus, request.resource.data.department, ''))
         && request.resource.data.addedBy.email == me()
         && request.resource.data.addedAt == request.time
         && audited('resources/' + id)
@@ -1641,8 +1697,12 @@ service cloud.firestore {
         && mayUse()
         && resourceOk(request.resource.data)
         && request.resource.data.removed == false
-        && request.resource.data.campus == campusOf(me())
-        && holds('contributor', request.resource.data.campus, request.resource.data.campus)
+        && (isOwner() || request.resource.data.campus == campusOf(me()))
+        // Contributors queue links; so do a role ticked "Contribute links" and
+        // owners. Built-in staff publish directly instead.
+        && (holds('contributor', request.resource.data.campus, request.resource.data.campus)
+            || isOwner()
+            || customMay('contribute', request.resource.data.campus, 'all'))
         && request.resource.data.publishedAt == request.time
         && request.resource.data.batchId is string
         && getAfter(contribDoc('pending/' + request.resource.data.campus + '|'
@@ -1679,22 +1739,6 @@ service cloud.firestore {
         && audited('resources/' + id)
         && versionBumped(resource.data.campus)
         && pathBumped(resource.data.campus, 'resources');
-      allow update: if request.resource.data.get('approved', true) == resource.data.get('approved', true)
-        && mayUse()
-        && resourceOk(request.resource.data)
-        && request.resource.data.diff(resource.data).unchangedKeys()
-             .hasAll(['campus', 'department', 'scope', 'addedBy', 'addedAt'])
-        && (isOwner() || isPresident(resource.data.campus, resource.data.department)
-            || (isAdmin() && resource.data.campus == campusOf(me()))
-            || (crOn(resource.data.campus, request.resource.data.actingFor,
-                     resource.data.courseIds, request.resource.data.courseIds)
-                && ((resource.data.scope == 'course'
-                     && resource.data.courseIds[0] == request.resource.data.actingFor)
-                    || request.resource.data.diff(resource.data).affectedKeys()
-                         .hasOnly(['courseIds', 'actingFor', 'auditId']))))
-        && audited('resources/' + id)
-        && versionBumped(resource.data.campus)
-        && pathBumped(resource.data.campus, 'resources');
       // A contributor edits their own link: approval and window untouched
       // (an edited approved link stays approved, no new points), never removed.
       allow update: if mayUse()
@@ -1708,6 +1752,28 @@ service cloud.firestore {
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['title', 'url', 'host', 'kind', 'courseIds', 'pinnedToDepartment',
                        'actingFor', 'auditId'])
+        && audited('resources/' + id)
+        && versionBumped(resource.data.campus)
+        && pathBumped(resource.data.campus, 'resources');
+      allow update: if request.resource.data.get('approved', true) == resource.data.get('approved', true)
+        && mayUse()
+        && resourceOk(request.resource.data)
+        && request.resource.data.diff(resource.data).unchangedKeys()
+             .hasAll(['campus', 'department', 'scope', 'addedBy', 'addedAt'])
+        && (resource.data.campus == campusOf(me()) || isOwner())
+        // The CR's act is cheap to rule out, so it goes first (rules stop at
+        // 1000 evaluated expressions per request).
+        && ((request.resource.data.get('actingFor', '') != ''
+                && 'courseResources' in builtin().cr.caps
+                && crOn(resource.data.campus, request.resource.data.actingFor,
+                     resource.data.courseIds, request.resource.data.courseIds)
+                && ((resource.data.scope == 'course'
+                     && resource.data.courseIds[0] == request.resource.data.actingFor)
+                    || request.resource.data.diff(resource.data).affectedKeys()
+                         .hasOnly(['courseIds', 'actingFor', 'auditId'])))
+            || (resource.data.scope == 'department'
+              ? may('departmentResources', resource.data.campus, resource.data.department, '')
+              : may('courseResources', resource.data.campus, resource.data.department, '')))
         && audited('resources/' + id)
         && versionBumped(resource.data.campus)
         && pathBumped(resource.data.campus, 'resources');
