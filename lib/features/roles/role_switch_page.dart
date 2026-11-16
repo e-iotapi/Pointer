@@ -67,7 +67,7 @@ class RoleSwitchPage extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    g == null ? const TierTag('STUDENT') : TierTag.of(g.role),
+                    g == null ? const TierTag('STUDENT') : TierTag.ofGrant(g, myRoles.value.roleDefs),
                     const SizedBox(height: 6),
                     Text(
                       g == null

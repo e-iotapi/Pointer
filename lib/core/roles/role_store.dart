@@ -203,9 +203,10 @@ class RoleStore {
         if (g.role != GrantRole.contributor && g.role != GrantRole.custom) g,
     ];
     final custom = live.where((g) => g.role == GrantRole.custom).firstOrNull;
-    // The definitions are read only when something answers through them.
+    // The definitions are read when something answers through them, and for
+    // an owner, whose screens name every role.
     RoleDefs? defs;
-    if (!owner && (held.isNotEmpty || custom != null)) {
+    if (owner || held.isNotEmpty || custom != null) {
       try {
         defs = await roleDefs();
       } on FirebaseException {

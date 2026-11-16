@@ -8,6 +8,7 @@ import 'dart:convert';
 
 import 'package:cgpa_calculator/core/analytics/analytics_store.dart';
 import 'package:cgpa_calculator/core/roles/capabilities.dart';
+import 'package:cgpa_calculator/core/roles/role_defs.dart';
 import 'package:cgpa_calculator/core/roles/role_store.dart';
 import 'package:cgpa_calculator/core/roles/roles.dart';
 import 'package:cgpa_calculator/core/storage/cache_boxes.dart';
@@ -61,25 +62,77 @@ final myRoles = ValueNotifier<MyRoles>(MyRoles.none);
 /// the session only.
 @immutable
 class ViewAs {
-  const ViewAs(this.role, {this.campus, this.scope});
+  /// Opens as [role]. [at] is the place of a built-in president (campus,
+  /// department) or CR (campus, course); a custom role opens at its own
+  /// scope and ignores it.
+  const ViewAs(this.role, {this.at});
+
+  /// The Student lens: a signed-in person who holds nothing.
+  static const student = ViewAs(
+    RoleDef(
+      id: 'student',
+      name: 'Student',
+      tag: 'STUDENT',
+      caps: <Capability>{},
+      termDays: 0,
+      builtin: true,
+    ),
+  );
 
   /// The role to render as.
-  final Role role;
+  final RoleDef role;
 
-  /// The campus key the lens is scoped to.
-  final String? campus;
-
-  /// A department key for a president, a course id for a CR.
-  final String? scope;
+  /// Where a built-in president or CR is opened.
+  final Reach? at;
 
   /// The lens as shown in the banner.
-  String get label => switch (role) {
-    Role.owner => 'Owner',
-    Role.admin => 'Admin',
-    Role.president => 'President · $scope ${campusName(campus ?? '')}',
-    Role.cr => 'CR · $scope ${campusName(campus ?? '')}',
-    Role.student => 'Student',
-  };
+  String get label {
+    final place = campusName(at?.campus ?? '');
+    return switch (role.id) {
+      'owner' => 'Owner',
+      'admin' => 'Admin',
+      'student' => 'Student',
+      'president' => 'President · ${at?.dept} $place',
+      'cr' => 'CR · ${at?.course} $place',
+      _ => '${role.name} · ${customScopeLabel(role)}',
+    };
+  }
+
+  /// What the holder of this lens holds, so `may` and `reach` answer as they
+  /// would. A stand-in student address on the lens's campus; nothing is
+  /// stored or sent.
+  MyRoles get roles {
+    final own = role.campus == null || role.campus == 'all' ? 'goa' : role.campus!;
+    final campus = at?.campus ?? own;
+    final email = 'f20000000@$campus.bits-pilani.ac.in';
+    Grant grant(GrantRole r, String campus, String scope) => Grant(
+      role: r,
+      email: email,
+      name: '',
+      campus: campus,
+      scope: scope,
+      active: true,
+      expiresAt: DateTime(2100),
+      roleId: r == GrantRole.custom ? role.id : null,
+    );
+    final a = at;
+    return MyRoles(
+      email: email,
+      owner: role.id == 'owner',
+      defs: RoleDefs({...RoleDefs.defaults().byId, role.id: role}),
+      grants: switch (role.id) {
+        'admin' => [grant(GrantRole.admin, 'all', 'all')],
+        'president' when a != null => [
+          grant(GrantRole.dept, a.campus, a.dept ?? ''),
+        ],
+        'cr' when a != null => [
+          grant(GrantRole.course, a.campus, a.course ?? ''),
+        ],
+        _ => const [],
+      },
+      custom: role.builtin ? null : grant(GrantRole.custom, campus, 'role'),
+    );
+  }
 }
 
 /// The active [ViewAs] lens, or `null` when the app renders as the person.

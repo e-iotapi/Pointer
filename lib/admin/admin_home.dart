@@ -6,7 +6,6 @@ import 'package:cgpa_calculator/app/theme/tokens.dart';
 import 'package:cgpa_calculator/core/analytics/analytics_store.dart';
 import 'package:cgpa_calculator/core/catalog/publish.dart';
 import 'package:cgpa_calculator/core/roles/capabilities.dart';
-import 'package:cgpa_calculator/core/roles/role_defs.dart';
 import 'package:cgpa_calculator/core/roles/role_store.dart';
 import 'package:cgpa_calculator/core/roles/roles.dart';
 import 'package:cgpa_calculator/core/roles/session.dart';
@@ -90,15 +89,15 @@ class _AdminHomeState extends State<AdminHome> {
   Widget build(BuildContext context) {
     final p = AppPalette.of(context);
     final r = myRoles.value;
-    // Under Open as › Admin an owner sees what an admin sees.
-    final lens = r.owner && viewAs.value?.role == Role.admin;
+    // Under Open as an owner sees what that role's holder sees.
+    final view = r.owner ? viewAs.value : null;
+    final lens = view != null && view.role.id != 'student';
     final owner = r.owner && !lens;
-    // A tile shows when a row behind it reaches somewhere; the admin lens
-    // asks the admin's default rows.
+    final other = lens && view.role.id != 'admin';
+    final me = lens ? view.roles : r;
+    // A tile shows when a row behind it reaches somewhere.
     bool can(Iterable<Capability> caps) =>
-        lens
-            ? caps.any(RoleDefs.defaults()['admin']!.caps.contains)
-            : caps.any((c) => r.reach(c).isNotEmpty);
+        caps.any((c) => me.reach(c).isNotEmpty);
     final name = roleStore?.myName ?? '';
     final live = _live;
     void go(String to) => context.push(to);
@@ -108,9 +107,28 @@ class _AdminHomeState extends State<AdminHome> {
       final now = DateTime.now();
       int count(GrantRole role) =>
           live.grants.where((g) => g.role == role && g.liveAt(now)).length;
-      return '${_n(count(GrantRole.dept), 'president')} · '
-          '${_n(count(GrantRole.course), 'course manager')} · '
-          '${_n(count(GrantRole.admin), 'admin')}';
+      final custom = [
+        for (final d in r.roleDefs.byId.values)
+          if (!d.builtin)
+            (
+              d.name.toLowerCase(),
+              live.grants
+                  .where(
+                    (g) =>
+                        g.role == GrantRole.custom &&
+                        g.roleId == d.id &&
+                        g.liveAt(now),
+                  )
+                  .length,
+            ),
+      ];
+      return [
+        _n(count(GrantRole.dept), 'president'),
+        _n(count(GrantRole.course), 'course manager'),
+        _n(count(GrantRole.admin), 'admin'),
+        for (final (name, n) in custom)
+          if (n > 0) _n(n, name),
+      ].join(' · ');
     }
 
     final contact = live?.contact;
@@ -133,11 +151,11 @@ class _AdminHomeState extends State<AdminHome> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              TierTag(owner ? 'OWNER' : 'ADMIN'),
+              lens ? TierTag.of(view.role) : TierTag(owner ? 'OWNER' : 'ADMIN'),
               const SizedBox(height: Space.sm),
               Text(
                 '${name.isEmpty ? '' : '$name — '}'
-                '${owner ? 'every campus, every department' : 'appointments, every campus'}',
+                '${other ? view.label : owner ? 'every campus, every department' : 'appointments, every campus'}',
                 style: TypeScale.body.copyWith(
                   fontSize: 13,
                   fontWeight: FontWeight.w600,
@@ -146,7 +164,10 @@ class _AdminHomeState extends State<AdminHome> {
               ),
               const SizedBox(height: Space.xs),
               Text(
-                owner
+                other
+                    ? 'Open as ${view.role.name}: Controls shows only what '
+                        'this role may reach.'
+                    : owner
                     ? 'Owners publish, appoint admins and add other owners. Any '
                         'verified Google account can be one — keep at least one '
                         'that survives graduation.'

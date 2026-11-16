@@ -3,7 +3,6 @@
 import 'dart:io';
 
 import 'package:cgpa_calculator/core/prefs/prefs_store.dart';
-import 'package:cgpa_calculator/core/roles/capabilities.dart';
 import 'package:cgpa_calculator/core/roles/session.dart';
 import 'package:cgpa_calculator/core/storage/cache_boxes.dart';
 import 'package:cgpa_calculator/features/tour/tour.dart';
@@ -58,7 +57,7 @@ void main() {
   });
 
   test('never while viewing as someone else', () {
-    viewAs.value = const ViewAs(Role.student);
+    viewAs.value = ViewAs.student;
     expect(tourAllowedAt('/'), isFalse);
   });
 

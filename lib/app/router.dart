@@ -311,6 +311,11 @@ final List<RouteBase> appRoutes = [
             () => admin.ViewAsCoursePage(),
             Capability.openAs,
           ),
+          _admin(
+            'open-as/role',
+            () => admin.ViewAsRolePage(),
+            Capability.openAs,
+          ),
           _admin('open-as', () => admin.OpenAsPage(), Capability.openAs),
           _admin('publish', () => admin.PublishPage(), Capability.publish),
           _admin(

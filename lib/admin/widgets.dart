@@ -4,6 +4,7 @@ library;
 import 'package:cgpa_calculator/app/theme/palette.dart';
 import 'package:cgpa_calculator/app/theme/tokens.dart';
 import 'package:cgpa_calculator/core/roles/claim_store.dart' show ClaimError;
+import 'package:cgpa_calculator/core/roles/role_defs.dart';
 import 'package:cgpa_calculator/core/roles/roles.dart';
 import 'package:cgpa_calculator/shared/widgets/app_card.dart';
 import 'package:cgpa_calculator/shared/widgets/card_row.dart';
@@ -100,14 +101,40 @@ class NavRow extends StatelessWidget {
 
 /// OWNER, ADMIN, PRESIDENT, CR.
 class TierTag extends StatelessWidget {
-  const TierTag(this.text, {super.key, this.strong = false});
+  const TierTag(
+    this.text, {
+    super.key,
+    this.strong = false,
+    this.plain = false,
+  });
   final String text;
+
+  /// The grey tag a custom role wears (board `Rl_People`).
+  final bool plain;
 
   /// Dark ground: owners and admins, and CRs on the boards.
   final bool strong;
 
-  /// The tag for a grant of role [r]; department presidents get the light one.
-  static TierTag of(GrantRole r) => TierTag(r.tag, strong: r != GrantRole.dept);
+  /// The tag for [d]: a built-in's own tag (presidents get the light one), a
+  /// custom role's name in grey.
+  static TierTag of(RoleDef d) =>
+      d.builtin
+          ? TierTag(d.tag, strong: d.id != 'president')
+          : TierTag(d.name.toUpperCase(), plain: true);
+
+  /// The tag for [g], named by its role in [defs] when that is known.
+  static TierTag ofGrant(Grant g, RoleDefs defs) {
+    final d = switch (g.role) {
+      GrantRole.admin => defs['admin'],
+      GrantRole.dept => defs['president'],
+      GrantRole.course => defs['cr'],
+      GrantRole.custom => defs[g.roleId ?? ''],
+      GrantRole.contributor => null,
+    };
+    return d != null
+        ? of(d)
+        : TierTag(g.role.tag, strong: g.role != GrantRole.dept);
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -116,7 +143,12 @@ class TierTag extends StatelessWidget {
       height: 22,
       padding: const EdgeInsets.symmetric(horizontal: 9),
       decoration: BoxDecoration(
-        color: strong ? p.navBackground : p.hero,
+        color:
+            plain
+                ? p.surfaceSunken
+                : strong
+                ? p.navBackground
+                : p.hero,
         borderRadius: BorderRadius.circular(11),
       ),
       // On top, not a border: one size in both themes.
@@ -136,7 +168,12 @@ class TierTag extends StatelessWidget {
             fontSize: 10,
             fontWeight: FontWeight.w800,
             letterSpacing: 0.3,
-            color: strong ? p.hero : p.onHero,
+            color:
+                plain
+                    ? p.text
+                    : strong
+                    ? p.hero
+                    : p.onHero,
           ),
         ),
       ),

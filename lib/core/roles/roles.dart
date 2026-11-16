@@ -197,6 +197,13 @@ class Grant {
     GrantRole.custom => 'Custom role',
   };
 
+  /// [scopeLabel], with a custom grant's scope read from its role in [defs]:
+  /// "ELEC · Goa", "Every department · Goa", "Every campus".
+  String scopeLabelIn(RoleDefs defs) {
+    final d = role == GrantRole.custom ? defs[roleId ?? ''] : null;
+    return d == null ? scopeLabel : customScopeLabel(d);
+  }
+
   /// Reads a grant document's data.
   static Grant fromMap(Map<String, dynamic> m) => Grant(
     role: GrantRole.of(m['role'] as String),
@@ -235,6 +242,15 @@ class Grant {
     'dept': dept,
     'roleId': roleId,
   };
+}
+
+/// A custom role's scope in short: "ELEC · Goa", "Every department · Goa",
+/// "Every campus".
+String customScopeLabel(RoleDef d) {
+  final campus = d.campus ?? 'all';
+  final dept = d.dept == null || d.dept == 'all' ? null : d.dept;
+  if (dept == null && campus == 'all') return 'Every campus';
+  return '${dept ?? 'Every department'} · ${campusName(campus)}';
 }
 
 /// The grant document id: `role|campus|scope|email`.
