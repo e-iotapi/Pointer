@@ -3,6 +3,7 @@ import 'package:cgpa_calculator/core/analytics/analytics_store.dart';
 import 'package:cgpa_calculator/core/prefetch/prefetch.dart';
 import 'package:cgpa_calculator/core/professors/professor_store.dart';
 import 'package:cgpa_calculator/core/roles/activity_store.dart';
+import 'package:cgpa_calculator/core/roles/capabilities.dart';
 import 'package:cgpa_calculator/core/roles/maintain_store.dart';
 import 'package:cgpa_calculator/core/roles/roles.dart';
 import 'package:cgpa_calculator/core/roles/session.dart';
@@ -93,29 +94,45 @@ List<PrefetchLevel> prefetchLevels() {
   }
 
   final four = <Future<void> Function()>[_job(prefetchPresidentPages)];
-  for (final c in {for (final g in me.presidencies) g.campus}) {
+  // Warm what each place I reach will open (a reach entry per place).
+  for (final c in {
+    for (final x in me.reach(Capability.reviewGateSwitch))
+      if (x.campus != 'all') x.campus,
+  }) {
     four.add(_job(() => gateInfo(c)));
   }
-  if (me.reachesAdmin) four.add(_job(() => gateInfo(campus)));
-  // The approvals queue of each department I head.
+  if (me.reach(Capability.reviewGateSwitch).any((x) => x.campus == 'all')) {
+    four.add(_job(() => gateInfo(campus)));
+  }
+  // The approvals queue of each department I approve for.
   if (contributorStore case final cs?) {
-    for (final g in me.presidencies) {
+    for (final x in me.reach(Capability.approveContributors)) {
+      final dept = x.dept;
+      if (x.campus == 'all' || dept == null || dept == 'all') continue;
       if (store case final rs?) {
-        four.add(_job(() => rs.pending(g.campus, g.scope)));
+        four.add(_job(() => rs.pending(x.campus, dept)));
       }
-      four.add(_job(() => cs.requests(g.campus, g.scope)));
+      four.add(_job(() => cs.requests(x.campus, dept)));
     }
   }
   final maintain = MaintainStore(roles);
-  for (final g in me.courses) {
-    four.add(_job(() => maintain.offering(g.scope, campus, term)));
+  for (final x in me.reach(Capability.averages)) {
+    if (x.course case final course?) {
+      four.add(_job(() => maintain.offering(course, campus, term)));
+    }
   }
-  if (me.reachesAdmin) {
+  if (me.reach(Capability.readAuditAndRoster).any((x) => x.campus == 'all')) {
+    four.add(_job(() => roles.roster()));
+  }
+  if (me.reach(Capability.addRemoveOwners).isNotEmpty) {
+    four.add(_job(() => roles.owners()));
+  }
+  if (me.reach(Capability.grantTermsCrPresident).isNotEmpty) {
+    four.add(_job(() => roles.terms()));
+  }
+  if (me.reach(Capability.publish).isNotEmpty) {
     final analytics = AnalyticsStore(roles.db);
     four
-      ..add(_job(() => roles.roster()))
-      ..add(_job(() => roles.owners()))
-      ..add(_job(() => roles.terms()))
       ..add(_job(() => analytics.counts()))
       ..add(_job(() => analytics.days(30)));
   }

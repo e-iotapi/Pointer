@@ -5,6 +5,7 @@ import 'package:cgpa_calculator/app/routes.dart';
 import 'package:cgpa_calculator/app/theme/palette.dart';
 import 'package:cgpa_calculator/app/theme/tokens.dart';
 import 'package:cgpa_calculator/core/roles/contacts.dart';
+import 'package:cgpa_calculator/core/roles/capabilities.dart';
 import 'package:cgpa_calculator/core/roles/roles.dart';
 import 'package:cgpa_calculator/core/roles/session.dart';
 import 'package:cgpa_calculator/shared/widgets/app_text_field.dart';
@@ -49,9 +50,14 @@ class _RosterPageState extends State<RosterPage> {
   @override
   Widget build(BuildContext context) {
     final r = myRoles.value;
+    // Where I may read the roster: every campus, or the first campus I reach.
+    final reach = r.reach(Capability.readAuditAndRoster);
+    final campus =
+        reach.any((x) => x.campus == 'all') ? null : reach.firstOrNull?.campus;
+    final tabCampus = campus ?? 'goa';
+    // Display: the president's campus and branch pills.
     final pres = r.presidencies.firstOrNull;
-    final campus = r.owner || r.admin ? null : pres?.campus;
-    final tabCampus = campus ?? pres?.campus ?? 'goa';
+    final appoints = r.may(Capability.appointPresidents);
     return Loaded<
       (List<Grant>, Map<String, String>, List<Map<String, dynamic>>, int)
     >(
@@ -110,7 +116,7 @@ class _RosterPageState extends State<RosterPage> {
           ),
           bottom: BottomAction(
             child: PrimaryButton(
-              label: r.owner || r.admin ? 'Appoint someone' : 'Appoint a CR',
+              label: appoints ? 'Appoint someone' : 'Appoint a CR',
               icon: Icons.add_rounded,
               onPressed: () async {
                 await context.push(Routes.adminGrant);
@@ -176,7 +182,7 @@ class _RosterPageState extends State<RosterPage> {
                         phone: phones[g.email],
                         showPhone: true,
                         onTap:
-                            r.owner || r.admin
+                            appoints
                                 ? () async {
                                   await Navigator.of(context).push(
                                     MaterialPageRoute(

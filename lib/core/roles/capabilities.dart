@@ -260,3 +260,26 @@ Map<String, Set<Capability>> defaultBuiltinCaps() => {
         if (c.cell(r).startsWith('✓')) c,
     },
 };
+
+/// The appoint rows: any of them opens Maintainers and the grant form.
+const appointCaps = [
+  Capability.appointAdmins,
+  Capability.appointPresidents,
+  Capability.appointCrs,
+];
+
+/// The rows behind Controls › Course tools.
+const courseToolsCaps = [
+  Capability.courseStructures,
+  Capability.bulkUpload,
+  Capability.degreeRequirements,
+  Capability.averages,
+  Capability.professors,
+  Capability.mergeProfessors,
+  Capability.departmentResources,
+  Capability.courseResources,
+  Capability.approveContributors,
+];
+
+/// The rows behind Controls › Reviews.
+const reviewsCaps = [Capability.moderateReviews, Capability.reviewGateSwitch];

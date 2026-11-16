@@ -4,6 +4,7 @@ import 'package:cgpa_calculator/admin/widgets.dart';
 import 'package:cgpa_calculator/app/theme/palette.dart';
 import 'package:cgpa_calculator/app/theme/tokens.dart';
 import 'package:cgpa_calculator/core/catalog/catalog.dart';
+import 'package:cgpa_calculator/core/roles/capabilities.dart';
 import 'package:cgpa_calculator/core/roles/contacts.dart';
 import 'package:cgpa_calculator/core/roles/roles.dart';
 import 'package:cgpa_calculator/core/roles/session.dart';
@@ -15,14 +16,23 @@ import 'package:cgpa_calculator/shared/widgets/pill_button.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
-/// The department whose offers the tab opens on: the president's own, or
-/// for owners and admins the first.
+/// The departments of [campus] where I hold [cap]: one for a president or a
+/// custom role scoped to a department, all of them for wider reach.
+List<String> deptsReached(Capability cap, String campus) {
+  final out = <String>{};
+  for (final x in myRoles.value.reach(cap)) {
+    if (x.campus != 'all' && x.campus != campus) continue;
+    final d = x.dept;
+    if (d == null || d == 'all') return departments.keys.toList();
+    out.add(d);
+  }
+  return out.toList();
+}
+
+/// The department whose offers the tab opens on: the first where I may
+/// appoint CRs (a president's own).
 String? defaultDept(String campus) =>
-    myRoles.value.presidencies
-        .where((g) => g.campus == campus)
-        .firstOrNull
-        ?.scope ??
-    (myRoles.value.reachesAdmin ? departments.keys.first : null);
+    deptsReached(Capability.appointCrs, campus).firstOrNull;
 
 /// Open offers the Volunteers tab starts on, for its label.
 Future<int> openOffers(String campus) async {
@@ -66,16 +76,10 @@ class _VolunteersTabState extends State<VolunteersTab> {
 
   ContactStore get _store => ContactStore(roleStore!);
 
-  List<String> get _depts {
-    final r = myRoles.value;
-    if (r.reachesAdmin) return departments.keys.toList();
-    return [
-      for (final g in r.presidencies)
-        if (g.campus == widget.campus) g.scope,
-    ];
-  }
+  List<String> get _depts => deptsReached(Capability.appointCrs, widget.campus);
 
   String _message(String courseId, List<Volunteer> offers) {
+    // Display: the name the message is signed with.
     final pres =
         myRoles.value.presidencies
             .where((g) => g.campus == widget.campus && g.scope == _dept)

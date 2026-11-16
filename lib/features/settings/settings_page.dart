@@ -150,7 +150,7 @@ class _SettingsPageState extends State<SettingsPage> {
                   : null,
               onContribute:
                   roleStore == null ||
-                          myRoles.value.staff ||
+                          contributesDirectly ||
                           const [
                             ContribState.applied,
                             ContribState.approved,
@@ -172,6 +172,7 @@ class _SettingsPageState extends State<SettingsPage> {
                       if (mounted) setState(() {});
                     }
                   : null,
+              // The door to Controls: the screens inside ask for their rows.
               onControls: myRoles.value.reachesAdmin
                   ? () => openRoute(context, Routes.admin, () => const SizedBox())
                   : null,

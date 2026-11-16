@@ -19,6 +19,7 @@ import 'package:cgpa_calculator/core/models/offering.dart';
 import 'package:cgpa_calculator/core/platform/browser.dart';
 import 'package:cgpa_calculator/core/roles/claim_store.dart';
 import 'package:cgpa_calculator/core/roles/maintain_store.dart';
+import 'package:cgpa_calculator/core/roles/capabilities.dart';
 import 'package:cgpa_calculator/core/roles/roles.dart';
 import 'package:cgpa_calculator/core/roles/session.dart';
 import 'package:cgpa_calculator/features/marks/official.dart';
@@ -122,6 +123,7 @@ String _n(double d) =>
 
 /// The programme a president was appointed for, when there is one.
 String _scopeLabel(String campus, String dept) {
+  // Display: the label of the grant's programme, no permission.
   final g =
       myRoles.value.presidencies
           .where((g) => g.campus == campus && g.scope == dept)
@@ -236,6 +238,7 @@ class DeptHome extends StatelessWidget {
     final p = AppPalette.of(context);
     final courses = deptCourses(dept);
     final ids = {for (final c in courses) c.id};
+    // Display: the programme the president was appointed for.
     final mine =
         myRoles.value.presidencies
             .where((g) => g.campus == campus && g.scope == dept)
@@ -393,7 +396,8 @@ class DeptHome extends StatelessWidget {
               ),
             ),
             const LeaderboardNameCard(),
-            // A secretary never hands over, nor does Electives (B2).
+            // A secretary never hands over, nor does Electives (B2). Handing
+            // over is the president's own grant, not a row of the table.
             if (dept != genDept &&
                 !myRoles.value.presidencies.any(
                   (g) => g.campus == campus && g.scope == dept && g.secretary,
@@ -594,13 +598,19 @@ class _DeptCoursesState extends State<DeptCourses> {
                 (!_missingOnly || !(offerings[c.id]?.hasScheme ?? false)))
               c,
         ];
-        // Presidents only, never a secretary (B2).
-        final canClaim = myRoles.value.presidencies.any(
-          (g) =>
-              g.campus == widget.campus &&
-              g.scope == widget.dept &&
-              !g.secretary,
-        );
+        // Never a secretary (B2); the row itself says who else may.
+        final canClaim =
+            myRoles.value.may(
+              Capability.claimElectives,
+              campus: widget.campus,
+              scope: widget.dept,
+            ) &&
+            !myRoles.value.presidencies.any(
+              (g) =>
+                  g.campus == widget.campus &&
+                  g.scope == widget.dept &&
+                  g.secretary,
+            );
         final claimable = [
           if (canClaim)
             for (final c in claimableCourses(widget.dept, claims))

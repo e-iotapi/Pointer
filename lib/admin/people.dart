@@ -3,6 +3,7 @@ import 'package:cgpa_calculator/app/routes.dart';
 import 'package:cgpa_calculator/app/theme/palette.dart';
 import 'package:cgpa_calculator/app/theme/tokens.dart';
 import 'package:cgpa_calculator/core/roles/role_store.dart';
+import 'package:cgpa_calculator/core/roles/capabilities.dart';
 import 'package:cgpa_calculator/core/roles/roles.dart';
 import 'package:cgpa_calculator/core/roles/session.dart';
 import 'package:cgpa_calculator/shared/widgets/app_card.dart';
@@ -319,19 +320,22 @@ class _PersonPageState extends State<PersonPage> {
   Widget build(BuildContext context) {
     final r = myRoles.value;
     final mayRevoke = switch (_g.role) {
-      GrantRole.admin => r.owner,
-      GrantRole.dept => r.owner || r.admin,
+      GrantRole.admin => r.may(Capability.appointAdmins),
+      GrantRole.dept => r.may(
+        Capability.appointPresidents,
+        campus: _g.campus,
+        scope: _g.scope,
+      ),
       GrantRole.custom => r.owner,
-      GrantRole.contributor =>
-        r.owner ||
-            r.admin ||
-            r.presidencies.any((p) => p.campus == _g.campus),
-      GrantRole.course =>
-        r.owner ||
-            r.admin ||
-            r.presidencies.any(
-              (p) => p.campus == _g.campus && p.scope == deptOf(_g.scope),
-            ),
+      GrantRole.contributor => r.may(
+        Capability.approveContributors,
+        campus: _g.campus,
+      ),
+      GrantRole.course => r.may(
+        Capability.appointCrs,
+        campus: _g.campus,
+        scope: deptOf(_g.scope),
+      ),
     };
     final revoke = mayRevoke && _g.active;
     // "CR" is an acronym, not a sentence-case word (BUG-51): keep it as is,

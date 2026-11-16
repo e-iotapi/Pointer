@@ -4,6 +4,8 @@ import 'package:cgpa_calculator/admin/approvals.dart';
 import 'package:cgpa_calculator/app/theme/palette.dart';
 import 'package:cgpa_calculator/core/contrib/contributor_store.dart';
 import 'package:cgpa_calculator/core/resources/resource.dart';
+import 'package:cgpa_calculator/core/roles/capabilities.dart';
+import 'package:cgpa_calculator/core/roles/role_defs.dart';
 import 'package:cgpa_calculator/core/roles/role_store.dart';
 import 'package:cgpa_calculator/core/roles/roles.dart';
 import 'package:cgpa_calculator/core/roles/session.dart';
@@ -78,6 +80,53 @@ void main() {
     expect(contribStateOf(null), ContribState.approved);
     myRoles.value = MyRoles.none;
   });
+
+  test(
+    'a CR\'s link still waits for approval; a custom holder with '
+    'publishDirectly publishes at once',
+    () {
+      const goa = 'f20230001@goa.bits-pilani.ac.in';
+      Grant grant(GrantRole r, String scope, {String? roleId}) => Grant(
+        role: r,
+        email: goa,
+        name: 'X',
+        campus: r == GrantRole.custom ? 'all' : 'goa',
+        scope: r == GrantRole.custom ? 'role' : scope,
+        active: true,
+        expiresAt: DateTime(2100),
+        roleId: roleId,
+      );
+      myRoles.value = MyRoles(
+        email: goa,
+        grants: [grant(GrantRole.course, 'CS F111')],
+      );
+      expect(contributesDirectly, isFalse);
+      expect(publishesDirectly('goa', 'CS'), isFalse);
+      myRoles.value = MyRoles(
+        email: goa,
+        defs: RoleDefs({
+          ...RoleDefs.defaults().byId,
+          'r': const RoleDef(
+            id: 'r',
+            name: 'R',
+            tag: 'ROLE',
+            caps: {Capability.publishDirectly},
+            termDays: 100,
+            builtin: false,
+            campus: 'goa',
+            dept: 'CS',
+          ),
+        }),
+        custom: grant(GrantRole.custom, 'role', roleId: 'r'),
+      );
+      expect(contributesDirectly, isTrue);
+      expect(contribStateOf(null), ContribState.approved);
+      expect(publishesDirectly('goa', 'CS'), isTrue);
+      expect(publishesDirectly('goa', 'ELEC'), isFalse);
+      expect(publishesDirectly('hyderabad', 'CS'), isFalse);
+      myRoles.value = MyRoles.none;
+    },
+  );
 
   test('link states: awaiting, approved, rejected, removed', () {
     final now = DateTime.now();

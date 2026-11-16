@@ -11,6 +11,7 @@ import 'package:cgpa_calculator/core/models/offering.dart';
 import 'package:cgpa_calculator/core/professors/professor.dart';
 import 'package:cgpa_calculator/core/professors/professor_store.dart';
 import 'package:cgpa_calculator/core/roles/maintain_store.dart';
+import 'package:cgpa_calculator/core/roles/capabilities.dart';
 import 'package:cgpa_calculator/core/roles/roles.dart';
 import 'package:cgpa_calculator/core/roles/session.dart';
 import 'package:cgpa_calculator/shared/widgets/app_card.dart';
@@ -560,13 +561,17 @@ class ProfessorMerge extends StatefulWidget {
 }
 
 class _ProfessorMergeState extends State<ProfessorMerge> {
+  /// Where I may merge: the first place with a narrower reach, if any.
+  late final _reach = myRoles.value.reach(Capability.mergeProfessors);
+  late final _narrow = _reach.where((x) => x.campus != 'all').firstOrNull;
   late String _campus =
       widget.campus ??
-      myRoles.value.presidencies.firstOrNull?.campus ??
+      _narrow?.campus ??
       campusOfAddress(roleStore!.me) ??
       'goa';
   late String? _dept =
-      widget.dept ?? myRoles.value.presidencies.firstOrNull?.scope;
+      widget.dept ??
+      (_narrow?.dept == 'all' ? null : _narrow?.dept);
 
   /// The row picked from the shared department list; its label.
   Branch? _branch;
@@ -582,7 +587,7 @@ class _ProfessorMergeState extends State<ProfessorMerge> {
           (_) => DeptSheet(
             campus: _campus,
             selected: _branch,
-            gen: myRoles.value.owner || myRoles.value.admin,
+            gen: _reach.any((x) => x.dept == null || x.dept == 'all'),
           ),
     );
     if (v == null || !mounted) return;
@@ -611,8 +616,7 @@ class _ProfessorMergeState extends State<ProfessorMerge> {
   }
 
   PageFrame _frame(List<Widget> children, {Widget? bottom}) {
-    final r = myRoles.value;
-    final free = (r.owner || r.admin) && widget.campus == null;
+    final free = _reach.any((x) => x.campus == 'all') && widget.campus == null;
     final dept = _dept;
     return PageFrame(
       header: const PageHeader(

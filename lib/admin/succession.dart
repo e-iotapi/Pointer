@@ -6,6 +6,7 @@ import 'package:cgpa_calculator/app/routes.dart';
 import 'package:cgpa_calculator/app/theme/palette.dart';
 import 'package:cgpa_calculator/app/theme/tokens.dart';
 import 'package:cgpa_calculator/core/roles/role_store.dart';
+import 'package:cgpa_calculator/core/roles/capabilities.dart';
 import 'package:cgpa_calculator/core/roles/roles.dart';
 import 'package:cgpa_calculator/core/roles/session.dart';
 import 'package:cgpa_calculator/shared/widgets/app_card.dart';
@@ -32,8 +33,12 @@ Future<Grant?> _myGrant(String campus, String dept) async {
 /// preview is the real screen. Only [_myGrant] is ever handed over.
 Future<Grant?> _shownGrant(String campus, String dept) async {
   final mine = await _myGrant(campus, dept);
-  final r = myRoles.value;
-  if (mine != null || !(r.owner || r.admin)) return mine;
+  final lens = myRoles.value.may(
+    Capability.appointPresidents,
+    campus: campus,
+    scope: dept,
+  );
+  if (mine != null || !lens) return mine;
   final now = DateTime.now();
   return (await _roles.roster(campus: campus))
       .where(
@@ -264,7 +269,11 @@ class _SuccessionState extends State<Succession> {
             header: _header(widget.campus, widget.dept, 'Hand over'),
             children: [
               Note(
-                myRoles.value.owner || myRoles.value.admin
+                myRoles.value.may(
+                      Capability.appointPresidents,
+                      campus: widget.campus,
+                      scope: widget.dept,
+                    )
                     ? 'Nobody is president of ${branchCode(widget.dept)} on '
                         '${campusName(widget.campus)} yet, so there is '
                         'nothing to hand over. Appoint one from People.'
@@ -475,7 +484,11 @@ class _SuccessionConfirmState extends State<SuccessionConfirm> {
       if (mine == null) {
         final r = myRoles.value;
         throw StateError(
-          r.owner || r.admin
+          r.may(
+                Capability.appointPresidents,
+                campus: widget.campus,
+                scope: widget.dept,
+              )
               ? 'This is a preview. Only the president can hand '
                   '${widget.dept} over.'
               : 'You no longer hold ${widget.dept}.',
