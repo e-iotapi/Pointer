@@ -198,14 +198,12 @@ Two new tiles on the admin Controls page, for owners and admins:
 ```
 Controls
   People              Maintainers · Appoint someone · Roster
-  Course tools ›      campus → department → that department's screen
-                      (courses, eval schemes, degree requirements, professors
-                      add/rename/merge, resources, contributor approvals),
-                      or → a course's screen (structure, averages, resources);
-                      Bulk upload
-  Reviews ›           Review moderation (campus → department → its queue)
-                      · Compulsory reviews
-  Owners and admins   Grant terms · Public contact · Audit log
+  Tools               Course tools › (campus pills; By department · By course
+                        · Merge professors · Bulk upload)
+                      Reviews › (campus pills; Review moderation · Compulsory
+                        reviews)
+  Owners and admins   Roles (replaces Grant terms, Phase B) · Public contact
+                        · Audit log
   Owner only          Owners · Publish catalogue · Open Pointer as · Site analytics
 ```
 

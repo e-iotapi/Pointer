@@ -99,11 +99,11 @@ Replace the `admin is narrow` test's `courseStructures` expectation with the pub
 ### Task A2: Course Tools and Reviews tiles on Controls
 
 **Files:**
-- Create: `lib/admin/course_tools.dart` — `CourseToolsPage`: campus picker, "By department ›" (`ViewAsDeptPage(tools: true)`), "By course ›" (`ViewAsCoursePage(tools: true)`), "Bulk upload ›".
-- Create: `lib/admin/reviews_tools.dart` — `ReviewsToolsPage`: "Review moderation ›" (campus → department → `Routes.deptReviews`), "Compulsory reviews" (the existing switch row, moved).
+- Create: `lib/admin/course_tools.dart` — `CourseToolsPage` (artboard `Rl_CourseTools`): campus pills, then one group: "By department ›" (`ViewAsDeptPage(tools: true)`), "By course ›" (`ViewAsCoursePage(tools: true)`), "Merge professors ›" (the existing merge route), "Bulk upload ›"; two notes under it.
+- Create: `lib/admin/reviews_tools.dart` — `ReviewsToolsPage` (artboard `Rl_Reviews`; campus pills on top): "Review moderation ›" (campus → department → `Routes.deptReviews`), "Compulsory reviews" (the existing switch row, moved).
 - Modify: `lib/admin/open_as.dart:274-470` — `ViewAsDeptPage` and `ViewAsCoursePage` take `{bool tools = false}`: in tools mode they `context.push(Routes.dept(...)/crCourse(...))` without setting `viewAs`.
 - Modify: `lib/admin/maintain.dart:157` — `DeptHome` takes `hideReviews` (router passes it from `?tools=1`) and drops its Reviews tile when set.
-- Modify: `lib/admin/admin_home.dart:94-150` — two tiles "Course tools" and "Reviews" after People; remove the *Merge professors*, *Contributor approvals* and *Compulsory reviews* rows from "Owners and admins".
+- Modify: `lib/admin/admin_home.dart:94-150` — a new section labelled **TOOLS** after People, holding "Course tools" and "Reviews" (each with the board's NEW badge); remove the *Merge professors*, *Contributor approvals* and *Compulsory reviews* rows from "Owners and admins". *Grant terms* stays until B10. Artboard `Rl_Controls` shows the end state after B10.
 - Modify: `lib/app/routes.dart` (`adminCourseTools = '/admin/course-tools'`, `adminReviews = '/admin/reviews'`), `lib/app/router.dart` (two `_admin(...)` routes, guard `_adminOnly`).
 - Test: `test/roles/step11_screens_test.dart`
 
@@ -119,7 +119,8 @@ testWidgets('Controls groups course tools and reviews', (t) async {
   await t.pumpAndSettle();
   expect(find.text('Course tools'), findsOneWidget);
   expect(find.text('Reviews'), findsOneWidget);
-  expect(find.text('Merge professors'), findsNothing);
+  expect(find.text('TOOLS'), findsOneWidget);
+  expect(find.text('Merge professors'), findsNothing); // on Controls; it is inside Course tools
   expect(find.text('Contributor approvals'), findsNothing);
   expect(find.text('Compulsory reviews'), findsNothing);
 });
@@ -406,7 +407,8 @@ test('toggling a tick flips the answer', ...) // seed builtin without 'averages'
 **Files:**
 - Modify: `lib/admin/grant_form.dart` — the tier list becomes the role list from `RoleDefs` filtered by `mayAppoint`; a custom role shows its scope read-only ("SCOPE · SET BY THE ROLE", artboard `Rl_Appoint`); expiry max = the role's `termDays`.
 - Modify: `lib/admin/people.dart:318-335` — revoke allowed by `mayAppoint(def, reachOf(grant))`.
-- Modify: `lib/admin/config_pages.dart` — the Grant terms page edits `roles/builtin` termDays via `saveBuiltin` (owner: all three; admin: president and CR).
+- Term editing moves into the built-in role editor (B10, artboard `Rl_RoleBuiltin`, term stepper; owner: all three; admin: President and CR terms only). `lib/admin/config_pages.dart`'s Grant terms page is retired: `Routes.adminTerms` redirects to `Routes.adminRoles` once B10 lands.
+- Modify: `lib/admin/grant_form.dart` copy — the "TIER" section label becomes "ROLE"; custom roles follow the built-in pills; a custom role replaces the SCOPE card with "SCOPE · SET BY THE ROLE" (read-only scope label + "Change it in Roles"); EXPIRES says "The term comes from the role" (artboard `Rl_Appoint`).
 - Modify: `lib/core/roles/role_store.dart` — `appoint` accepts `GrantRole.custom` with `roleId` and writes `grants/custom|{email}`; `terms()`/`saveTerms()` read and write `roles/builtin`.
 - Modify: `lib/core/roles/roles.dart` — `bool MyRoles.mayAppoint(RoleDef target, {Reach? at})` (`at` for built-ins: the department/course picked; custom roles use their own scope): owner true; else some role of mine holds the target's appoint row (B5's `appointRow`), `target.caps ⊆ that role's caps`, the target's scope inside that role's scope, and the target is not me for custom.
 - Test: `test/core/capability_matrix_test.dart` (mayAppoint cases), `test/roles/step11_screens_test.dart`
@@ -421,7 +423,7 @@ test('toggling a tick flips the answer', ...) // seed builtin without 'averages'
 
 **Files:**
 - Create: `lib/admin/roles_page.dart` — `RolesPage` (Owner row read-only "Every permission"; Admin, President, CR, then custom roles with holder counts), `RoleEditor` (artboards `Rl_RoleEditor`, `Rl_RoleBuiltin`: name for custom; **scope for custom** — One department / Whole campus / Every campus, then campus pills and a department picker, limited to the author's own scope; term stepper; a tick list of `Capability.values` grouped by `reach`, each row disabled unless the author holds it, rows needing a wider reach labelled "campus" / "everywhere"; Delete for custom, disabled with "Revoke its N holders first" while live holders exist).
-- Modify: `lib/admin/admin_home.dart` (tile "Roles", gated `manageRoles`), `lib/app/routes.dart` (`adminRoles = '/admin/roles'`, `adminRole(String id) => '/admin/roles/$id'`), `lib/app/router.dart`.
+- Modify: `lib/admin/admin_home.dart` — "Roles" (NEW badge, subtitle "What each role may do, its scope and term", gated `manageRoles`) becomes the first row of "Owners and admins" and **replaces** *Grant terms* (artboard `Rl_Controls`); add a footer note that grant terms moved into Roles. Roles list, editors: artboards `Rl_Roles`, `Rl_RoleEditor`, `Rl_RoleBuiltin`. `lib/app/routes.dart` (`adminRoles = '/admin/roles'`, `adminRole(String id) => '/admin/roles/$id'`), `lib/app/router.dart`.
 - Modify: `lib/admin/people.dart`, `lib/admin/roster.dart` — custom grants listed under the role's name and tag.
 - Test: `test/admin/roles_page_test.dart`
 
