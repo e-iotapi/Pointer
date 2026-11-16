@@ -600,8 +600,10 @@ class RoleStore {
     void Function(WriteBatch b)? also,
   }) async {
     final staff = await _staff(g.email);
+    final def =
+        g.role == GrantRole.custom ? (await roleDefs())[g.roleId ?? ''] : null;
     final b = db.batch();
-    _grantInto(b, g, staff, summary, before: before);
+    _grantInto(b, g, staff, summary, before: before, def: def);
     _bumpGrants(b, g.campus);
     also?.call(b);
     await b.commit();
@@ -616,6 +618,7 @@ class RoleStore {
     StaffEntry staff,
     String summary, {
     Grant? before,
+    RoleDef? def,
   }) {
     final id = logInto(
       b,
@@ -659,8 +662,27 @@ class RoleStore {
         },
       });
     }
-    // A custom grant is not in the staff index (B6 adds its reach).
-    if (g.role != GrantRole.custom) _staffInto(b, staff, g);
+    // A custom holder's index entry is their role's scope, not their own.
+    if (g.role != GrantRole.custom) {
+      _staffInto(b, staff, g);
+    } else {
+      _staffInto(
+        b,
+        staff,
+        Grant(
+          role: g.role,
+          email: g.email,
+          name: g.name,
+          campus: g.campus,
+          scope: g.scope,
+          active: g.active,
+          expiresAt: g.expiresAt,
+          dept: def?.dept,
+          roleId: g.roleId,
+        ),
+        roleCampus: def?.campus,
+      );
+    }
   }
 
   /// A grant on [campus] moved; an every-campus (admin) one moves every head

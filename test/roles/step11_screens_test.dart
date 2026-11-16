@@ -1229,8 +1229,10 @@ void main() {
     expect(g['grantedBy'], {'email': 'owner@example.com', 'name': 'Me'});
     final until = (g['expiresAt'] as Timestamp).toDate();
     expect(until.difference(DateTime.now()).inDays, inInclusiveRange(28, 30));
-    // Not in the staff index.
-    expect((await db.collection('staff').doc(pres).get()).exists, isFalse);
+    // In the staff index, with the role's reach.
+    final reach =
+        (await db.collection('staff').doc(pres).get()).data()!['reach'] as List;
+    expect(reach.single['role'], 'custom');
   });
 
   testWidgets('unknown address says Can not be found', (t) async {

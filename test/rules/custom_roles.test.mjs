@@ -57,16 +57,26 @@ function writeBuiltin(actor, caps = {}, terms = {}) {
   return b.commit();
 }
 
-/// grants/custom|{email}: grant + audit + marker.
-function grantCustom(actor, email, roleId, extra = {}) {
+/// grants/custom|{email}: grant + audit + marker + the holder's staff entry,
+/// the app's exact batch. The entry is the role's scope unless [staff] says
+/// otherwise; with [extra].active false it is removed.
+async function grantCustom(actor, email, roleId, extra = {}, staff = {}) {
   const db = as(actor);
+  const r = (await getDoc(doc(db, 'roles', roleId))).data();
   const b = writeBatch(db);
   const a = doc(collection(db, 'audit'));
   const campus = email.split('@')[1].split('.')[0];
-  b.set(doc(db, 'grants', `custom|${email}`), {
+  const active = extra.active ?? true;
+  const id = `custom|${email}`;
+  b.set(doc(db, 'grants', id), {
     role: 'custom', campus, scope: 'role', email, roleId, name: name(email), active: true,
     expiresAt: days(30), grantedBy: { email: actor, name: name(actor) }, grantedAt: serverTimestamp(),
     auditId: a.id, ...extra,
+  });
+  b.set(doc(db, 'staff', email), {
+    email, name: name(email), campus, owner: false, admin: false, presidentOf: [], courses: [],
+    expiresAt: days(30), lastGrant: id,
+    reach: active ? [{ role: 'custom', campus: r?.campus ?? null, dept: r?.dept ?? null }] : [], ...staff,
   });
   b.set(a, {
     actor: { email: actor, name: name(actor), role: 'test' }, action: 'grant',
@@ -201,6 +211,10 @@ describe('custom grants', () => {
       actor: { email: OWNER, name: name(OWNER), role: 'test' }, action: 'revoke',
       path: `grants/custom|${CUSTOM}`, campus: 'goa', before: null, after: 'custom', at: serverTimestamp(),
     });
+    b.set(doc(db, 'staff', CUSTOM), {
+      email: CUSTOM, name: name(CUSTOM), campus: 'goa', owner: false, admin: false, presidentOf: [],
+      courses: [], expiresAt: days(9), lastGrant: `custom|${CUSTOM}`, reach: [],
+    });
     bump(b, db, 'goa', 'grants');
     await assertSucceeds(b.commit());
     await assertFails(may(CUSTOM, 'averages', 'goa', 'ELEC', 'EEE F211'));
@@ -222,6 +236,7 @@ describe('custom grants', () => {
 // ---- B5: one appointment rule, terms on the role ---------------------------
 
 const grantRole = (actor, email, roleId) => grantCustom(actor, email, roleId);
+
 const MGR = ['manageRoles', 'averages', 'courseStructures'];
 
 describe('appointing custom roles', () => {
@@ -297,5 +312,42 @@ describe('averages need course structures', () => {
       await assertFails(writeBuiltin(OWNER, { [k]: ['averages'] }));
       await assertSucceeds(writeBuiltin(OWNER, { [k]: ['averages', 'courseStructures'] }));
     }
+  });
+});
+
+describe('custom grants and the staff index (M3)', () => {
+  const entry = { role: 'custom', campus: 'goa', dept: 'ELEC' };
+  const setup = async () => {
+    await customRole('avg', ['averages', 'courseStructures'], 365, 'goa', 'ELEC');
+    await seed((db) => setDoc(doc(db, 'people', CUSTOM), { name: name(CUSTOM), campus: 'goa', firstSignIn: 1 }));
+  };
+
+  test('appointing a custom role writes its staff entry', async () => {
+    await setup();
+    await assertSucceeds(grantCustom(OWNER, CUSTOM, 'avg'));
+    await seed(async (db) => {
+      const s = (await getDoc(doc(db, 'staff', CUSTOM))).data();
+      if (JSON.stringify(s.reach) !== JSON.stringify([entry])) throw new Error('reach ' + JSON.stringify(s.reach));
+    });
+  });
+
+  test('a custom grant without its staff entry, or with a wrong one, is refused', async () => {
+    await setup();
+    await assertFails(grantCustom(OWNER, CUSTOM, 'avg', {}, { reach: [] }));
+    await assertFails(grantCustom(OWNER, CUSTOM, 'avg', {}, { reach: [{ ...entry, dept: 'all' }] }));
+  });
+
+  test('revoking removes it', async () => {
+    await setup();
+    await assertSucceeds(grantCustom(OWNER, CUSTOM, 'avg'));
+    await assertFails(grantCustom(OWNER, CUSTOM, 'avg', { active: false }, { reach: [entry] }));
+    await assertSucceeds(grantCustom(OWNER, CUSTOM, 'avg', { active: false }));
+  });
+
+  test('a custom staff write cannot add presidentOf or admin', async () => {
+    await setup();
+    await assertFails(grantCustom(ADMIN, CUSTOM, 'avg', {}, { presidentOf: ['ELEC'] }));
+    await assertFails(grantCustom(ADMIN, CUSTOM, 'avg', {}, { admin: true }));
+    await assertFails(grantCustom(ADMIN, CUSTOM, 'avg', {}, { courses: ['EEE F211'] }));
   });
 });
