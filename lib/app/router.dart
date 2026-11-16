@@ -252,10 +252,26 @@ final List<RouteBase> appRoutes = [
             Capability.addRemoveOwners,
           ),
           _admin('analytics', () => admin.SiteAnalytics(), Capability.publish),
+          // Grant terms moved into Roles (B10).
+          GoRoute(path: 'terms', redirect: (_, _) => Routes.adminRoles),
           _admin(
-            'terms',
-            () => admin.TermsPage(),
-            Capability.grantTermsCrPresident,
+            'roles',
+            () => admin.RolesPage(),
+            const [
+              Capability.manageRoles,
+              Capability.grantTermsCrPresident,
+              Capability.grantTermsAdmin,
+            ],
+            // The parent's gate also guards `roles/:id`.
+            routes: [
+              GoRoute(
+                path: ':id',
+                builder:
+                    (_, s) => _deferred(
+                      () => admin.RoleEditor(id: s.pathParameters['id']!),
+                    ),
+              ),
+            ],
           ),
           _admin(
             'contact',
@@ -487,8 +503,10 @@ GoRoute _admin(
   Widget Function() page,
   Object caps, {
   bool presidents = false,
+  List<RouteBase> routes = const [],
 }) => GoRoute(
   path: path,
+  routes: routes,
   redirect:
       (_, _) =>
           (presidents ? _staff() : myRoles.value.reachesAdmin) &&

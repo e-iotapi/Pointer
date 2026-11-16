@@ -420,11 +420,43 @@ class RoleStore {
     await forget('audit|');
   }
 
+  /// The role definitions for the Roles screens, and whether `roles/builtin`
+  /// exists yet. Until it does the built-in terms are today's
+  /// `config/grantTerms`, so the first save keeps them.
+  Future<({RoleDefs defs, bool saved})> rolesForEdit() async {
+    final defs = await roleDefs();
+    if ((await db.collection('roles').doc('builtin').get()).exists) {
+      return (defs: defs, saved: true);
+    }
+    final t = await terms();
+    final days = {
+      'admin': t.adminDays,
+      'president': t.presidentDays,
+      'cr': t.crDays,
+    };
+    return (
+      defs: RoleDefs({
+        ...defs.byId,
+        for (final e in days.entries)
+          e.key: RoleDef(
+            id: e.key,
+            name: defs[e.key]!.name,
+            tag: defs[e.key]!.tag,
+            caps: defs[e.key]!.caps,
+            termDays: e.value,
+            builtin: true,
+            fixedReach: defs[e.key]!.fixedReach,
+          ),
+      }),
+      saved: false,
+    );
+  }
+
   /// Sets the rows and term of built-in role [id] (owner only). `roles/builtin`
   /// is one document holding all three roles, so the others are written as
   /// they are now.
   Future<void> saveBuiltin(String id, Set<Capability> caps, int termDays) async {
-    final defs = await roleDefs();
+    final defs = (await rolesForEdit()).defs;
     Map<String, Object?> cell(RoleDef r) => {
       'caps': [for (final c in r.caps) c.key],
       'termDays': r.termDays,

@@ -56,6 +56,8 @@ abstract final class Routes {
   static const adminGrant = '/admin/grant';
   static const adminOwners = '/admin/owners';
   static const adminTerms = '/admin/terms';
+  static const adminRoles = '/admin/roles';
+  static String adminRole(String id) => '/admin/roles/${Uri.encodeComponent(id)}';
   static const adminContact = '/admin/contact';
   static const adminAudit = '/admin/audit';
   static const adminRoster = '/admin/roster';
