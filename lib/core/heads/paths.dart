@@ -37,4 +37,7 @@ abstract final class Paths {
 
   /// Course claims by a department (GEN courses, B2).
   static const courseClaims = 'courseClaims';
+
+  /// Built-in and custom role definitions; counted on goa's head only.
+  static const roles = 'roles';
 }

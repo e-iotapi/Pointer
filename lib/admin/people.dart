@@ -321,6 +321,7 @@ class _PersonPageState extends State<PersonPage> {
     final mayRevoke = switch (_g.role) {
       GrantRole.admin => r.owner,
       GrantRole.dept => r.owner || r.admin,
+      GrantRole.custom => r.owner,
       GrantRole.contributor =>
         r.owner ||
             r.admin ||
