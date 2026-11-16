@@ -160,7 +160,8 @@ void main() {
         expect(r.may(c, campus: 'goa', scope: 'ELEC'), isTrue);
         expect(r.may(c, campus: 'pilani', scope: 'ELEC'), isFalse);
       }
-      expect(r.may(Capability.courseStructures, campus: 'goa'), isFalse);
+      // Course tools are every campus's (Phase A, §4 admin column).
+      expect(r.may(Capability.courseStructures, campus: 'pilani'), isTrue);
     });
 
     test('an owner may publish; nobody else may', () {
