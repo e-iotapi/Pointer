@@ -569,6 +569,7 @@ class RoleStore {
         'scope': g.scope,
         if (g.programme != null) 'programme': g.programme,
         if (g.secretary) 'secretary': true,
+        if (g.roleId != null) 'roleId': g.roleId,
         'grantedBy': {'email': me, 'name': myName},
         'grantedAt': FieldValue.serverTimestamp(),
       });
@@ -576,9 +577,17 @@ class RoleStore {
       b.update(ref, {
         ...data,
         if (g.programme != null) 'programme': g.programme,
+        // A custom grant's rules want who and when on every change.
+        if (g.role == GrantRole.custom) ...{
+          'roleId': g.roleId,
+          'name': g.name,
+          'grantedBy': {'email': me, 'name': myName},
+          'grantedAt': FieldValue.serverTimestamp(),
+        },
       });
     }
-    _staffInto(b, staff, g);
+    // A custom grant is not in the staff index (B6 adds its reach).
+    if (g.role != GrantRole.custom) _staffInto(b, staff, g);
   }
 
   /// A grant on [campus] moved; an every-campus (admin) one moves every head
@@ -602,7 +611,8 @@ class RoleStore {
   };
 
   /// Appoints [email] (who must have signed in) for [role] on [campus] /
-  /// [scope]. Returns false when there is nobody by that address.
+  /// [scope]. A custom role goes in `grants/custom|{email}` with its
+  /// [roleId] (scope `role`); it replaces any custom role they hold. Returns false when there is nobody by that address.
   Future<bool> appoint({
     required GrantRole role,
     required String email,
@@ -611,6 +621,7 @@ class RoleStore {
     required DateTime expiresAt,
     String? programme,
     bool secretary = false,
+    String? roleId,
     List<String> closeOffers = const [],
   }) async {
     final address = email.trim().toLowerCase();
@@ -631,6 +642,7 @@ class RoleStore {
       active: true,
       expiresAt: expiresAt,
       secretary: secretary,
+      roleId: roleId,
     );
     final what = switch (role) {
       GrantRole.admin => 'admin',
@@ -679,6 +691,7 @@ class RoleStore {
       programme: g.programme,
       active: false,
       expiresAt: g.expiresAt,
+      roleId: g.roleId,
     ),
     'Revoked ${g.name} as ${g.role.label.toLowerCase()} (${g.scopeLabel})',
     before: g,

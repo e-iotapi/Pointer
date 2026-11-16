@@ -8,6 +8,7 @@ import 'package:cgpa_calculator/app/theme/palette.dart';
 import 'package:cgpa_calculator/app/theme/tokens.dart';
 import 'package:cgpa_calculator/core/catalog/catalog.dart';
 import 'package:cgpa_calculator/core/models/programmes.dart';
+import 'package:cgpa_calculator/core/roles/role_defs.dart';
 import 'package:cgpa_calculator/core/roles/role_store.dart';
 import 'package:cgpa_calculator/core/roles/roles.dart';
 import 'package:cgpa_calculator/core/roles/session.dart';
@@ -28,6 +29,7 @@ String grantLabel(
   String? scope,
   String? campus, {
   bool secretary = false,
+  String? roleName,
 }) {
   if (role == null || campus == null) return 'Grant';
   final where = campus == 'all' ? '' : ' ${campusName(campus)}';
@@ -42,7 +44,7 @@ String grantLabel(
           ? 'Grant — course manager'
           : 'Grant — course manager, $scope$where',
     GrantRole.contributor => 'Grant — contributor',
-    GrantRole.custom => 'Grant — custom role',
+    GrantRole.custom => 'Grant — ${roleName ?? 'custom role'}',
   };
 }
 
@@ -94,6 +96,9 @@ class _AdminGrantState extends State<AdminGrant> {
   late GrantRole? _role = widget.prefill?.role ?? _tiers.lastOrNull?.role;
   bool _secretary = false;
 
+  /// The custom role picked, when [_role] is [GrantRole.custom].
+  RoleDef? _customDef;
+
   /// Electives (GEN, B2): a department grant with no branch.
   late bool _electives = widget.prefill?.scope == genDept;
   late String? _dept =
@@ -117,16 +122,43 @@ class _AdminGrantState extends State<AdminGrant> {
 
   final _roles = myRoles.value;
 
-  /// Admin is offered to owners only; a president sees Secretary and
-  /// Course manager.
+  RoleDefs get _defs => _roles.roleDefs;
+
+  /// The roles this person may appoint: the built-ins by [MyRoles.mayAppoint]
+  /// (M1), a secretary by a president's own say.
   List<_Tier> get _tiers => [
-    if (_roles.owner) _Tier.admin,
-    if (_roles.owner || _roles.admin) ...[_Tier.president, _Tier.electives],
-    if (_roles.owner || _roles.admin || _roles.presidencies.isNotEmpty) ...[
-      _Tier.secretary,
-      _Tier.course,
+    if (_roles.mayAppoint(_defs['admin']!)) _Tier.admin,
+    if (_roles.mayAppoint(_defs['president']!)) ...[
+      _Tier.president,
+      _Tier.electives,
     ],
+    if (_roles.mayAppoint(_defs['president']!) ||
+        _roles.presidencies.isNotEmpty)
+      _Tier.secretary,
+    if (_roles.mayAppoint(_defs['cr']!)) _Tier.course,
   ];
+
+  /// Custom roles, after the built-ins, that this person may give.
+  List<RoleDef> get _customRoles => [
+    for (final d in _defs.byId.values)
+      if (!d.builtin && _roles.mayAppoint(d, email: _address)) d,
+  ];
+
+  /// The short scope on a role pill: its department, else its campus.
+  static String _pillScope(RoleDef d) =>
+      d.dept != null && d.dept != 'all'
+          ? d.dept!
+          : campusName(d.campus ?? 'all');
+
+  /// "Electrical & Electronics, Goa": a custom role's scope, in words.
+  static String _scopeText(RoleDef d) {
+    final dept = d.dept == null || d.dept == 'all' ? null : d.dept;
+    final campus = d.campus ?? 'all';
+    return [
+      dept == null ? 'Every department' : departmentName(dept),
+      campusName(campus),
+    ].join(', ');
+  }
 
   _Tier? get _tier => switch (_role) {
     GrantRole.admin => _Tier.admin,
@@ -145,6 +177,10 @@ class _AdminGrantState extends State<AdminGrant> {
   String get _address => fullBitsAddress(_email.text);
   String? get _campus =>
       _role == GrantRole.admin ? 'all' : campusOfAddress(_address);
+
+  /// The role's own term, for a custom grant.
+  int get _termDays =>
+      _customDef?.termDays ?? termDays(_terms, _role ?? GrantRole.course);
 
   @override
   void initState() {
@@ -211,6 +247,14 @@ class _AdminGrantState extends State<AdminGrant> {
       return 'Refused: this is not a student address. Presidents and CRs '
           'are students.';
     }
+    final d = _customDef;
+    if (_role == GrantRole.custom &&
+        d != null &&
+        d.campus != 'all' &&
+        d.campus != campusOfAddress(a)) {
+      return '${d.name} is for ${campusName(d.campus ?? 'all')}; this address '
+          'is on ${campusName(campusOfAddress(a) ?? '')}.';
+    }
     return null;
   }
 
@@ -228,10 +272,14 @@ class _AdminGrantState extends State<AdminGrant> {
     }
     if (_role == GrantRole.course && !_roles.owner && !_roles.admin) {
       final course = _course.text.trim();
-      final ok = _roles.presidencies.any(
-        (p) =>
-            p.campus == _campus &&
-            (course.isEmpty || deptOf(course) == p.scope),
+      final ok = _roles.mayAppoint(
+        _defs['cr']!,
+        at: Reach(
+          role: 'cr',
+          campus: _campus ?? '',
+          dept: course.isEmpty ? _roles.presidencies.firstOrNull?.scope : null,
+          course: course.isEmpty ? null : course,
+        ),
       );
       if (!ok) {
         return 'You appoint CRs for your own department, on your own campus.';
@@ -245,7 +293,8 @@ class _AdminGrantState extends State<AdminGrant> {
     GrantRole.dept => _electives ? genDept : _dept,
     GrantRole.course =>
       _course.text.trim().isEmpty ? null : _course.text.trim().toUpperCase(),
-    GrantRole.contributor || GrantRole.custom || null => null,
+    GrantRole.custom => 'role',
+    GrantRole.contributor || null => null,
   };
 
   /// Catalogue codes starting with what is typed, until one is exact.
@@ -278,9 +327,8 @@ class _AdminGrantState extends State<AdminGrant> {
         : mine.expiresAt;
   }
 
-  DateTime get _fullTerm => DateTime.now()
-      .add(Duration(days: termDays(_terms, _role!)))
-      .subtract(clockSlack);
+  DateTime get _fullTerm =>
+      DateTime.now().add(Duration(days: _termDays)).subtract(clockSlack);
 
   bool get _ready =>
       !_busy &&
@@ -289,7 +337,8 @@ class _AdminGrantState extends State<AdminGrant> {
       _campus != null &&
       _scope != null &&
       (_role != GrantRole.course || !catalogLoaded || _exactCourse) &&
-      (_role != GrantRole.dept || _electives || _programme != null);
+      (_role != GrantRole.dept || _electives || _programme != null) &&
+      (_role != GrantRole.custom || _customDef != null);
 
   Future<void> _grant() async {
     setState(() => _busy = true);
@@ -301,6 +350,7 @@ class _AdminGrantState extends State<AdminGrant> {
         scope: _scope!,
         programme: _role == GrantRole.dept && !_electives ? _programme : null,
         secretary: _role == GrantRole.dept && _secretary,
+        roleId: _role == GrantRole.custom ? _customDef?.id : null,
         expiresAt:
             _early && _earlier != null
                 ? _earlier!
@@ -373,6 +423,7 @@ class _AdminGrantState extends State<AdminGrant> {
                     _scope,
                     _found == null ? null : _campus,
                     secretary: _secretary,
+                    roleName: _customDef?.name,
                   ),
           onPressed: _ready ? _grant : null,
         ),
@@ -482,28 +533,55 @@ class _AdminGrantState extends State<AdminGrant> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SectionLabel('Tier'),
-              ChoicePills<_Tier>(
-                values: _tiers,
-                selected: _tier,
+              const SectionLabel('Role'),
+              ChoicePills<Object>(
+                values: [..._tiers, ..._customRoles],
+                selected: _role == GrantRole.custom ? _customDef : _tier,
                 // "President" keeps the pills short (N18, G2).
-                label: (t) => t.label,
+                label:
+                    (t) => switch (t) {
+                      _Tier t => t.label,
+                      RoleDef d => '${d.name} · ${_pillScope(d)}',
+                      _ => '',
+                    },
                 onSelected:
                     (t) => setState(() {
-                      _role = t.role;
-                      _secretary = t == _Tier.secretary;
-                      _electives = t == _Tier.electives;
+                      if (t is RoleDef) {
+                        _role = GrantRole.custom;
+                        _customDef = t;
+                        _secretary = _electives = false;
+                      } else if (t is _Tier) {
+                        _role = t.role;
+                        _customDef = null;
+                        _secretary = t == _Tier.secretary;
+                        _electives = t == _Tier.electives;
+                      }
                     }),
               ),
               const Note(
-                'Admin is offered to owners only. A secretary holds every '
-                'president right but handing over. A president sees Secretary '
-                'and CR, for their own department.',
+                'Custom roles you may give are listed after the built-in '
+                'ones. One custom role per person: this replaces any they '
+                'hold.',
               ),
             ],
           ),
         ),
-        if (role == GrantRole.dept || role == GrantRole.course) ...[
+        if (role == GrantRole.custom && _customDef != null) ...[
+          const SizedBox(height: Space.sm),
+          AppCard(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const SectionLabel('Scope · set by the role'),
+                ScopeChip(_scopeText(_customDef!), icon: Icons.lock_outline),
+                const Note(
+                  'Change it in Roles; it applies to everyone holding the '
+                  'role.',
+                ),
+              ],
+            ),
+          ),
+        ] else if (role == GrantRole.dept || role == GrantRole.course) ...[
           const SizedBox(height: Space.sm),
           AppCard(
             child: Column(
@@ -604,7 +682,7 @@ class _AdminGrantState extends State<AdminGrant> {
                       (e) =>
                           e
                               ? 'Earlier date'
-                              : 'Full term · ${termSpan(termDays(_terms, role))}',
+                              : 'Full term · ${termSpan(_termDays)}',
                   onSelected: (e) async {
                     if (!e) return setState(() => _early = false);
                     final d = await showDatePicker(
@@ -629,10 +707,11 @@ class _AdminGrantState extends State<AdminGrant> {
                 else
                   Note(
                     'Ends ${shortDay(ends ?? _fullTerm, year: true)}'
-                    '${ends == null ? ', counted from today' : ''}. A grant can '
-                    'end sooner than its term, never later.',
+                    '${ends == null ? ', counted from today' : ''}. '
+                    '${role == GrantRole.custom ? 'The term comes from the role. ' : ''}'
+                    'A grant can end sooner than its term, never later.',
                   ),
-                if (canTerms)
+                if (canTerms && role != GrantRole.custom)
                   Align(
                     alignment: Alignment.centerLeft,
                     child: InkWell(

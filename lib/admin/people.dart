@@ -319,22 +319,30 @@ class _PersonPageState extends State<PersonPage> {
   @override
   Widget build(BuildContext context) {
     final r = myRoles.value;
+    final defs = r.roleDefs;
+    // M1: the one appointment check; contributors are approved, not appointed.
     final mayRevoke = switch (_g.role) {
-      GrantRole.admin => r.may(Capability.appointAdmins),
-      GrantRole.dept => r.may(
-        Capability.appointPresidents,
-        campus: _g.campus,
-        scope: _g.scope,
-      ),
-      GrantRole.custom => r.owner,
       GrantRole.contributor => r.may(
         Capability.approveContributors,
         campus: _g.campus,
       ),
-      GrantRole.course => r.may(
-        Capability.appointCrs,
-        campus: _g.campus,
-        scope: deptOf(_g.scope),
+      GrantRole.custom => switch (defs[_g.roleId ?? '']) {
+        final d? => r.mayAppoint(d),
+        null => r.owner,
+      },
+      GrantRole.admin => r.mayAppoint(defs['admin']!),
+      GrantRole.dept => r.mayAppoint(
+        defs['president']!,
+        at: Reach(role: 'president', campus: _g.campus, dept: _g.scope),
+      ),
+      GrantRole.course => r.mayAppoint(
+        defs['cr']!,
+        at: Reach(
+          role: 'cr',
+          campus: _g.campus,
+          dept: deptOf(_g.scope),
+          course: _g.scope,
+        ),
       ),
     };
     final revoke = mayRevoke && _g.active;

@@ -509,6 +509,74 @@ class MyRoles {
         (r.dept == 'all' || r.dept == d || d == 'all');
   }
 
+  static String? _deptOfCourse(String? c) => c == null ? null : deptOf(c);
+
+  /// The role definitions the answers read.
+  RoleDefs get roleDefs => _defs;
+
+  /// Whether this person may appoint or revoke [target] (M1, one rule for
+  /// every role). Owners may. Otherwise one role of theirs must hold the
+  /// target's appoint row (`appointAdmins`, `appointPresidents`,
+  /// `appointCrs`; `manageRoles` for a custom role), tick every row the
+  /// target ticks, and cover the target's scope. [at] is a built-in target's
+  /// place (campus, department or course; null asks "anywhere"); a custom
+  /// role uses its own scope. A custom role is never one's own: pass the
+  /// appointee's [email].
+  bool mayAppoint(RoleDef target, {Reach? at, String? email}) {
+    if (owner) return true;
+    if (target.id == 'owner') return false;
+    if (!target.builtin &&
+        email != null &&
+        email.trim().toLowerCase() == this.email.toLowerCase()) {
+      return false;
+    }
+    final row = switch (target.id) {
+      'admin' => Capability.appointAdmins,
+      'president' => Capability.appointPresidents,
+      'cr' => Capability.appointCrs,
+      _ => Capability.manageRoles,
+    };
+    final place = target.builtin
+        ? at == null
+              ? null
+              : (at.campus, at.dept ?? _deptOfCourse(at.course), at.course)
+        : (target.campus ?? 'all', target.dept ?? 'all', null);
+    bool through(RoleDef? mine, Reach reach) =>
+        mine != null &&
+        mine.caps.contains(row) &&
+        target.caps.every(mine.caps.contains) &&
+        (place == null || reach.covers(place.$1, place.$2, place.$3));
+    if (admin &&
+        through(_defs['admin'], const Reach(role: 'admin', campus: 'all'))) {
+      return true;
+    }
+    for (final g in presidencies) {
+      if (through(
+        _defs['president'],
+        Reach(role: 'president', campus: g.campus, dept: g.scope),
+      )) {
+        return true;
+      }
+    }
+    for (final g in courses) {
+      if (through(
+        _defs['cr'],
+        Reach(role: 'cr', campus: g.campus, course: g.scope),
+      )) {
+        return true;
+      }
+    }
+    final g = custom;
+    final mine =
+        g == null || !g.liveAt(DateTime.now()) || !isStudentAddress(this.email)
+            ? null
+            : _defs[g.roleId ?? ''];
+    return through(
+      mine,
+      Reach(role: 'custom', campus: mine?.campus ?? 'all', dept: mine?.dept),
+    );
+  }
+
   /// Every place this person may do [action].
   List<Reach> reach(Capability action) {
     final own = campusOfAddress(email);

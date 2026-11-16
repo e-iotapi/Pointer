@@ -27,7 +27,7 @@ void main() {
   test('saveCustomRole then roleDefs() returns it', () async {
     final id = await owner.saveCustomRole(
       name: 'Marks team',
-      caps: {Capability.averages},
+      caps: {Capability.publish},
       termDays: 90,
       campus: 'goa',
       dept: 'ELEC',
@@ -37,9 +37,9 @@ void main() {
       (d.name, d.termDays, d.campus, d.dept),
       ('Marks team', 90, 'goa', 'ELEC'),
     );
-    expect(d.caps, {Capability.averages});
+    expect(d.caps, {Capability.publish});
     final raw = (await db.collection('roles').doc(id).get()).data()!;
-    expect(raw['caps'], ['averages']);
+    expect(raw['caps'], ['publish']);
     expect(raw['createdBy'], {
       'email': 'owner@goa.bits-pilani.ac.in',
       'name': 'Owner',
@@ -49,11 +49,11 @@ void main() {
   });
 
   test('saveBuiltin writes an audit entry and bumps roles', () async {
-    await owner.saveBuiltin('cr', {Capability.averages}, 100);
+    await owner.saveBuiltin('cr', {Capability.publish}, 100);
     final raw = (await db.collection('roles').doc('builtin').get()).data()!;
     expect(raw.keys.toSet(), {'admin', 'president', 'cr', 'auditId'});
     expect(raw['cr'], {
-      'caps': ['averages'],
+      'caps': ['publish'],
       'termDays': 100,
     });
     expect((raw['admin'] as Map)['termDays'], 730);
@@ -62,7 +62,7 @@ void main() {
     expect(raw['auditId'], isNotNull);
     expect(await rolesMarker(), 1);
     final d = await owner.roleDefs();
-    expect(d['cr']!.caps, {Capability.averages});
+    expect(d['cr']!.caps, {Capability.publish});
     expect(d['president']!.caps, defaultBuiltinCaps()['president']);
   });
 

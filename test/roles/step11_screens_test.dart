@@ -1142,6 +1142,100 @@ void main() {
     );
   });
 
+  RoleDefs customDefs() => RoleDefs({
+    ...RoleDefs.defaults().byId,
+    'rl': const RoleDef(
+      id: 'rl',
+      name: 'Resources lead',
+      tag: 'ROLE',
+      caps: {Capability.departmentResources},
+      termDays: 30,
+      builtin: false,
+      campus: 'goa',
+      dept: 'ELEC',
+    ),
+  });
+
+  testWidgets('the form lists a custom role only to someone who may appoint it', (
+    t,
+  ) async {
+    // A president holds no manageRoles row: no custom pills.
+    signIn(
+      pres,
+      roles: MyRoles(email: pres, grants: [presidency()], defs: customDefs()),
+    );
+    await t.pumpWidget(app(const AdminGrant()));
+    await t.pumpAndSettle();
+    expect(find.text('Resources lead · ELEC'), findsNothing);
+    // The owner sees it after the built-ins, under "ROLE".
+    signIn(
+      'owner@example.com',
+      roles: MyRoles(
+        email: 'owner@example.com',
+        owner: true,
+        defs: customDefs(),
+      ),
+    );
+    await t.pumpWidget(app(const AdminGrant(key: ValueKey('o'))));
+    await t.pumpAndSettle();
+    expect(find.text('ROLE'), findsOneWidget);
+    expect(find.text('TIER'), findsNothing);
+    expect(find.text('Resources lead · ELEC'), findsOneWidget);
+  });
+
+  testWidgets('a custom grant: read-only scope, the role term, one write', (
+    t,
+  ) async {
+    signIn(
+      'owner@example.com',
+      roles: MyRoles(
+        email: 'owner@example.com',
+        owner: true,
+        defs: customDefs(),
+      ),
+    );
+    await db.collection('people').doc(pres).set({
+      'name': 'Meera Iyer',
+      'campus': 'goa',
+    });
+    await t.pumpWidget(app(const AdminGrant()));
+    await t.pumpAndSettle();
+    await t.enterText(find.byType(TextField).first, pres);
+    await t.pump(const Duration(milliseconds: 450));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Resources lead · ELEC'));
+    await t.pumpAndSettle();
+    expect(find.text('SCOPE · SET BY THE ROLE'), findsOneWidget);
+    expect(find.text('Electronics, Goa'), findsOneWidget);
+    expect(find.textContaining('Change it in Roles'), findsOneWidget);
+    expect(find.text('Full term · 30 days'), findsOneWidget);
+    expect(find.textContaining('The term comes from the role'), findsOneWidget);
+    expect(grantButton(t), 'Grant — Resources lead');
+    // The earlier-date picker stops at the role's 30 days.
+    await t.tap(find.text('Earlier date'));
+    await t.pumpAndSettle();
+    final picker = t.widget<CalendarDatePicker>(find.byType(CalendarDatePicker));
+    expect(
+      picker.lastDate.difference(DateTime.now()).inDays,
+      inInclusiveRange(28, 30),
+    );
+    await t.tap(find.text('Cancel'));
+    await t.pumpAndSettle();
+    await t.tap(find.byType(PrimaryButton));
+    await t.pumpAndSettle();
+    final g = (await db.collection('grants').doc('custom|$pres').get()).data()!;
+    expect(
+      (g['role'], g['scope'], g['campus'], g['roleId'], g['active']),
+      ('custom', 'role', 'goa', 'rl', true),
+    );
+    expect(g['name'], 'Meera Iyer');
+    expect(g['grantedBy'], {'email': 'owner@example.com', 'name': 'Me'});
+    final until = (g['expiresAt'] as Timestamp).toDate();
+    expect(until.difference(DateTime.now()).inDays, inInclusiveRange(28, 30));
+    // Not in the staff index.
+    expect((await db.collection('staff').doc(pres).get()).exists, isFalse);
+  });
+
   testWidgets('unknown address says Can not be found', (t) async {
     await appointForm(t, 'f20249999@goa.bits-pilani.ac.in');
     expect(find.text('Can not be found'), findsOneWidget);
