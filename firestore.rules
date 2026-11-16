@@ -1094,12 +1094,13 @@ service cloud.firestore {
         && request.resource.data.updatedAt == request.time;
     }
 
-    // Course identity: drafts until an owner publishes (§11). Presidents in
-    // scope may draft; nothing here reaches students until Publish.
+    // Course identity: drafts until an owner publishes (§11). Admins, and
+    // presidents in scope, may draft; nothing here reaches students until Publish.
     match /courses/{courseId} {
       allow read: if isOwner() || isAdmin();
       allow create, update: if mayUse()
-        && (isOwner() || isPresident(campusOf(me()), managingDept(campusOf(me()), courseId)))
+        && (isOwner() || isAdmin()
+            || isPresident(campusOf(me()), managingDept(campusOf(me()), courseId)))
         && request.resource.data.id == courseId
         && request.resource.data.draft == true
         && request.resource.data.keys().hasOnly(['id', 'title', 'credits',

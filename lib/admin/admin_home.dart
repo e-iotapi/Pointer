@@ -190,14 +190,14 @@ class _AdminHomeState extends State<AdminHome> {
             'Course tools',
             'Courses, eval schemes, professors, resources',
             () => go(Routes.adminCourseTools),
-            badge: const CountBadge('NEW', tone: CountTone.on),
+            titleBadge: const CountBadge('NEW', tone: CountTone.on),
           ),
           _Row(
             Icons.rate_review_outlined,
             'Reviews',
             'Moderation and compulsory reviews',
             () => go(Routes.adminReviews),
-            badge: const CountBadge('NEW', tone: CountTone.on),
+            titleBadge: const CountBadge('NEW', tone: CountTone.on),
           ),
         ]),
         const SectionLabel('Owners and admins'),
@@ -292,12 +292,14 @@ class _Row {
     this.onTap, {
     this.mint = false,
     this.badge,
+    this.titleBadge,
   });
   final IconData icon;
   final String title, subtitle;
   final VoidCallback? onTap;
   final bool mint;
   final Widget? badge;
+  final Widget? titleBadge;
 }
 
 class _Rows extends StatelessWidget {
@@ -331,6 +333,7 @@ class _Rows extends StatelessWidget {
                   ),
                 ),
                 title: r.title,
+                titleBadge: r.titleBadge,
                 subtitle: r.subtitle,
                 trailing:
                     r.badge == null
