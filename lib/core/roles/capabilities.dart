@@ -7,39 +7,108 @@ library;
 /// A rung of the role table, strongest first.
 enum Role { owner, admin, president, cr, student }
 
+/// How wide a role's reach must be for a row to mean anything.
+enum CapReach { everywhere, campus, dept }
+
 /// One row of the table. The cells are the document's text, verbatim.
 enum Capability {
-  addRemoveOwners('Add / remove owners', '✓ (never themselves)', '—', '—', '—'),
-  appointAdmins('Appoint / revoke admins', '✓', '—', '—', '—'),
-  appointPresidents('Appoint / revoke presidents', '✓', '✓', '—', '—'),
-  appointCrs('Appoint / revoke CRs', '✓', '✓', '✓ in scope', '—'),
-  publish('Publishing, analytics', '✓', '—', '—', '—'),
-  publicContact('Public contact (`config/public`)', '✓', '✓', '—', '—'),
+  addRemoveOwners(
+    'Add / remove owners',
+    '✓ (never themselves)',
+    '—',
+    '—',
+    '—',
+    CapReach.everywhere,
+  ),
+  appointAdmins(
+    'Appoint / revoke admins',
+    '✓',
+    '—',
+    '—',
+    '—',
+    CapReach.everywhere,
+  ),
+  appointPresidents(
+    'Appoint / revoke presidents',
+    '✓',
+    '✓',
+    '—',
+    '—',
+    CapReach.dept,
+  ),
+  appointCrs(
+    'Appoint / revoke CRs',
+    '✓',
+    '✓',
+    '✓ in scope',
+    '—',
+    CapReach.dept,
+  ),
+  publish('Publishing, analytics', '✓', '—', '—', '—', CapReach.everywhere),
+  publicContact(
+    'Public contact (`config/public`)',
+    '✓',
+    '✓',
+    '—',
+    '—',
+    CapReach.everywhere,
+  ),
   grantTermsCrPresident(
     'Grant terms — CR and president lengths',
     '✓',
     '✓',
     '—',
     '—',
+    CapReach.everywhere,
   ),
-  grantTermsAdmin('Grant terms — admin length', '✓', '—', '—', '—'),
-  mergeProfessors('Merge duplicate professors', '✓', '✓', '✓ in scope', '—'),
+  grantTermsAdmin(
+    'Grant terms — admin length',
+    '✓',
+    '—',
+    '—',
+    '—',
+    CapReach.everywhere,
+  ),
+  mergeProfessors(
+    'Merge duplicate professors',
+    '✓',
+    '✓',
+    '✓ in scope',
+    '—',
+    CapReach.dept,
+  ),
   courseStructures(
     'Course structures, eval schemes',
     '✓',
     '✓',
     '✓',
     '✓ own courses',
+    CapReach.dept,
   ),
-  bulkUpload('Bulk upload a JSON of eval schemes', '✓', '✓', '✓', '—'),
-  degreeRequirements('Degree requirements', '✓', '✓', '✓', '—'),
-  departmentResources('Department resources', '✓', '✓ own campus', '✓', '—'),
+  bulkUpload(
+    'Bulk upload a JSON of eval schemes',
+    '✓',
+    '✓',
+    '✓',
+    '—',
+    CapReach.dept,
+  ),
+  degreeRequirements('Degree requirements', '✓', '✓', '✓', '—', CapReach.dept),
+  departmentResources(
+    'Department resources',
+    '✓',
+    '✓ own campus',
+    '✓',
+    '—',
+    CapReach.dept,
+  ),
   courseResources(
     'Course resources',
     '✓',
     '✓ own campus',
     '✓',
     '✓ own courses',
+    CapReach.dept,
   ),
   averages(
     'Averages — course, component, part',
@@ -47,15 +116,31 @@ enum Capability {
     '✓',
     '✓',
     '✓ own courses',
+    CapReach.dept,
   ),
-  professors('Professors — create, rename', '✓', '✓', '✓', 'pick only'),
-  moderateReviews('Moderate reviews', '✓', '✓', '✓ in scope', '—'),
+  professors(
+    'Professors — create, rename',
+    '✓',
+    '✓',
+    '✓',
+    'pick only',
+    CapReach.dept,
+  ),
+  moderateReviews(
+    'Moderate reviews',
+    '✓',
+    '✓',
+    '✓ in scope',
+    '—',
+    CapReach.dept,
+  ),
   readAuditAndRoster(
     'Read the audit log and the roster',
     '✓',
     '✓',
     '✓ own campus',
     '—',
+    CapReach.campus,
   ),
   contribute(
     'Contribute links (approved within 15 days)',
@@ -63,9 +148,52 @@ enum Capability {
     '✓',
     '✓',
     '✓',
+    CapReach.campus,
+  ),
+  manageRoles('Manage roles', '✓', '✓', '—', '—', CapReach.everywhere),
+  approveContributors(
+    'Approve contributors',
+    '✓',
+    '✓',
+    '✓',
+    '—',
+    CapReach.dept,
+  ),
+  claimElectives('Claim elective courses', '✓', '✓', '✓', '—', CapReach.dept),
+  reviewGateSwitch(
+    'Compulsory reviews switch',
+    '✓',
+    '✓',
+    '✓ own campus',
+    '—',
+    CapReach.campus,
+  ),
+  publishTimetable(
+    'Publish the timetable',
+    '✓',
+    '✓',
+    '—',
+    '—',
+    CapReach.everywhere,
+  ),
+  openAs('Open Pointer as', '✓', '—', '—', '—', CapReach.everywhere),
+  publishDirectly(
+    'Links publish without approval',
+    '✓',
+    '✓',
+    '✓',
+    '—',
+    CapReach.dept,
   );
 
-  const Capability(this.label, this.owner, this.admin, this.president, this.cr);
+  const Capability(
+    this.label,
+    this.owner,
+    this.admin,
+    this.president,
+    this.cr,
+    this.reach,
+  );
 
   /// The row's name in the table.
   final String label;
@@ -81,6 +209,12 @@ enum Capability {
 
   /// The CR column's text.
   final String cr;
+
+  /// The narrowest reach this row is meaningful at.
+  final CapReach reach;
+
+  /// Stable storage key for this row.
+  String get key => name;
 
   /// The table text for [role] on this row.
   String cell(Role role) => switch (role) {
@@ -111,3 +245,18 @@ bool can(
   if (role == Role.president || role == Role.cr) return inScope;
   return true;
 }
+
+/// The built-in role keys, weakest last.
+const builtinRoleKeys = ['admin', 'president', 'cr'];
+
+/// Default grant lengths in days for each built-in role.
+const defaultTermDays = {'admin': 730, 'president': 365, 'cr': 183};
+
+/// The ticked cells of each built-in column (`✓…` counts as ticked).
+Map<String, Set<Capability>> defaultBuiltinCaps() => {
+  for (final r in [Role.admin, Role.president, Role.cr])
+    r.name: {
+      for (final c in Capability.values)
+        if (c.cell(r).startsWith('✓')) c,
+    },
+};

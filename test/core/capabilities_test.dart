@@ -80,4 +80,33 @@ void main() {
       isFalse,
     );
   });
+
+  test('defaults follow the table', () {
+    final d = defaultBuiltinCaps();
+    expect(d['admin'], contains(Capability.courseStructures));
+    expect(d['admin'], isNot(contains(Capability.publish)));
+    expect(d['cr'], {
+      Capability.courseStructures,
+      Capability.courseResources,
+      Capability.averages,
+      Capability.contribute,
+    });
+  });
+
+  test(
+    'default CR ⊆ president ⊆ admin, so today\'s appointments still pass M1',
+    () {
+      final d = defaultBuiltinCaps();
+      expect(d['president']!.difference(d['admin']!), isEmpty);
+      expect(d['cr']!.difference(d['president']!), isEmpty);
+    },
+  );
+
+  test('every row has a reach and a stable key', () {
+    expect(
+      Capability.values.map((c) => c.key).toSet().length,
+      Capability.values.length,
+    );
+    expect(Capability.openAs.reach, CapReach.everywhere);
+  });
 }
