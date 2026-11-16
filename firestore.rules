@@ -186,14 +186,16 @@ service cloud.firestore {
            || may('averages', campus, d, course));
     }
 
-    // [caps] lie inside the rows the signed-in author holds: an admin's current
-    // rows, or those of their live custom role. (Each side may error when the
+    // [caps] lie inside the rows the signed-in author holds (an admin's current
+    // rows, or those of their live custom role) and [campus]/[dept] inside that
+    // role's scope; an admin's reach is everywhere. (Each side may error when the
     // author is not that kind of holder; || shrugs that off.) Owners skip it.
-    function withinMyRows(caps) {
+    function withinMyRows(caps, campus, dept) {
       let g = get(customGrantPath()).data;
+      let r = get(/databases/$(db)/documents/roles/$(g.roleId)).data;
       return (isAdmin() && caps.hasOnly(builtin().admin.caps))
-        || (g.active == true && request.time < g.expiresAt
-            && caps.hasOnly(get(/databases/$(db)/documents/roles/$(g.roleId)).data.caps));
+        || (g.active == true && request.time < g.expiresAt && caps.hasOnly(r.caps)
+            && (r.campus == 'all' || (r.campus == campus && (r.dept == 'all' || r.dept == dept))));
     }
 
     function staffPath(email) { return /databases/$(db)/documents/staff/$(email); }
@@ -338,45 +340,98 @@ service cloud.firestore {
 
     // ---- Grants and the staff index (§4) -----------------------------------
 
-    // Until an owner saves config/grantTerms, the app's defaultTerms.
-    function terms() {
+    // Terms live on the role (roles/builtin termDays). A grant may also run to
+    // the older config/grantTerms value while the stable app still writes it
+    // (read only when the role's term is too short, so it costs a lookup then).
+    // ponytail: B12 drops the grantTerms fallback once stable carries B9.
+    function oldTerm(role) {
       let p = /databases/$(db)/documents/config/grantTerms;
-      return exists(p) ? get(p).data : {'crDays': 183, 'presidentDays': 365, 'adminDays': 730};
-    }
-
-    function termDays(role) {
-      return role == 'admin' ? terms().adminDays
-           : role == 'dept' ? terms().presidentDays
-           : terms().crDays;
+      return exists(p) ? get(p).data.get(role == 'admin' ? 'adminDays'
+        : role == 'dept' ? 'presidentDays' : 'crDays', 0) : 0;
     }
 
     // Counted from today; a grant can end sooner, never later.
     function expiryOk(d) {
+      let b = builtin();
       return d.role == 'contributor' ? d.expiresAt == timestamp.date(2100, 1, 1)
         : d.expiresAt is timestamp && d.expiresAt > request.time
-        && d.expiresAt <= request.time + duration.value(termDays(d.role), 'd');
+        && (d.expiresAt <= request.time + duration.value(
+              d.role == 'admin' ? b.admin.termDays
+              : d.role == 'dept' ? b.president.termDays : b.cr.termDays, 'd')
+            || d.expiresAt <= request.time + duration.value(oldTerm(d.role), 'd'));
+    }
+
+    // ---- One appointment rule (M1) -----------------------------------------
+    function appointRow(d) {
+      return d.role == 'admin' ? 'appointAdmins'
+           : d.role == 'dept' ? 'appointPresidents'
+           : d.role == 'course' ? 'appointCrs' : 'manageRoles';
+    }
+
+    function targetRole(d) { return get(/databases/$(db)/documents/roles/$(d.roleId)).data; }
+
+    function targetCaps(d, b) {
+      return d.role == 'admin' ? b.admin.caps
+           : d.role == 'dept' ? b.president.caps
+           : d.role == 'course' ? b.cr.caps : targetRole(d).caps;
+    }
+
+    function targetCampus(d) { return d.role == 'custom' ? targetRole(d).campus : d.campus; }
+
+    function targetDept(d) {
+      return d.role == 'admin' ? 'all'
+           : d.role == 'dept' ? d.scope
+           : d.role == 'course' ? managingDept(d.campus, d.scope) : targetRole(d).dept;
+    }
+
+    // A custom manager: a live custom grant whose role holds the appoint row
+    // and every row of the target, with a scope that covers the target's.
+    // Never for themselves.
+    function customAppoints(d, row, b) {
+      let e = me();
+      let g = get(customGrantPath()).data;
+      let r = get(/databases/$(db)/documents/roles/$(g.roleId)).data;
+      return d.email != e && g.active == true && request.time < g.expiresAt
+        && row in r.caps && isStudent(e) && targetCaps(d, b).hasOnly(r.caps)
+        && (r.campus == 'all'
+            || (r.campus == targetCampus(d) && campusOf(e) == r.campus
+                && (r.dept == 'all' || r.dept == targetDept(d))));
+    }
+
+    // Who may appoint [d]: an owner; an admin or a president holding the
+    // appoint row, for a role whose rows lie inside theirs; or a custom manager.
+    // Row tests come before grant reads, so a role without the row costs none.
+    function mayAppoint(d) {
+      let b = builtin();
+      let row = appointRow(d);
+      return isOwner()
+        || (row in b.admin.caps && targetCaps(d, b).hasOnly(b.admin.caps) && isAdmin())
+        || (d.role != 'admin' && row in b.president.caps
+            && targetCaps(d, b).hasOnly(b.president.caps)
+            && isPresident(d.campus, targetDept(d)))
+        || customAppoints(d, row, b);
     }
 
     // Who may give or change a grant like [d].
     function mayGrant(d) {
       return d.role == 'admin'
-          ? isOwner() && d.campus == 'all' && d.scope == 'all' && isBitsAddress(d.email)
+          ? mayAppoint(d) && d.campus == 'all' && d.scope == 'all' && isBitsAddress(d.email)
         : d.role == 'dept'
           ? (d.get('secretary', false) == true
               // A secretary serves one branch: the appointing president's.
-              ? ((isOwner() || isAdmin())
-                  && (d.get('programme', null) == null || d.programme is string)
-                || presidentNotSecretary(d.campus, d.scope)
+              ? (presidentNotSecretary(d.campus, d.scope)
                   && d.get('programme', null) == get(grantPath('dept', d.campus,
-                       d.scope, me())).data.get('programme', null))
+                       d.scope, me())).data.get('programme', null)
+                || (mayAppoint(d)
+                  && (d.get('programme', null) == null || d.programme is string)))
               : d.scope == 'GEN'
                 // The electives department: no branch, no handover (B2).
-                ? (isOwner() || isAdmin()) && d.get('programme', null) == null
-                : (isOwner() || isAdmin() || handsOver(d) || cancelsHandover(d))
+                ? mayAppoint(d) && d.get('programme', null) == null
+                : (handsOver(d) || cancelsHandover(d) || mayAppoint(d))
                   && d.programme is string)
             && isStudent(d.email) && campusOf(d.email) == d.campus
         : d.role == 'course'
-          ? (isOwner() || isAdmin() || isPresident(d.campus, managingDept(d.campus, d.scope)))
+          ? mayAppoint(d)
             && isStudent(d.email) && campusOf(d.email) == d.campus
         // B7: campus-wide, no expiry; `dept` names the president (or
         // secretary) whose request it answers. isPresident covers both.
@@ -454,7 +509,7 @@ service cloud.firestore {
         && audited('grants/' + id)
         && pathBumped(markerCampus(request.resource.data.campus), 'grants');
       // A custom role's grant: one per person, id custom|{email}, scope 'role',
-      // on the holder's campus. B3: owners only (B5 widens the granter).
+      // on the holder's campus. granter by mayAppoint (customGrantOk).
       allow create: if mayUse()
         && request.resource.data.role == 'custom'
         && id == 'custom|' + request.resource.data.email
@@ -515,12 +570,12 @@ service cloud.firestore {
     }
 
     // A custom grant: a student on their own campus, naming a role that
-    // exists and sits on that campus (or on every campus). B3: owners grant.
+    // exists and sits on that campus (or on every campus), by mayAppoint.
     function customGrantOk(d) {
       let r = get(/databases/$(db)/documents/roles/$(d.roleId)).data;
-      return isOwner()
-        && d.scope == 'role' && isStudent(d.email) && d.campus == campusOf(d.email)
-        && (r.campus == 'all' || r.campus == d.campus);
+      return d.scope == 'role' && isStudent(d.email) && d.campus == campusOf(d.email)
+        && (r.campus == 'all' || r.campus == d.campus)
+        && mayAppoint(d);
     }
 
     function handingOver(before, d) {
@@ -1032,14 +1087,17 @@ service cloud.firestore {
 
     function capsOk(l) { return l is list && l.size() <= 60; }
     function termOk(n) { return n is int && n >= 1 && n <= 1095; }
-    function builtinRoleOk(x) { return x is map && capsOk(x.caps) && termOk(x.termDays); }
+    // Averages live inside the eval scheme, so a role holding Averages must
+    // hold Course structures too (the rules cannot tell the two apart).
+    function avgOk(l) { return !('averages' in l) || 'courseStructures' in l; }
+    function builtinRoleOk(x) { return x is map && capsOk(x.caps) && avgOk(x.caps) && termOk(x.termDays); }
 
     // A custom role: a name, rows, a term and a scope (campus, department).
     function customRoleOk(d) {
       return d.keys().hasOnly(['name', 'caps', 'termDays', 'campus', 'dept',
                                'createdBy', 'updatedAt', 'auditId'])
         && d.name is string && d.name.size() >= 1 && d.name.size() <= 60
-        && capsOk(d.caps) && termOk(d.termDays)
+        && capsOk(d.caps) && avgOk(d.caps) && termOk(d.termDays)
         && d.campus in ['all', 'goa', 'pilani', 'hyderabad', 'dubai']
         && d.dept in ['all', 'BIO', 'BIOT', 'CE', 'CHE', 'CHEM', 'CS', 'ECON', 'ELEC',
                       'ENVS', 'GEN', 'MAC', 'MATH', 'ME', 'MF', 'PHA', 'PHY', 'SNS']
@@ -1047,11 +1105,27 @@ service cloud.firestore {
         && d.createdBy.email == me() && d.updatedAt == request.time;
     }
 
+    // Only the terms differ: the rows of every role are as before.
+    function onlyTermsChanged() {
+      let n = request.resource.data;
+      let o = resource.data;
+      return (n.admin.termDays != o.admin.termDays || n.president.termDays != o.president.termDays
+              || n.cr.termDays != o.cr.termDays)
+        && n.admin.diff(o.admin).affectedKeys().hasOnly(['termDays'])
+        && n.president.diff(o.president).affectedKeys().hasOnly(['termDays'])
+        && n.cr.diff(o.cr).affectedKeys().hasOnly(['termDays'])
+        && (n.admin.termDays == o.admin.termDays
+            || may('grantTermsAdmin', 'all', 'all', ''))
+        && ((n.president.termDays == o.president.termDays && n.cr.termDays == o.cr.termDays)
+            || may('grantTermsCrPresident', 'all', 'all', ''));
+    }
+
     match /roles/builtin {
       allow read: if mayUse();
       // All three roles at once, so a partial write can never leave a hole
-      // that denies every built-in check.
-      allow create, update: if isOwner()
+      // that denies every built-in check. An owner changes anything; an admin
+      // only the terms their rows grant (grantTermsCrPresident, grantTermsAdmin).
+      allow create, update: if (isOwner() || (resource != null && onlyTermsChanged()))
         && request.resource.data.keys().hasOnly(['admin', 'president', 'cr', 'auditId'])
         && builtinRoleOk(request.resource.data.get('admin', null))
         && builtinRoleOk(request.resource.data.get('president', null))
@@ -1067,18 +1141,22 @@ service cloud.firestore {
       allow read: if mayUse();
       allow create: if id != 'builtin' && customRoleOk(request.resource.data)
         && (isOwner() || (may('manageRoles', 'all', 'all', '')
-                          && withinMyRows(request.resource.data.caps)))
+                          && withinMyRows(request.resource.data.caps,
+                               request.resource.data.campus, request.resource.data.dept)))
         && audited('roles/' + id)
         && pathBumped('goa', 'roles');
       allow update: if id != 'builtin' && customRoleOk(request.resource.data)
         && (isOwner() || (may('manageRoles', 'all', 'all', '')
-                          && withinMyRows(request.resource.data.caps)
-                          && withinMyRows(resource.data.caps)))
+                          && withinMyRows(request.resource.data.caps,
+                               request.resource.data.campus, request.resource.data.dept)
+                          && withinMyRows(resource.data.caps, resource.data.campus,
+                               resource.data.dept)))
         && audited('roles/' + id)
         && pathBumped('goa', 'roles');
       allow delete: if id != 'builtin'
         && (isOwner() || (may('manageRoles', 'all', 'all', '')
-                          && withinMyRows(resource.data.caps)))
+                          && withinMyRows(resource.data.caps, resource.data.campus,
+                               resource.data.dept)))
         && pathBumped('goa', 'roles');
     }
 

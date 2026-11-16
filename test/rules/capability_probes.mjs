@@ -5,7 +5,7 @@
 import {
   collection, doc, getDoc, increment, serverTimestamp, setDoc, writeBatch,
 } from 'firebase/firestore';
-import { OWNER, PRES, bump, name, seed } from './helpers.mjs';
+import { DEFAULT_CAPS, OWNER, PRES, appoint, as, bump, name, seed } from './helpers.mjs';
 
 export const IN = { campus: 'goa', dept: 'ELEC', course: 'EEE F211', n: 1 };
 export const OUT = { campus: 'hyderabad', dept: 'CS', course: 'CS F211', n: 2 };
@@ -16,13 +16,15 @@ export const CR = 'f20240010@goa.bits-pilani.ac.in'; // holds the course grant f
 ///  - bulkUpload: a bulk upload writes the same offering documents as a save,
 ///    so the rules cannot tell them apart; the offering site accepts either
 ///    row (and courseStructures), and the app gates the screen.
-///  - appointAdmins, appointPresidents, appointCrs, grantTermsCrPresident,
-///    grantTermsAdmin: the appointment and terms sites move in B5.
-///  - manageRoles: the roles collection (B3, custom_roles.test.mjs).
-export const UNENFORCED = [
-  'degreeRequirements', 'bulkUpload', 'appointAdmins', 'appointPresidents', 'appointCrs',
-  'grantTermsCrPresident', 'grantTermsAdmin', 'manageRoles',
-];
+export const UNENFORCED = ['degreeRequirements', 'bulkUpload'];
+
+/// Appointment rows: a custom role holding only the row cannot appoint, since
+/// the target's rows must lie inside the appointer's (B5).
+export const APPOINT_ROWS = ['appointAdmins', 'appointPresidents', 'appointCrs'];
+
+/// A role scope is the target of these rows' writes, so custom reach follows
+/// the target's department like a department row.
+export const TARGET_SCOPED = ['manageRoles'];
 
 /// Rows only the app enforces (a screen, not a write).
 export const APP_ONLY = ['openAs'];
@@ -334,7 +336,62 @@ const reviewGateSwitch = mk(none, (db, actor, t) => {
   return b.commit();
 });
 
+// ---- appointments, roles, terms (B5) ---------------------------------------
+
+const grantee = (t) => `f2023090${t.n}@${t.campus}.bits-pilani.ac.in`;
+const seedGrantees = () => seed(async (db) => {
+  for (const t of [IN, OUT]) {
+    const email = grantee(t);
+    await setDoc(doc(db, 'people', email), { name: name(email), campus: t.campus, firstSignIn: 1 });
+  }
+});
+
+const appointAdmins = mk(seedGrantees, (db, actor, t) => appoint(
+  db, actor, { role: 'admin', campus: 'all', scope: 'all', email: grantee(t) },
+  { admin: true, campus: 'all' },
+));
+
+const appointPresidents = mk(seedGrantees, (db, actor, t) => appoint(
+  db, actor, { role: 'dept', campus: t.campus, scope: t.dept, programme: 'A3', email: grantee(t) },
+  { presidentOf: [t.dept], campus: t.campus },
+));
+
+const appointCrs = mk(seedGrantees, (db, actor, t) => appoint(
+  db, actor, { role: 'course', campus: t.campus, scope: t.course, email: grantee(t) },
+  { courses: [t.course], campus: t.campus },
+));
+
+/// A role with a row only the author holds, in the target's scope.
+const manageRoles = mk(none, (db, actor, t) => {
+  const b = writeBatch(db);
+  const auditId = audit(b, db, actor, `roles/p${t.n}`, 'all');
+  b.set(doc(db, 'roles', `p${t.n}`), {
+    name: 'Probe', caps: ['manageRoles'], termDays: 10, campus: t.campus, dept: t.dept,
+    createdBy: { email: actor, name: name(actor) }, updatedAt: serverTimestamp(), auditId,
+  });
+  bump(b, db, 'all', 'roles');
+  return b.commit();
+});
+
+/// roles/builtin with one term changed (the setup seeds the defaults).
+const termsProbe = (role) => mk(none, (db, actor, t) => {
+  const b = writeBatch(db);
+  const auditId = audit(b, db, actor, 'roles/builtin', 'all');
+  const terms = { admin: 730, president: 365, cr: 183, [role]: 100 + t.n };
+  b.set(doc(db, 'roles', 'builtin'), {
+    admin: { caps: DEFAULT_CAPS.admin, termDays: terms.admin },
+    president: { caps: DEFAULT_CAPS.president, termDays: terms.president },
+    cr: { caps: DEFAULT_CAPS.cr, termDays: terms.cr },
+    auditId,
+  });
+  bump(b, db, 'all', 'roles');
+  return b.commit();
+});
+const grantTermsCrPresident = termsProbe('cr');
+const grantTermsAdmin = termsProbe('admin');
+
 export const PROBES = {
+  appointAdmins, appointPresidents, appointCrs, manageRoles, grantTermsCrPresident, grantTermsAdmin,
   addRemoveOwners, publish, publicContact, publishTimetable, professors, mergeProfessors,
   courseStructures, averages, departmentResources, courseResources, publishDirectly, contribute,
   moderateReviews, readAuditAndRoster, approveContributors, claimElectives, reviewGateSwitch,

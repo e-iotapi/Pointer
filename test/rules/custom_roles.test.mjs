@@ -5,7 +5,7 @@ import { describe, test } from 'node:test';
 import { assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import { collection, deleteDoc, doc, getDoc, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
 import {
-  ADMIN, CUSTOM, FACULTY, OWNER, PRES, STUDENT,
+  ADMIN, CUSTOM, DEFAULT_CAPS, FACULTY, OTHER, OWNER, PRES, STUDENT,
   as, bump, customGrant, customRole, days, name, seed, seedBuiltin, useEmulator,
 } from './helpers.mjs';
 
@@ -27,7 +27,7 @@ function writeRole(actor, id, data) {
   const b = writeBatch(db);
   const a = doc(collection(db, 'audit'));
   b.set(doc(db, 'roles', id), {
-    name: 'Tester', caps: ['averages'], termDays: 100, campus: 'goa', dept: 'ELEC',
+    name: 'Tester', caps: ['averages', 'courseStructures'], termDays: 100, campus: 'goa', dept: 'ELEC',
     createdBy: { email: actor, name: name(actor) }, updatedAt: serverTimestamp(), auditId: a.id,
     ...data,
   });
@@ -39,14 +39,14 @@ function writeRole(actor, id, data) {
   return b.commit();
 }
 
-function writeBuiltin(actor, caps = {}) {
+function writeBuiltin(actor, caps = {}, terms = {}) {
   const db = as(actor);
   const b = writeBatch(db);
   const a = doc(collection(db, 'audit'));
   b.set(doc(db, 'roles', 'builtin'), {
-    admin: { caps: caps.admin ?? ['averages'], termDays: 730 },
-    president: { caps: caps.president ?? ['averages'], termDays: 365 },
-    cr: { caps: caps.cr ?? ['averages'], termDays: 183 },
+    admin: { caps: caps.admin ?? DEFAULT_CAPS.admin, termDays: terms.admin ?? 730 },
+    president: { caps: caps.president ?? DEFAULT_CAPS.president, termDays: terms.president ?? 365 },
+    cr: { caps: caps.cr ?? DEFAULT_CAPS.cr, termDays: terms.cr ?? 183 },
     auditId: a.id,
   });
   b.set(a, {
@@ -94,16 +94,16 @@ describe('built-in defaults and roles/builtin', () => {
 
   test('only owners write roles/builtin', async () => {
     await assertSucceeds(writeBuiltin(OWNER));
-    await assertFails(writeBuiltin(ADMIN));
+    await assertFails(writeBuiltin(ADMIN, { cr: ['courseStructures'] })); // admins change terms, never rows
     await assertFails(writeBuiltin(PRES));
   });
 });
 
 describe('custom roles', () => {
   test('an admin creates a custom role inside their rows', async () => {
-    await assertSucceeds(writeRole(ADMIN, 'r1', { caps: ['averages'] }));
+    await assertSucceeds(writeRole(ADMIN, 'r1', { caps: ['averages', 'courseStructures'] }));
     await assertFails(writeRole(ADMIN, 'r2', { caps: ['publish'] }));
-    await assertFails(writeRole(PRES, 'r3', { caps: ['averages'] }));
+    await assertFails(writeRole(PRES, 'r3', { caps: ['averages', 'courseStructures'] }));
     await assertSucceeds(writeRole(OWNER, 'r4', { caps: ['publish'] }));
   });
 
@@ -116,12 +116,12 @@ describe('custom roles', () => {
   });
 
   test('a custom manager cannot create a role with a row they lack, nor edit one that has it', async () => {
-    await customRole('mgr', ['manageRoles', 'averages']);
+    await customRole('mgr', ['manageRoles', 'averages', 'courseStructures'], 365, 'goa', 'ELEC');
     await customGrant(CUSTOM, 'mgr');
-    await customRole('big', ['averages', 'publish']);
-    await assertSucceeds(writeRole(CUSTOM, 'ok', { caps: ['averages'] }));
-    await assertFails(writeRole(CUSTOM, 'bad', { caps: ['averages', 'courseStructures'] }));
-    await assertFails(writeRole(CUSTOM, 'big', { caps: ['averages'] }));
+    await customRole('big', ['averages', 'courseStructures', 'publish'], 365, 'goa', 'ELEC');
+    await assertSucceeds(writeRole(CUSTOM, 'ok', { caps: ['averages', 'courseStructures'] }));
+    await assertFails(writeRole(CUSTOM, 'bad', { caps: ['courseStructures', 'bulkUpload'] }));
+    await assertFails(writeRole(CUSTOM, 'big', { caps: ['courseStructures'] }));
   });
 
   test('a custom role gives exactly its ticked row inside its scope', async () => {
@@ -169,10 +169,9 @@ describe('custom roles', () => {
 });
 
 describe('custom grants', () => {
-  test('an owner grants a custom role; others cannot', async () => {
+  test('an owner grants a custom role; a president cannot', async () => {
     await customRole('avg', ['averages'], 365, 'goa', 'ELEC');
     await seed((db) => setDoc(doc(db, 'people', CUSTOM), { name: name(CUSTOM), campus: 'goa', firstSignIn: 1 }));
-    await assertFails(grantCustom(ADMIN, CUSTOM, 'avg'));
     await assertFails(grantCustom(PRES, CUSTOM, 'avg'));
     await assertSucceeds(grantCustom(OWNER, CUSTOM, 'avg'));
     await assertSucceeds(may(CUSTOM, 'averages', 'goa', 'ELEC', 'EEE F211'));
@@ -217,5 +216,86 @@ describe('custom grants', () => {
     await customRole('avg', ['averages']);
     await assertSucceeds(getDoc(doc(as(STUDENT), 'roles', 'avg')));
     await assertFails(writeRole(STUDENT, 'x', {}));
+  });
+});
+
+// ---- B5: one appointment rule, terms on the role ---------------------------
+
+const grantRole = (actor, email, roleId) => grantCustom(actor, email, roleId);
+const MGR = ['manageRoles', 'averages', 'courseStructures'];
+
+describe('appointing custom roles', () => {
+  test('an admin with manageRoles grants a custom role inside admin rows', async () => {
+    await customRole('inside', ['averages', 'courseStructures'], 365, 'goa', 'ELEC');
+    await customRole('outside', ['publish'], 365, 'goa', 'ELEC');
+    await assertSucceeds(grantRole(ADMIN, STUDENT, 'inside'));
+    await assertFails(grantRole(ADMIN, OTHER, 'outside'));
+    await seedBuiltin({ admin: DEFAULT_CAPS.admin.filter((c) => c !== 'manageRoles') });
+    await seed((db) => deleteDoc(doc(db, 'grants', `custom|${STUDENT}`)));
+    await assertFails(grantRole(ADMIN, STUDENT, 'inside'));
+  });
+
+  test('a custom manager at goa|CS grants at goa|CS, not at goa|all or hyderabad', async () => {
+    await customRole('mgr', MGR, 365, 'goa', 'CS');
+    await customGrant(CUSTOM, 'mgr');
+    await customRole('cs', ['averages', 'courseStructures'], 365, 'goa', 'CS');
+    await customRole('goa', ['averages', 'courseStructures'], 365, 'goa', 'all');
+    await customRole('hy', ['averages', 'courseStructures'], 365, 'hyderabad', 'CS');
+    await assertFails(grantRole(CUSTOM, STUDENT, 'goa'));
+    await assertFails(grantRole(CUSTOM, OTHER, 'hy'));
+    await assertSucceeds(grantRole(CUSTOM, STUDENT, 'cs'));
+  });
+
+  test('a custom manager cannot grant rows they lack', async () => {
+    await customRole('mgr', MGR, 365, 'goa', 'CS');
+    await customGrant(CUSTOM, 'mgr');
+    await customRole('more', ['averages', 'courseStructures', 'professors'], 365, 'goa', 'CS');
+    await assertFails(grantRole(CUSTOM, STUDENT, 'more'));
+  });
+
+  test('nobody grants themselves a custom role', async () => {
+    await customRole('mgr', MGR, 365, 'goa', 'CS');
+    await customGrant(CUSTOM, 'mgr');
+    await assertFails(grantRole(CUSTOM, CUSTOM, 'mgr'));
+  });
+
+  test("custom grant expiry follows the role's termDays", async () => {
+    await customRole('mgr', MGR, 365, 'goa', 'CS');
+    await customGrant(CUSTOM, 'mgr');
+    await customRole('short', ['courseStructures'], 10, 'goa', 'CS');
+    await assertFails(grantCustom(CUSTOM, STUDENT, 'short', { expiresAt: days(30) }));
+    await assertSucceeds(grantCustom(CUSTOM, STUDENT, 'short', { expiresAt: days(9) }));
+  });
+
+  test('a manager creates roles inside their scope only', async () => {
+    await customRole('mgr', MGR, 365, 'goa', 'CS');
+    await customGrant(CUSTOM, 'mgr');
+    await assertSucceeds(writeRole(CUSTOM, 'in', { campus: 'goa', dept: 'CS' }));
+    await assertFails(writeRole(CUSTOM, 'wide', { campus: 'goa', dept: 'all' }));
+    await assertFails(writeRole(CUSTOM, 'elsewhere', { campus: 'hyderabad', dept: 'CS' }));
+  });
+});
+
+describe('terms on the role', () => {
+  test('an admin changes the CR term but not the admin term', async () => {
+    await seedBuiltin();
+    await assertSucceeds(writeBuiltin(ADMIN, {}, { cr: 150 }));
+    await assertFails(writeBuiltin(ADMIN, {}, { admin: 900 }));
+    await assertFails(writeBuiltin(ADMIN, { cr: ['courseStructures'] }, { cr: 150 }));
+    await assertSucceeds(writeBuiltin(OWNER, {}, { admin: 900 }));
+  });
+});
+
+describe('averages need course structures', () => {
+  test('a custom role', async () => {
+    await assertFails(writeRole(OWNER, 'a', { caps: ['averages'] }));
+    await assertSucceeds(writeRole(OWNER, 'b', { caps: ['averages', 'courseStructures'] }));
+  });
+
+  test('roles/builtin, each role', async () => {
+    for (const k of ['admin', 'president', 'cr']) {
+      await assertFails(writeBuiltin(OWNER, { [k]: ['averages'] }));
+      await assertSucceeds(writeBuiltin(OWNER, { [k]: ['averages', 'courseStructures'] }));
+    }
   });
 });
