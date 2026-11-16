@@ -140,6 +140,8 @@ document no longer has to carry the catalogue.
 
 ### Who holds what
 
+The table below is the **defaults, editable in Controls › Roles**. The owner's row is fixed (every row, never stored). The other columns are seeded into `roles/builtin` the first time an owner opens Roles; until that document exists the rules and the app both use these defaults inline, so no deploy locks staff out. Capability keys are the `Capability` enum names and are stored data: never rename one.
+
 | | Owner | Admin | Department president | Course manager (CR) |
 |---|---|---|---|---|
 | Who | you, and whoever you add | a trusted second pair of hands | a student, for one department on their own campus | a student, for one course on their own campus |
@@ -173,6 +175,19 @@ document no longer has to carry the catalogue.
 | Links publish without approval | ✓ | ✓ | ✓ | — |
 
 **How the rules enforce the table (custom roles).** Every row above goes through one `may(cap, campus, dept, course)` in `firestore.rules`. Two rows share a site and are not separable there: *Bulk upload* writes the same offering documents as a save (the offering site accepts *Course structures*, *Bulk upload* or *Averages*), and a save that moves only `courseAverage` needs *Averages*. **Averages requires Course structures**: averages live inside the eval scheme (the components list), which rules cannot compare field by field, so the rules refuse any role, built-in or custom, that holds *Averages* without *Course structures*. *Degree requirements* has no writer yet. *Open Pointer as* is app-only. Presidents and CRs reach the campus-level rows (roster, review switch) through the staff index or their department grant, as before. Rules stop at 1000 evaluated expressions per request: no row is currently excluded from custom roles for lack of room.
+
+**Roles are data.**
+
+- **`roles/builtin`** holds the admin, president and CR definitions: the rows each ticks and its `termDays` (defaults 730, 365, 183). Only owners write it.
+- **Custom roles** (`roles/{id}`): a name, badge tag, rows, `termDays` and a **scope set on the role**: one department, the whole campus, or every campus. A person holds at most one custom role. Only students (`isStudentAddress`) hold one, like presidents and CRs. A grant expires after its role's `termDays` at the time it is written.
+- **One check.** Every row goes through `may(cap, campus, dept, course)` in the rules and `MyRoles.may` / `MyRoles.reach` in the app; no site names a role. They must agree, and the capability matrix tests (`test/rules/capability_matrix.test.mjs`, `test/core/`) prove it.
+- **Reach kinds** (`CapReach`): *everywhere* (one global row), *campus* (a campus row, as for a president's roster) and *dept* (rows per department or course). `reach(cap)` lists where the holder can act; screens that pick a campus or department read it instead of `presidencies.firstOrNull`.
+- **Staff index.** `staff/{email}` carries a generic `reach` list of `{role, campus, dept, course}`, written with every grant change; index-trusting reads check it. Custom holders have an entry but `privileged()` ignores them.
+- **M1, one appointment rule.** To grant or revoke a role the appointer's role must hold the matching *Appoint / revoke* row **and** cover the target role's rows and its scope. Nobody appoints themselves a custom role. Owners may appoint anything. Handover, secretaries and GEN presidents keep their extra conditions.
+- **Lookup budget.** A request may do 10 document lookups (20 in a batch) and 1000 evaluated expressions. `may()` spends its lookups on `roles/builtin` or the custom role and the grant, and repeat reads of one document count once. A heavy batch (approve a resource, a link with audit and markers) must stay within 20 for the worst-case actor, a custom holder who is also a CR; the matrix tests that actor.
+- **Controls access.** Built-in presidents and CRs keep today's Controls and `/maintain` access. Admin-level routes (`/admin/*`) are guarded by the route's capability (`anyOf`): owners, admins and custom holders see them, and a denied write shows the denied notice rather than crashing.
+- **Probe lists** (`test/rules/capability_probes.mjs`, one probe per row): `CUSTOM_EXCLUDED` is empty, so every row can be held by a custom role. `UNENFORCED` is *Degree requirements* and *Bulk upload* (no rules site of their own). `APP_ONLY` is *Open Pointer as*. If a row's site ever runs out of lookups it goes in `CUSTOM_EXCLUDED` and keeps only its built-in holders.
+- **Compatibility shims, kept until the stable app carries this work** (removing them needs the owner's go-ahead): `config/grantTerms` is still writable and mirrored from `roles/builtin`, and the rules read it as a fallback; staff documents without `reach` are accepted, and the rules still read the old `presidentOf`, `courses` and `admin` fields. Beta and stable share production data and rules.
 
 **Admin is deliberately narrow.** It exists so appointments do not queue behind one person,
 and to run course tools and moderation. An admin can edit course structures, bulk upload,
@@ -1247,7 +1262,10 @@ route that owns them. Admin and maintain screens live in the one deferred librar
 | `admin` | `AdminHome` | owner, admin |
 | `admin/open-as`, `…/department`, `…/course` | `RolePick`, `ViewAsDept`, `ViewAsCourse` | owners only (§16.3) |
 | `admin/people`, `admin/grant`, `admin/owners`, `admin/publish` | `AdminPeople`, `AdminGrant`, `Owners`, `Publish` | |
-| `admin/terms`, `admin/contact`, `admin/audit`, `admin/roster`, `admin/professors/merge` | `Terms`, `PublicContact`, `AuditLog`, `Roster`, `ProfessorMerge` | roster, audit and merge are also reached by presidents |
+| `admin/roles`, `admin/roles/:id` | `RolesPage`, `RoleEditor` | built-in and custom roles; `admin/terms` redirects here |
+| `admin/course-tools`, `admin/reviews` | `CourseToolsPage`, `ReviewsToolsPage` | course tools and moderation, by capability |
+| `admin/open-as/role` | `ViewAsRolePage` | owners only; opens at a custom role's own scope |
+| `admin/terms` (redirect), `admin/contact`, `admin/audit`, `admin/roster`, `admin/professors/merge` | `Terms`, `PublicContact`, `AuditLog`, `Roster`, `ProfessorMerge` | roster, audit and merge are also reached by presidents |
 | `maintain/:campus/:dept` and `/courses`, `/reviews`, `/resources`, `/professors`, `/succession`, `/succession/confirm` | `DeptHome`, `DeptCourses`, `DeptReviews`, `DeptResources`, `DeptProfessors`, `Succession`, `SuccessionConfirm` | the scope is in the path, so the header pills cannot disagree with it |
 | `maintain/:campus/course/:courseId` | `CrHome` | |
 | `maintain/:campus/:dept/resources/reported` | `DeptResourcesReported` | the Reported tab; a CR reaches it filtered to their course |
