@@ -151,6 +151,14 @@ void restoreMyRoles({String? email}) {
                 when x.liveAt(DateTime.now()))
               x,
         ],
+        defs:
+            m['defs'] == null ? null : RoleStore.decodeDefs(m['defs']),
+        custom:
+            m['custom'] == null
+                ? null
+                : Grant.fromMap(
+                  Map<String, dynamic>.from(m['custom'] as Map),
+                ),
       ),
     );
   } on Object catch (e) {
@@ -190,6 +198,8 @@ Future<void> refreshMyRoles() async {
       jsonEncode({
         'email': r.email,
         'owner': r.owner,
+        if (r.defs != null) 'defs': RoleStore.encodeDefs(r.defs!),
+        if (r.custom != null) 'custom': r.custom!.toMap(),
         'grants': [
           for (final g in r.grants)
             {
