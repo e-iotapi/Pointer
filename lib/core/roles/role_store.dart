@@ -8,6 +8,8 @@ import 'package:cgpa_calculator/core/heads/heads.dart';
 import 'package:cgpa_calculator/core/heads/paths.dart';
 import 'package:cgpa_calculator/core/live/live_heads.dart';
 import 'package:cgpa_calculator/core/perf/perf.dart';
+import 'package:cgpa_calculator/core/roles/capabilities.dart';
+import 'package:cgpa_calculator/core/roles/role_defs.dart';
 import 'package:cgpa_calculator/core/roles/roles.dart';
 import 'package:cgpa_calculator/core/timings.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -100,6 +102,7 @@ int termDays(GrantTerms t, GrantRole r) => switch (r) {
   GrantRole.dept => t.presidentDays,
   GrantRole.course => t.crDays,
   GrantRole.contributor => 36500, // until revoked (ContributorStore)
+  GrantRole.custom => 183, // the role's own termDays decides (B9)
 };
 
 /// `config/public` (§10.5).
@@ -335,6 +338,163 @@ class RoleStore {
     'adminDays': t.adminDays,
   };
 
+  // ---- Role definitions ----------------------------------------------------
+
+  /// Every role definition: `roles/builtin` and the custom roles. One
+  /// collection read; [RoleDefs.defaults] fill what is missing.
+  Future<RoleDefs> roleDefs() async => cacheFirst<RoleDefs>(
+    key: 'roles',
+    maxAge: adminMaxAge,
+    version: await markerOf(db, 'goa', Paths.roles),
+    fetch: () async {
+      final q = await db.collection('roles').get();
+      final raw = {for (final d in q.docs) d.id: d.data()};
+      final builtin = raw.remove('builtin');
+      return RoleDefs.fromDocs(builtin, {
+        for (final e in raw.entries)
+          e.key: {
+            for (final k in const [
+              'name',
+              'caps',
+              'termDays',
+              'campus',
+              'dept',
+            ])
+              k: e.value[k],
+          },
+      });
+    },
+    encode: _encodeDefs,
+    decode: _decodeDefs,
+  );
+
+  /// The saved [roleDefs], read synchronously; null when none is saved.
+  RoleDefs? peekRoleDefs() => peekCache('roles', _decodeDefs);
+
+  static Object? _encodeDefs(RoleDefs d) => {
+    for (final r in d.byId.values)
+      r.id: {
+        'name': r.name,
+        'caps': [for (final c in r.caps) c.key],
+        'termDays': r.termDays,
+        'campus': r.campus,
+        'dept': r.dept,
+        'builtin': r.builtin,
+      },
+  };
+
+  static RoleDefs _decodeDefs(Object? o) {
+    final m = (o as Map).cast<String, dynamic>();
+    Map<String, dynamic> of(String id) =>
+        (m[id] as Map).cast<String, dynamic>();
+    return RoleDefs.fromDocs(
+      {for (final id in builtinRoleKeys) id: of(id)},
+      {
+        for (final e in m.entries)
+          if ((e.value as Map)['builtin'] != true) e.key: of(e.key),
+      },
+    );
+  }
+
+  /// A role's moved: every cached copy and the goa marker (the rules count
+  /// `roles` on goa's head only).
+  Future<void> _rolesMoved() async {
+    LiveHeads.poke(Paths.roles);
+    await forget('roles');
+    await forget('audit|');
+  }
+
+  /// Sets the rows and term of built-in role [id] (owner only). `roles/builtin`
+  /// is one document holding all three roles, so the others are written as
+  /// they are now.
+  Future<void> saveBuiltin(String id, Set<Capability> caps, int termDays) async {
+    final defs = await roleDefs();
+    Map<String, Object?> cell(RoleDef r) => {
+      'caps': [for (final c in r.caps) c.key],
+      'termDays': r.termDays,
+    };
+    final before = {for (final k in builtinRoleKeys) k: cell(defs[k]!)};
+    final after = {
+      ...before,
+      id: {
+        'caps': [for (final c in caps) c.key],
+        'termDays': termDays,
+      },
+    };
+    final b = db.batch();
+    final auditId = logInto(
+      b,
+      path: 'roles/builtin',
+      summary: 'Changed the built-in ${defs[id]?.name ?? id} role',
+      campus: 'all',
+      before: before,
+      after: after,
+    );
+    b.set(db.collection('roles').doc('builtin'), {...after, 'auditId': auditId});
+    bumpPath(b, db, 'goa', Paths.roles);
+    await b.commit();
+    await _rolesMoved();
+  }
+
+  /// Creates a custom role, or rewrites [id]; returns its id.
+  Future<String> saveCustomRole({
+    String? id,
+    required String name,
+    required Set<Capability> caps,
+    required int termDays,
+    required String campus,
+    required String dept,
+  }) async {
+    final ref = db.collection('roles').doc(id);
+    final was = id == null ? null : (await ref.get()).data();
+    final data = {
+      'name': name,
+      'caps': [for (final c in caps) c.key],
+      'termDays': termDays,
+      'campus': campus,
+      'dept': dept,
+    };
+    final b = db.batch();
+    final auditId = logInto(
+      b,
+      path: 'roles/${ref.id}',
+      summary: '${was == null ? 'Created' : 'Changed'} the role $name',
+      campus: 'all',
+      before: was == null
+          ? null
+          : {for (final k in data.keys) k: was[k]},
+      after: data,
+    );
+    b.set(ref, {
+      ...data,
+      'createdBy': {'email': me, 'name': myName},
+      'updatedAt': FieldValue.serverTimestamp(),
+      'auditId': auditId,
+    });
+    bumpPath(b, db, 'goa', Paths.roles);
+    await b.commit();
+    await _rolesMoved();
+    return ref.id;
+  }
+
+  /// Deletes custom role [id]; its holders lose its rights at once.
+  Future<void> deleteCustomRole(String id) async {
+    final ref = db.collection('roles').doc(id);
+    final was = (await ref.get()).data();
+    final b = db.batch();
+    logInto(
+      b,
+      path: 'roles/$id',
+      summary: 'Deleted the role ${was?['name'] ?? id}',
+      campus: 'all',
+      before: was == null ? null : {'name': was['name'], 'caps': was['caps']},
+    );
+    b.delete(ref);
+    bumpPath(b, db, 'goa', Paths.roles);
+    await b.commit();
+    await _rolesMoved();
+  }
+
   Future<StaffEntry> _staff(String email) async {
     final d = await db.collection('staff').doc(email).get();
     final m = d.data();
@@ -463,6 +623,7 @@ class RoleStore {
       GrantRole.dept => 'president of ${branchCode(scope, programme)}',
       GrantRole.course => 'CR for $scope',
       GrantRole.contributor => 'contributor',
+      GrantRole.custom => 'custom role holder',
     };
     final data = existing.data();
     await _writeGrant(

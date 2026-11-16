@@ -82,7 +82,11 @@ enum GrantRole {
   course('course', 'Course manager', 'CR'),
 
   /// B7: campus-wide, no expiry (the sentinel 2100-01-01), until revoked.
-  contributor('contributor', 'Contributor', 'CONTRIBUTOR');
+  contributor('contributor', 'Contributor', 'CONTRIBUTOR'),
+
+  /// An owner-made role: `grants/custom|{email}`, scope `role`, with a
+  /// [Grant.roleId].
+  custom('custom', 'Custom role', 'ROLE');
 
   const GrantRole(this.key, this.label, this.tag);
 
@@ -97,7 +101,7 @@ enum GrantRole {
     admin => Role.admin,
     dept => Role.president,
     course => Role.cr,
-    contributor => Role.student,
+    contributor || custom => Role.student,
   };
 }
 
@@ -119,7 +123,11 @@ class Grant {
     this.expiresBefore,
     this.secretary = false,
     this.dept,
+    this.roleId,
   });
+
+  /// Custom grants only: the id of the `roles/{id}` document.
+  final String? roleId;
 
   /// Contributor grants only: the department whose president approved it.
   final String? dept;
@@ -172,6 +180,7 @@ class Grant {
     expiresAt: expiresAt ?? this.expiresAt,
     secretary: secretary,
     dept: dept,
+    roleId: roleId,
   );
 
   /// Whether the grant is active and unexpired at [now].
@@ -184,6 +193,7 @@ class Grant {
     GrantRole.dept => branchCode(scope, programme),
     GrantRole.course => scope,
     GrantRole.contributor => 'Every department',
+    GrantRole.custom => 'Custom role',
   };
 
   /// Reads a grant document's data.
@@ -203,6 +213,7 @@ class Grant {
     expiresBefore: asDate(m['expiresBefore']),
     secretary: m['secretary'] as bool? ?? false,
     dept: m['dept'] as String?,
+    roleId: m['roleId'] as String?,
   );
 
   /// JSON-safe, for `cacheFirst`: [fromMap] reads it back (dates as millis).
@@ -221,12 +232,15 @@ class Grant {
     'expiresBefore': expiresBefore?.millisecondsSinceEpoch,
     'secretary': secretary,
     'dept': dept,
+    'roleId': roleId,
   };
 }
 
 /// The grant document id: `role|campus|scope|email`.
 String grantId(GrantRole role, String campus, String scope, String email) =>
-    '${role.key}|$campus|$scope|$email';
+    role == GrantRole.custom
+        ? 'custom|$email'
+        : '${role.key}|$campus|$scope|$email';
 
 /// A Firestore Timestamp, a DateTime or epoch milliseconds.
 DateTime? asDate(Object? v) => switch (v) {

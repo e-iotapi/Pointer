@@ -42,6 +42,7 @@ String grantLabel(
           ? 'Grant — course manager'
           : 'Grant — course manager, $scope$where',
     GrantRole.contributor => 'Grant — contributor',
+    GrantRole.custom => 'Grant — custom role',
   };
 }
 
@@ -137,7 +138,7 @@ class _AdminGrantState extends State<AdminGrant> {
           : _Tier.president,
     GrantRole.course => _Tier.course,
     // Contributors are approved from requests, never granted by form.
-    GrantRole.contributor || null => null,
+    GrantRole.contributor || GrantRole.custom || null => null,
   };
 
   // "f20230800@goa" is enough; the campus domain is filled in.
@@ -244,7 +245,7 @@ class _AdminGrantState extends State<AdminGrant> {
     GrantRole.dept => _electives ? genDept : _dept,
     GrantRole.course =>
       _course.text.trim().isEmpty ? null : _course.text.trim().toUpperCase(),
-    GrantRole.contributor || null => null,
+    GrantRole.contributor || GrantRole.custom || null => null,
   };
 
   /// Catalogue codes starting with what is typed, until one is exact.
