@@ -267,6 +267,9 @@ affected" table maps each artboard to its task.
 - **M4. Screens declare their capability.** Each admin and `/maintain` route
   names the capability it needs; the router guard is `may(cap)` (any reach).
   Settings entries and Controls tiles follow the same list.
+  Built-in president and CR access to Controls stays as today; the
+  capability guard decides which admin-level routes owners, admins and custom
+  holders see.
 - **M5. Rules-only rights become rows** (tickable, seeded with today's
   holders): *Approve contributors* (owner, admin, president),
   *Claim elective courses* (owner, admin, president), *Compulsory reviews

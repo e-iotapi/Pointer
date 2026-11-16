@@ -240,7 +240,12 @@ final List<RouteBase> appRoutes = [
         builder: (_, _) => _deferred(() => admin.AdminHome()),
         routes: [
           _admin('people', () => admin.AdminPeople(), appointCaps),
-          _admin('grant', () => admin.AdminGrant(), appointCaps),
+          _admin(
+            'grant',
+            () => admin.AdminGrant(),
+            appointCaps,
+            presidents: true,
+          ),
           _admin(
             'owners',
             () => admin.OwnersPage(),
@@ -261,6 +266,7 @@ final List<RouteBase> appRoutes = [
             'audit',
             () => admin.AuditLogPage(),
             Capability.readAuditAndRoster,
+            presidents: true,
           ),
           _admin(
             'roster/volunteers',
@@ -269,6 +275,7 @@ final List<RouteBase> appRoutes = [
               volunteersTab: (c) => admin.VolunteersTab(campus: c),
             ),
             Capability.readAuditAndRoster,
+            presidents: true,
           ),
           _admin(
             'roster',
@@ -276,6 +283,7 @@ final List<RouteBase> appRoutes = [
               volunteersTab: (c) => admin.VolunteersTab(campus: c),
             ),
             Capability.readAuditAndRoster,
+            presidents: true,
           ),
           _admin(
             'open-as/department',
@@ -304,6 +312,7 @@ final List<RouteBase> appRoutes = [
             'professors/merge',
             () => admin.ProfessorMerge(),
             Capability.mergeProfessors,
+            presidents: true,
           ),
         ],
       ),
@@ -469,11 +478,23 @@ bool _staff() =>
     myRoles.value.reachesAdmin || myRoles.value.presidencies.isNotEmpty;
 
 /// An admin screen behind [caps]: one row, or a list of which any opens it.
-GoRoute _admin(String path, Widget Function() page, Object caps) => GoRoute(
+/// An admin-level route: owners, admins and custom holders, gated by [caps]
+/// (a [Capability] or a list). Built-in presidents keep exactly today's
+/// Controls access (CUSTOM_ROLES_DESIGN.md M4): only routes marked
+/// [presidents] let them in, still gated by [caps].
+GoRoute _admin(
+  String path,
+  Widget Function() page,
+  Object caps, {
+  bool presidents = false,
+}) => GoRoute(
   path: path,
   redirect:
       (_, _) =>
-          anyOf(caps is Capability ? [caps] : caps as Iterable<Capability>)
+          (presidents ? _staff() : myRoles.value.reachesAdmin) &&
+                  anyOf(
+                    caps is Capability ? [caps] : caps as Iterable<Capability>,
+                  )
               ? null
               : Routes.home,
   builder: (_, _) => _deferred(page),

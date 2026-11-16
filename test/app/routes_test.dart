@@ -177,6 +177,34 @@ void main() {
       return router.routerDelegate.currentConfiguration.uri.path;
     }
 
+    testWidgets('a president keeps today\'s Controls access (M4)', (t) async {
+      myRoles.value = MyRoles(
+        email: goa,
+        grants: [
+          Grant(
+            role: GrantRole.dept,
+            email: goa,
+            name: 'P',
+            campus: 'goa',
+            scope: 'ELEC',
+            active: true,
+            expiresAt: DateTime(2100),
+          ),
+        ],
+      );
+      for (final p in [
+        '/admin/people',
+        '/admin/approvals',
+        '/admin/course-tools',
+        '/admin/reviews',
+      ]) {
+        expect(await land(t, p), '/', reason: p);
+      }
+      for (final p in ['/admin/grant', '/admin/roster', '/admin/audit']) {
+        expect(await land(t, p), p, reason: p);
+      }
+    });
+
     testWidgets(
       'a custom holder with averages at goa|ELEC opens Course tools and the '
       'ELEC course screen, not Reviews',
