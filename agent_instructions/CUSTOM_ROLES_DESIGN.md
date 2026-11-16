@@ -79,7 +79,8 @@ person for one department, for every department on one campus, or everywhere.
   keep their grants, scopes, terms and handover flows).
 - Creating a capability from the dashboard: a capability is code.
 - Rules-only rights in custom roles (decision 2).
-- Listing custom-role holders in the contacts directory or the staff index.
+- Listing custom-role holders in the contacts directory (they are in the
+  staff index, M3, but `privileged()` ignores custom entries).
 - Any Worker, Durable Object or Cloud Function work.
 
 ## Anti-goals (a failure even if it works)
@@ -155,7 +156,7 @@ than one extra lookup.
   public contact, grant terms, owners, admins) pass `'all', 'all'`, so they
   work only for an everywhere reach.
 - Read sites that trust the staff index today (roster, moderation lists, link
-  flags) also accept `customMay`.
+  flags) read its generic `reach` list, which includes custom holders (M3).
 - `roles/{id}` writes (custom; `roles/builtin` is owner-only): author is owner, admin, or `customMay('manageCustomRoles',
   'all', 'all')`; `caps` (before and after) ⊆ the author's own rows: owner
   anything, admin the admin role's current rows, a custom manager their
@@ -328,9 +329,11 @@ affected" table maps each artboard to its task.
 - **Deleted roles.** The rules allow deleting a role with holders; their grants
   then deny cleanly (the role `get` errors). The app blocks the delete while
   live holders exist. No holder counter.
-- **Staff index.** Custom holders get no staff-index entry. Read sites that
-  trust the index gain `|| customMay(...)`; `privileged()` (contacts) does
-  not, so holders are not in the contacts directory (non-goal).
+- **Staff index.** Superseded by M3 (owner, 2026-11-16): custom grants write
+  the index too, as `reach` entries `{role: 'custom', campus, dept}` taken from
+  the role's scope, so index-trusting read sites read `s.reach` (one lookup)
+  instead of calling `customMay`. `privileged()` (contacts) counts only
+  non-custom entries, so holders stay out of the contacts directory (non-goal).
 
 ## Left to the builder
 
