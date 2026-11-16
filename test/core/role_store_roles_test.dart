@@ -57,8 +57,17 @@ void main() {
       'termDays': 100,
     });
     expect((raw['admin'] as Map)['termDays'], 730);
-    final audit = (await db.collection('audit').get()).docs.single.data();
-    expect(audit['path'], 'roles/builtin');
+    final audits = (await db.collection('audit').get()).docs.map(
+      (d) => d.data()['path'],
+    );
+    expect(audits.toSet(), {'roles/builtin', 'config/grantTerms'});
+    // The stable app's config/grantTerms gets the new CR term too.
+    final terms =
+        (await db.collection('config').doc('grantTerms').get()).data()!;
+    expect(
+      (terms['crDays'], terms['presidentDays'], terms['adminDays']),
+      (100, 365, 730),
+    );
     expect(raw['auditId'], isNotNull);
     expect(await rolesMarker(), 1);
     final d = await owner.roleDefs();

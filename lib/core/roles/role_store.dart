@@ -480,7 +480,47 @@ class RoleStore {
     );
     b.set(db.collection('roles').doc('builtin'), {...after, 'auditId': auditId});
     bumpPath(b, db, 'goa', Paths.roles);
+    // The stable app still reads config/grantTerms: mirror a term change
+    // there while both channels run (B12 retires it). Its rules cap CR at
+    // 400, president at 800 and admin at 1500 days; a term past those is
+    // left out (the rules accept the larger of the two terms anyway).
+    final mirror = termDays != (before[id]!['termDays'] as int);
+    final was = mirror ? await terms() : null;
+    final t =
+        was == null
+            ? null
+            : (
+              crDays: id == 'cr' ? termDays : was.crDays,
+              presidentDays: id == 'president' ? termDays : was.presidentDays,
+              adminDays: id == 'admin' ? termDays : was.adminDays,
+            );
+    final mirrored =
+        t != null &&
+        t.crDays <= 400 &&
+        t.presidentDays <= 800 &&
+        t.adminDays <= 1500;
+    if (mirrored) {
+      final termsAudit = logInto(
+        b,
+        path: 'config/grantTerms',
+        summary:
+            'Set grant terms: CR ${t.crDays} days, president '
+            '${t.presidentDays}, admin ${t.adminDays}',
+        campus: 'all',
+        before: _termsMap(was!),
+        after: _termsMap(t),
+      );
+      b.set(db.collection('config').doc('grantTerms'), {
+        ..._termsMap(t),
+        'auditId': termsAudit,
+      });
+      bumpPathOnAllHeads(b, db, Paths.terms);
+    }
     await b.commit();
+    if (mirrored) {
+      LiveHeads.poke(Paths.terms);
+      await forget('terms');
+    }
     await _rolesMoved();
   }
 
