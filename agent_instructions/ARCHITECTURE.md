@@ -164,6 +164,13 @@ document no longer has to carry the catalogue.
 | Moderate reviews | ✓ | ✓ | ✓ in scope | — |
 | **Read the audit log and the roster** | ✓ | ✓ | ✓ own campus | — |
 | Contribute links (approved within 15 days) | ✓ | ✓ | ✓ | ✓ |
+| Manage roles | ✓ | ✓ | — | — |
+| Approve contributors | ✓ | ✓ | ✓ | — |
+| Claim elective courses | ✓ | ✓ | ✓ | — |
+| Compulsory reviews switch | ✓ | ✓ | ✓ own campus | — |
+| Publish the timetable | ✓ | ✓ | — | — |
+| Open Pointer as | ✓ | — | — | — |
+| Links publish without approval | ✓ | ✓ | ✓ | — |
 
 **Admin is deliberately narrow.** It exists so appointments do not queue behind one person,
 and to run course tools and moderation. An admin can edit course structures, bulk upload,
