@@ -807,10 +807,6 @@ void main() {
       findsOneWidget,
     );
     expect(find.textContaining('Me — every campus'), findsOneWidget);
-    expect(
-      find.text('CR 1 semester · president 1 year · admin 2 years'),
-      findsOneWidget,
-    );
   });
 
   testWidgets('Controls groups course tools and reviews', (t) async {
@@ -823,13 +819,14 @@ void main() {
     expect(find.text('TOOLS'), findsOneWidget);
     expect(find.text('Course tools'), findsOneWidget);
     expect(find.text('Reviews'), findsOneWidget);
-    expect(find.text('NEW'), findsNWidgets(2));
+    expect(find.text('NEW'), findsNWidgets(3));
     // They moved inside Course tools and Reviews.
     expect(find.text('Merge professors'), findsNothing);
     expect(find.text('Contributor approvals'), findsNothing);
     expect(find.text('Compulsory reviews'), findsNothing);
-    // Grant terms stays until the Roles section (B10).
-    expect(find.text('Grant terms'), findsOneWidget);
+    // Grant terms moved into Roles (B10).
+    expect(find.text('Grant terms'), findsNothing);
+    expect(find.text('Roles'), findsOneWidget);
   });
 
   testWidgets('Course tools lists its four tools', (t) async {

@@ -22,7 +22,6 @@ import 'package:go_router/go_router.dart';
 typedef _Live =
     ({
       List<Grant> grants,
-      GrantTerms terms,
       PublicContact? contact,
       int owners,
       int drafts,
@@ -65,7 +64,6 @@ class _AdminHomeState extends State<AdminHome> {
     try {
       final r = await Future.wait<Object?>([
         store.roster(),
-        store.terms(),
         store.publicContact(),
         store.owners(),
         CatalogStore(store).drafts(),
@@ -75,13 +73,12 @@ class _AdminHomeState extends State<AdminHome> {
         () =>
             _live = (
               grants: r[0] as List<Grant>,
-              terms: r[1] as GrantTerms,
-              contact: r[2] as PublicContact?,
+              contact: r[1] as PublicContact?,
               owners:
-                  (r[3] as List<Map<String, dynamic>>)
+                  (r[2] as List<Map<String, dynamic>>)
                       .where((o) => o['active'] == true)
                       .length,
-              drafts: (r[4] as List).length,
+              drafts: (r[3] as List).length,
             ),
       );
     } catch (_) {
@@ -218,22 +215,25 @@ class _AdminHomeState extends State<AdminHome> {
         ]),
         ],
         if (can([
+          Capability.manageRoles,
           Capability.grantTermsCrPresident,
+          Capability.grantTermsAdmin,
           Capability.publicContact,
           Capability.readAuditAndRoster,
         ])) ...[
         const SectionLabel('Owners and admins'),
         _Rows([
-          if (can([Capability.grantTermsCrPresident]))
+          if (can([
+            Capability.manageRoles,
+            Capability.grantTermsCrPresident,
+            Capability.grantTermsAdmin,
+          ]))
           _Row(
-            Icons.event_outlined,
-            'Grant terms',
-            live == null
-                ? 'How long each grant lasts'
-                : 'CR ${termSpan(live.terms.crDays)} · '
-                    'president ${termSpan(live.terms.presidentDays)} · '
-                    'admin ${termSpan(live.terms.adminDays)}',
-            () => go(Routes.adminTerms),
+            Icons.shield_outlined,
+            'Roles',
+            'What each role may do, its scope and term',
+            () => go(Routes.adminRoles),
+            titleBadge: const CountBadge('NEW', tone: CountTone.on),
           ),
           if (can([Capability.publicContact]))
           _Row(
@@ -308,6 +308,7 @@ class _AdminHomeState extends State<AdminHome> {
           ]),
         ],
         const Note(
+          'Grant terms moved into Roles: each role carries its own term. '
           'Merge professors and Contributor approvals are inside Course tools; '
           'Compulsory reviews is inside Reviews.',
         ),

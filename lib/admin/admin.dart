@@ -17,4 +17,5 @@ export 'package:cgpa_calculator/admin/open_as.dart';
 export 'package:cgpa_calculator/admin/people.dart';
 export 'package:cgpa_calculator/admin/professors.dart';
 export 'package:cgpa_calculator/admin/publish_page.dart';
+export 'package:cgpa_calculator/admin/roles_page.dart';
 export 'package:cgpa_calculator/admin/roster.dart';

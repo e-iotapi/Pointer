@@ -41,6 +41,10 @@ class GrantTile extends StatelessWidget {
     final left = g.expiresAt.difference(now).inDays;
     final soon = expiresSoon(g);
     final live = g.liveAt(now);
+    final def =
+        g.role == GrantRole.custom
+            ? myRoles.value.roleDefs[g.roleId ?? '']
+            : null;
     final right = TypeScale.label.copyWith(
       color:
           !live
@@ -67,8 +71,23 @@ class GrantTile extends StatelessWidget {
                     runSpacing: 6,
                     crossAxisAlignment: WrapCrossAlignment.center,
                     children: [
-                      TierTag.of(g.role),
-                      if (g.role != GrantRole.admin) ...[
+                      // A custom grant goes by its role's name and scope.
+                      if (def != null)
+                        TierTag(def.name.toUpperCase())
+                      else
+                        TierTag.of(g.role),
+                      if (def != null) ...[
+                        ScopeChip(
+                          campusName(def.campus ?? g.campus),
+                          icon: Icons.place_outlined,
+                        ),
+                        ScopeChip(
+                          def.dept == null || def.dept == 'all'
+                              ? 'Every dept'
+                              : def.dept!,
+                          muted: true,
+                        ),
+                      ] else if (g.role != GrantRole.admin) ...[
                         ScopeChip(
                           campusName(g.campus),
                           icon: Icons.place_outlined,
@@ -106,7 +125,12 @@ class GrantTile extends StatelessWidget {
                   child: Text(
                     line ??
                         [
-                          if (g.grantedByName.isNotEmpty)
+                          if (g.role == GrantRole.custom)
+                            g.grantedByName.isEmpty
+                                ? 'Custom role'
+                                : 'Custom role · appointed by '
+                                    '${g.grantedByName}'
+                          else if (g.grantedByName.isNotEmpty)
                             'Appointed by ${g.grantedByName}',
                           live
                               ? 'until ${shortDay(g.expiresAt, year: true)}'
@@ -170,7 +194,10 @@ List<Grant> _byRole(List<Grant> all) => [
     if (g.role != GrantRole.contributor) g,
 ]..sort((a, b) {
   final r = a.role.index.compareTo(b.role.index);
-  return r != 0 ? r : a.name.compareTo(b.name);
+  if (r != 0) return r;
+  // Custom grants sit together under their role's name.
+  final byRole = (a.roleId ?? '').compareTo(b.roleId ?? '');
+  return byRole != 0 ? byRole : a.name.compareTo(b.name);
 });
 
 /// Board `AdminPeople`: every grant, filtered by campus or expiring soon;
@@ -353,7 +380,13 @@ class _PersonPageState extends State<PersonPage> {
             ? 'CR'
             : '${_g.role.tag[0]}${_g.role.tag.substring(1).toLowerCase()}';
     return PageFrame(
-      header: PageHeader(eyebrow: _g.role.tag, title: _g.name),
+      header: PageHeader(
+        eyebrow:
+            _g.role == GrantRole.custom
+                ? (defs[_g.roleId ?? '']?.name.toUpperCase() ?? _g.role.tag)
+                : _g.role.tag,
+        title: _g.name,
+      ),
       bottom:
           revoke
               ? BottomAction(
