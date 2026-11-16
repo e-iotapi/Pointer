@@ -196,15 +196,29 @@ class RoleStore {
       for (final d in q.docs)
         if (Grant.fromMap(d.data()) case final g when g.liveAt(at)) g,
     ];
-    // A contributor grant is a student right, not a maintainer role (B7).
+    // Contributor and custom grants are not maintainer roles in [grants]
+    // (B7): the first is a student right, the second answers through its role.
+    final held = [
+      for (final g in live)
+        if (g.role != GrantRole.contributor && g.role != GrantRole.custom) g,
+    ];
+    final custom = live.where((g) => g.role == GrantRole.custom).firstOrNull;
+    // The definitions are read only when something answers through them.
+    RoleDefs? defs;
+    if (!owner && (held.isNotEmpty || custom != null)) {
+      try {
+        defs = await roleDefs();
+      } on FirebaseException {
+        defs = peekRoleDefs();
+      }
+    }
     return MyRoles(
       email: me,
       owner: owner,
-      grants: [
-        for (final g in live)
-          if (g.role != GrantRole.contributor) g,
-      ],
+      grants: held,
       contributor: live.any((g) => g.role == GrantRole.contributor),
+      defs: defs,
+      custom: custom,
     );
   }
 
@@ -364,14 +378,15 @@ class RoleStore {
           },
       });
     },
-    encode: _encodeDefs,
-    decode: _decodeDefs,
+    encode: encodeDefs,
+    decode: decodeDefs,
   );
 
   /// The saved [roleDefs], read synchronously; null when none is saved.
-  RoleDefs? peekRoleDefs() => peekCache('roles', _decodeDefs);
+  RoleDefs? peekRoleDefs() => peekCache('roles', decodeDefs);
 
-  static Object? _encodeDefs(RoleDefs d) => {
+  /// [d] as JSON-safe data, for the device cache.
+  static Object? encodeDefs(RoleDefs d) => {
     for (final r in d.byId.values)
       r.id: {
         'name': r.name,
@@ -383,7 +398,8 @@ class RoleStore {
       },
   };
 
-  static RoleDefs _decodeDefs(Object? o) {
+  /// Reads [encodeDefs] back.
+  static RoleDefs decodeDefs(Object? o) {
     final m = (o as Map).cast<String, dynamic>();
     Map<String, dynamic> of(String id) =>
         (m[id] as Map).cast<String, dynamic>();

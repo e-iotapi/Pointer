@@ -6,6 +6,7 @@ library;
 import 'package:cgpa_calculator/core/models/programmes.dart';
 import 'package:cgpa_calculator/core/roles/capabilities.dart';
 import 'package:cgpa_calculator/core/roles/claim_store.dart' show CourseClaim;
+import 'package:cgpa_calculator/core/roles/role_defs.dart';
 
 final _student = RegExp(
   r'^[fhp][0-9]{4}[0-9]+@(goa|hyderabad|pilani|dubai)\.bits-pilani\.ac\.in$',
@@ -315,6 +316,62 @@ class StaffEntry {
   }
 }
 
+/// The Firestore-free mirror of `CUSTOM_EXCLUDED` in
+/// test/rules/capability_probes.mjs: rows no custom role may hold. Empty until
+/// the orchestrator copies the probes' list at merge.
+const customExcluded = <Capability>{};
+
+/// One place a person may do a row: a role's reach, as stored in the staff
+/// index (`{role, campus, dept, course}`).
+class Reach {
+  const Reach({
+    required this.role,
+    required this.campus,
+    this.dept,
+    this.course,
+  });
+
+  /// `admin`, `president`, `cr` or `custom`.
+  final String role;
+
+  /// A campus key, or `all`.
+  final String campus;
+
+  /// A department key (a president's, a custom role's); null or `all` for the
+  /// whole campus.
+  final String? dept;
+
+  /// A course id (a CR's), else null.
+  final String? course;
+
+  /// The index entry; null dept and course are left out.
+  Map<String, Object?> toMap() => {
+    'role': role,
+    'campus': campus,
+    if (dept != null) 'dept': dept,
+    if (course != null) 'course': course,
+  };
+
+  /// Reads an index entry.
+  static Reach fromMap(Map m) => Reach(
+    role: m['role'] as String? ?? '',
+    campus: m['campus'] as String? ?? '',
+    dept: m['dept'] as String?,
+    course: m['course'] as String?,
+  );
+
+  /// Whether the target lies inside this reach. A null (or `all`) part of
+  /// the target is the whole of that dimension, covered only by a reach
+  /// that is not narrowed on it.
+  bool covers(String? campus, String? dept, String? course) {
+    if (this.campus != 'all' && campus != this.campus) return false;
+    final d = this.dept;
+    if (d != null && d != 'all' && dept != d) return false;
+    final k = this.course;
+    return k == null || course == k;
+  }
+}
+
 /// What the signed-in person holds: owner status and every live grant.
 class MyRoles {
   const MyRoles({
@@ -322,6 +379,8 @@ class MyRoles {
     this.owner = false,
     this.grants = const [],
     this.contributor = false,
+    this.defs,
+    this.custom,
   });
 
   /// Nobody signed in, or a plain student.
@@ -333,12 +392,20 @@ class MyRoles {
   /// Whether the person is the owner.
   final bool owner;
 
-  /// Live grants only (contributor grants are not among them, see
-  /// [contributor]).
+  /// Live grants only (contributor and custom grants are not among them, see
+  /// [contributor] and [custom]).
   final List<Grant> grants;
 
   /// Whether a live contributor grant is held (B7).
   final bool contributor;
+
+  /// The role definitions the answers read; null reads the §4 defaults.
+  final RoleDefs? defs;
+
+  /// The `custom|{email}` grant, if held.
+  final Grant? custom;
+
+  RoleDefs get _defs => defs ?? RoleDefs.defaults();
 
   /// Whether a live admin grant is held.
   bool get admin => grants.any((g) => g.role == GrantRole.admin);
@@ -351,7 +418,7 @@ class MyRoles {
   bool get staff => owner || grants.any((g) => g.role != GrantRole.course);
 
   /// Whether the person may open the admin screens.
-  bool get reachesAdmin => owner || admin;
+  bool get reachesAdmin => owner || admin || custom != null;
 
   /// The live department grants.
   Iterable<Grant> get presidencies =>
@@ -373,30 +440,94 @@ class MyRoles {
           ? Role.cr
           : Role.student;
 
+  bool _ticked(String role, Capability c) =>
+      _defs[role]?.caps.contains(c) ?? false;
+
+  /// The custom grant's role, when the grant is live and the row is open to
+  /// custom roles; null otherwise (a deleted role gives nothing).
+  RoleDef? _customRole(Capability c) {
+    final g = custom;
+    if (g == null || !g.liveAt(DateTime.now()) || !isStudentAddress(email)) {
+      return null;
+    }
+    final r = _defs[g.roleId ?? ''];
+    return r != null && r.caps.contains(c) && !customExcluded.contains(c)
+        ? r
+        : null;
+  }
+
+  // Admin's rows, except these two, are every campus's.
+  static const _ownCampus = {
+    Capability.departmentResources,
+    Capability.courseResources,
+  };
+
   /// Whether this person may do [action] on [campus]/[scope] ([scope] is a
-  /// department key or a course id), through any role they hold.
+  /// department key or a course id), through any role they hold. The same
+  /// answer as the rules' `may()`: a null [campus] or [scope] asks "anywhere".
+  /// Presidents and CRs only hold department-reach rows; campus and
+  /// everywhere rows are admin's, owner's and custom roles'.
   bool may(Capability action, {String? campus, String? scope}) {
-    if (owner && can(Role.owner, action)) return true;
+    if (owner) return true;
+    final deptRow = action.reach == CapReach.dept;
     if (admin &&
-        can(Role.admin, action) &&
-        (!action.admin.contains('own campus') ||
+        _ticked('admin', action) &&
+        (!_ownCampus.contains(action) ||
             campus == null ||
             campus == campusOfAddress(email))) {
       return true;
     }
-    for (final g in presidencies) {
-      final inScope =
-          (campus == null || campus == g.campus) &&
-          (scope == null || scope == g.scope || deptOf(scope) == g.scope);
-      if (can(Role.president, action, inScope: inScope)) return true;
+    if (deptRow && _ticked('president', action)) {
+      for (final g in presidencies) {
+        if ((campus == null || campus == g.campus) &&
+            (scope == null || scope == g.scope || deptOf(scope) == g.scope)) {
+          return true;
+        }
+      }
     }
-    for (final g in courses) {
-      final inScope =
-          (campus == null || campus == g.campus) &&
-          (scope == null || scope == g.scope);
-      if (can(Role.cr, action, inScope: inScope)) return true;
+    if (deptRow && _ticked('cr', action)) {
+      for (final g in courses) {
+        if ((campus == null || campus == g.campus) &&
+            (scope == null || scope == g.scope)) {
+          return true;
+        }
+      }
     }
-    return false;
+    final r = _customRole(action);
+    if (r == null) return false;
+    if (action.reach == CapReach.everywhere || r.campus == 'all') return true;
+    final d =
+        action.reach == CapReach.campus || scope == null
+            ? 'all'
+            : (scope.contains(' ') ? deptOf(scope) : scope);
+    return (campus == null ||
+            (r.campus == campus && campusOfAddress(email) == campus)) &&
+        (r.dept == 'all' || r.dept == d || d == 'all');
+  }
+
+  /// Every place this person may do [action].
+  List<Reach> reach(Capability action) {
+    final own = campusOfAddress(email);
+    if (owner ||
+        (admin && _ticked('admin', action) && !_ownCampus.contains(action))) {
+      return const [Reach(role: 'admin', campus: 'all')];
+    }
+    return [
+      if (admin &&
+          _ticked('admin', action) &&
+          own != null) // own-campus rows
+        Reach(role: 'admin', campus: own),
+      if (action.reach == CapReach.dept && _ticked('president', action))
+        for (final g in presidencies)
+          Reach(role: 'president', campus: g.campus, dept: g.scope),
+      if (action.reach == CapReach.dept && _ticked('cr', action))
+        for (final g in courses)
+          Reach(role: 'cr', campus: g.campus, course: g.scope),
+      if (_customRole(action) case final r?)
+        action.reach == CapReach.everywhere
+            ? const Reach(role: 'custom', campus: 'all')
+            : Reach(role: 'custom', campus: r.campus ?? 'all', dept: r.dept),
+    ];
   }
 }
 
