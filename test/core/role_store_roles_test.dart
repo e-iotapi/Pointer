@@ -101,4 +101,46 @@ void main() {
     expect(g.roleId, 'r1');
     expect(Grant.fromMap(g.toMap()).roleId, 'r1');
   });
+
+  group('custom grants write their staff entry', () {
+    const holder = 'h@goa.bits-pilani.ac.in';
+    Future<Grant> appointCustom(String id) async {
+      await db.collection('people').doc(holder).set({'name': 'Holder'});
+      await owner.appoint(
+        role: GrantRole.custom,
+        email: holder,
+        campus: 'goa',
+        scope: 'role',
+        roleId: id,
+        expiresAt: DateTime.now().add(const Duration(days: 30)),
+      );
+      return Grant.fromMap(
+        (await db.collection('grants').doc('custom|$holder').get()).data()!,
+      );
+    }
+
+    Future<List> reach() async =>
+        (await db.collection('staff').doc(holder).get()).data()!['reach']
+            as List;
+
+    test('appoint adds the role campus and dept; revoke removes it', () async {
+      final id = await owner.saveCustomRole(
+        name: 'Marks team',
+        caps: {Capability.publish},
+        termDays: 90,
+        campus: 'goa',
+        dept: 'ELEC',
+      );
+      final g = await appointCustom(id);
+      expect(await reach(), [
+        {'role': 'custom', 'campus': 'goa', 'dept': 'ELEC'},
+      ]);
+      final s = (await db.collection('staff').doc(holder).get()).data()!;
+      expect(s['admin'], false);
+      expect(s['presidentOf'], isEmpty);
+      expect(s['courses'], isEmpty);
+      await owner.revoke(g);
+      expect(await reach(), isEmpty);
+    });
+  });
 }

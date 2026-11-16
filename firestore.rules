@@ -487,6 +487,13 @@ service cloud.firestore {
       return d.role == 'contributor' || staffListed(id, d);
     }
 
+    // A custom grant's staff entry: exactly its role's reach, there iff active.
+    // The built-in fields are held by staffWriteOk.
+    function customStaffAgrees(id, d) {
+      let s = getAfter(staffPath(d.email)).data;
+      return s.lastGrant == id && s.reach is list && (reachOf(d) in s.reach) == d.active;
+    }
+
     // The staff index's reach entry for a grant (CUSTOM_ROLES_DESIGN M3): who,
     // where. A custom grant's entry is its role's scope, not the holder's.
     // ponytail: rules cannot scan a list of maps, so the readers (readsRoster,
@@ -552,6 +559,7 @@ service cloud.firestore {
              == get(/databases/$(db)/documents/people/$(request.resource.data.email)).data.name
         && request.resource.data.grantedBy.email == me()
         && request.resource.data.grantedAt == request.time
+        && customStaffAgrees(id, request.resource.data)
         && audited('grants/' + id)
         && pathBumped(request.resource.data.campus, 'grants');
       // Revoke, renew or change the role of a custom grant.
@@ -567,6 +575,7 @@ service cloud.firestore {
                      get(/databases/$(db)/documents/roles/$(request.resource.data.roleId)).data.termDays, 'd')))
         && request.resource.data.grantedBy.email == me()
         && request.resource.data.grantedAt == request.time
+        && customStaffAgrees(id, request.resource.data)
         && audited('grants/' + id)
         && pathBumped(request.resource.data.campus, 'grants');
       // Revoke (active false) or renew (a new expiry); who and what are fixed,
