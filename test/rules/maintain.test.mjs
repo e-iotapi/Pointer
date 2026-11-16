@@ -3,7 +3,7 @@
 import { describe, test } from 'node:test';
 import { assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import { collection, doc, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
-import { OWNER, PRES, STUDENT, as, days, name, seed, useEmulator } from './helpers.mjs';
+import { ADMIN, OWNER, PRES, STUDENT, as, days, name, seed, useEmulator } from './helpers.mjs';
 
 useEmulator();
 
@@ -54,6 +54,11 @@ describe('offerings', () => {
     await assertSucceeds(writeOffering(as(PRES), PRES, 'INSTR F211', 'goa_2026-27-1'));
     await assertFails(writeOffering(as(PRES), PRES, 'CS F301', 'goa_2026-27-1'));
     await assertFails(writeOffering(as(PRES), PRES, 'EEE F111', 'pilani_2026-27-1'));
+  });
+
+  test('an admin edits a course structure on any campus', async () => {
+    await assertSucceeds(writeOffering(as(ADMIN), ADMIN, 'EEE F111', 'goa_2026-27-1'));
+    await assertSucceeds(writeOffering(as(ADMIN), ADMIN, 'EEE F111', 'hyderabad_2026-27-1'));
   });
 
   test('a CR writes their own course only', async () => {

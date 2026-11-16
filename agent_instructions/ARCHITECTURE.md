@@ -154,22 +154,22 @@ document no longer has to carry the catalogue.
 | Grant terms — CR and president lengths | ✓ | ✓ | — | — |
 | Grant terms — admin length | ✓ | — | — | — |
 | Merge duplicate professors | ✓ | ✓ | ✓ in scope | — |
-| Course structures, eval schemes | ✓ | — | ✓ | ✓ own courses |
-| Bulk upload a JSON of eval schemes | ✓ | — | ✓ | — |
-| Degree requirements | ✓ | — | ✓ | — |
+| Course structures, eval schemes | ✓ | ✓ | ✓ | ✓ own courses |
+| Bulk upload a JSON of eval schemes | ✓ | ✓ | ✓ | — |
+| Degree requirements | ✓ | ✓ | ✓ | — |
 | Department resources | ✓ | ✓ own campus | ✓ | — |
 | Course resources | ✓ | ✓ own campus | ✓ | ✓ own courses |
-| Averages — course, component, part | ✓ | — | ✓ | ✓ own courses |
-| Professors — create, rename | ✓ | — | ✓ | pick only |
-| Moderate reviews | ✓ | — | ✓ in scope | — |
+| Averages — course, component, part | ✓ | ✓ | ✓ | ✓ own courses |
+| Professors — create, rename | ✓ | ✓ | ✓ | pick only |
+| Moderate reviews | ✓ | ✓ | ✓ in scope | — |
 | **Read the audit log and the roster** | ✓ | ✓ | ✓ own campus | — |
 | Contribute links (approved within 15 days) | ✓ | ✓ | ✓ | ✓ |
 
 **Admin is deliberately narrow.** It exists so appointments do not queue behind one person,
-and nothing else. An admin cannot publish, cannot appoint another admin and **cannot touch
-course data** — the rules give an admin write access to grants and nothing else, save resource
-links on the admin's own campus (added one at a time or in bulk). That is the whole point of
-separating it from Owner: the dangerous powers stay with named owner accounts.
+and to run course tools and moderation. An admin can edit course structures, bulk upload,
+degree requirements, averages and professors, moderate reviews, and add resource links, on
+any campus. An admin cannot publish and cannot appoint another admin. That is the whole
+point of separating it from Owner: the dangerous powers stay with named owner accounts.
 
 ### Owners are a list, and any verified account can be on it
 

@@ -6,7 +6,7 @@ import { assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import {
   collection, collectionGroup, deleteDoc, deleteField, doc, getDoc, getDocs, increment, limit, orderBy, query, serverTimestamp, setDoc, where, writeBatch,
 } from 'firebase/firestore';
-import { OTHER, PRES, STUDENT, as, bump, env, name, seed, useEmulator } from './helpers.mjs';
+import { ADMIN, OTHER, PRES, STUDENT, as, bump, env, name, seed, useEmulator } from './helpers.mjs';
 
 useEmulator();
 
@@ -268,6 +268,27 @@ describe('reviews', () => {
     await assertSucceeds(getDoc(doc(as(STUDENT), 'reviews', C, 'entries', id)));
     // Never a delete by a moderator.
     await assertFails(deleteDoc(doc(as(PRES), 'reviews', C, 'entries', id)));
+  });
+
+  test('an admin hides a review; a student cannot', async () => {
+    await professors();
+    await post(as(STUDENT), STUDENT);
+    const id = hash(STUDENT, C);
+    const hide = (who) => {
+      const db = as(who);
+      const b = writeBatch(db);
+      const a = doc(collection(db, 'audit'));
+      b.update(doc(db, 'reviews', C, 'entries', id), {
+        hidden: true, reason: 'Names a person', hiddenBy: { email: who, name: name(who) }, auditId: a.id, moderatedAt: serverTimestamp(),
+      });
+      b.set(a, { actor: { email: who, name: name(who), role: 'test' }, action: 'hide', path: `reviews/${C}/entries/${id}`, campus: 'goa', at: serverTimestamp() });
+      count(b, db, id, { professorId: 'p1' }, -1, -4, -1);
+      mirror(b, db, id, deleteField());
+      return b.commit();
+    };
+    await assertFails(hide(S2));
+    await assertSucceeds(hide(ADMIN));
+    await assertSucceeds(getDoc(doc(as(ADMIN), 'reviews', C, 'entries', id)));
   });
 });
 

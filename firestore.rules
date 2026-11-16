@@ -1082,10 +1082,10 @@ service cloud.firestore {
 
     // ---- Maintainer writes (§13.2, §13.3) -----------------------------------
 
-    // An owner, the department's president or the course's CR, on the
-    // campus in the path. Each is checked against the grant, not the index.
+    // An owner, an admin, the department's president or the course's CR, on
+    // the campus in the path. Each is checked against the grant, not the index.
     function maintains(campus, courseId) {
-      return isOwner() || isPresident(campus, managingDept(campus, courseId))
+      return isOwner() || isAdmin() || isPresident(campus, managingDept(campus, courseId))
         || isCr(campus, courseId);
     }
 
@@ -1123,7 +1123,7 @@ service cloud.firestore {
 
     match /courses/{courseId}/offerings/{offering} {
       allow read: if mayUse()
-        && (offering.split('_')[0] == campusOf(me()) || isOwner());
+        && (offering.split('_')[0] == campusOf(me()) || isOwner() || isAdmin());
       allow create, update: if mayUse()
         && maintains(offering.split('_')[0], courseId)
         && request.resource.data.courseId == courseId
@@ -1258,7 +1258,7 @@ service cloud.firestore {
     // Moderators read through the staff index; writes check the grant.
     function readsModeration(d) {
       let s = get(staffPath(me())).data;
-      return isOwner() || (s.campus == d.campus && request.time < s.expiresAt
+      return isOwner() || isAdmin() || (s.campus == d.campus && request.time < s.expiresAt
         && d.department in s.presidentOf);
     }
 
@@ -1359,7 +1359,7 @@ service cloud.firestore {
       // Moderation is hide-only, with a reason and an audit entry; a hide
       // takes the review off the counters and an unhide puts it back.
       allow update: if mayUse()
-        && (isOwner() || isPresident(resource.data.campus, managingDept(resource.data.campus, c)))
+        && (isOwner() || isAdmin() || isPresident(resource.data.campus, managingDept(resource.data.campus, c)))
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['hidden', 'reason', 'hiddenBy', 'reports', 'auditId', 'moderatedAt'])
         && request.resource.data.moderatedAt == request.time
