@@ -3,11 +3,21 @@
 Plans, handoffs and records for agents working on Pointer. Code cites them by
 name (for example "ARCHITECTURE.md §7"); they all live here.
 
+## Rule: backend work names its screens
+
+Any design or plan for new backend infrastructure (rules, stores, data
+model, permissions) lists every UI screen it changes, including screens that
+only change who can open them or how they are reached. If a screen is new or
+changes, it is drawn first on a **new page of the Pointer-UI directions
+artifact**, and the plan's UI tasks cite that page. Owner rule, 2026-11-16.
+
 ## Current
 
 | File | What it is |
 |---|---|
 | `ARCHITECTURE.md` | The design of record: data, roles, routes, rules. `test/core/capabilities_test.dart` reads its §4 table. `docs/ARCHITECTURE.md` is the contributor overview. |
+| `CUSTOM_ROLES_DESIGN.md` | Modular and custom roles: owner decisions, data, rules, M1–M10, test matrix. |
+| `CUSTOM_ROLES_PLAN.md` | **Next to build:** Phase A (admin course tools, Controls tiles), Phase B (roles as data, `may()`, custom roles), task by task. |
 | `LOADING_SERVER_PLAN.md` | **Next to build:** on-device store caches, level-by-level prefetch, per-path version markers, the Cloudflare Worker and Durable Object push (task by task). |
 | `DATA_SYNC_PLAN.md` | The server design that plan implements: version markers, Worker, Durable Object, reviews on the edge cache, and the server parts of the proposed features (Stage 5). |
 | `PROPOSED_FEATURES.md` | Features listed by the owner, not built: star ratings in the course picker, forced reviews, contributor role and leaderboard, resources by course, professor delete, calendar, initial data import. |
