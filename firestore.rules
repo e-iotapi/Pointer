@@ -81,6 +81,75 @@ service cloud.firestore {
     function isPresident(c, dept) { return isStudent(me()) && holds('dept', c, dept); }
     function isCr(c, course) { return isStudent(me()) && holds('course', c, course); }
 
+    // ---- Roles as data (CUSTOM_ROLES_DESIGN.md) ----------------------------
+
+    // roles/builtin holds the rows of admin, president and CR. Until an owner
+    // saves it, the defaults below apply, so no deploy can lock staff out.
+    // THE DEFAULTS: they must equal defaultBuiltinCaps() and defaultTermDays in
+    // lib/core/roles/capabilities.dart (the ticked cells of ARCHITECTURE.md §4;
+    // "✓ own campus" and the like count as ticked). Change them together.
+    function builtin() {
+      let p = /databases/$(db)/documents/roles/builtin;
+      return exists(p) ? get(p).data : {
+        'admin': {'termDays': 730, 'caps': [
+          'appointPresidents', 'appointCrs', 'publicContact', 'grantTermsCrPresident',
+          'mergeProfessors', 'courseStructures', 'bulkUpload', 'degreeRequirements',
+          'departmentResources', 'courseResources', 'averages', 'professors',
+          'moderateReviews', 'readAuditAndRoster', 'contribute', 'manageRoles',
+          'approveContributors', 'claimElectives', 'reviewGateSwitch',
+          'publishTimetable', 'publishDirectly']},
+        'president': {'termDays': 365, 'caps': [
+          'appointCrs', 'mergeProfessors', 'courseStructures', 'bulkUpload',
+          'degreeRequirements', 'departmentResources', 'courseResources', 'averages',
+          'professors', 'moderateReviews', 'readAuditAndRoster', 'contribute',
+          'approveContributors', 'claimElectives', 'reviewGateSwitch', 'publishDirectly']},
+        'cr': {'termDays': 183, 'caps': [
+          'courseStructures', 'courseResources', 'averages', 'contribute']}};
+    }
+
+    function customGrantPath() {
+      return /databases/$(db)/documents/grants/$('custom|' + me());
+    }
+
+    // The signed-in person's live custom grant covers [cap] at campus [c],
+    // department [d]. An everywhere row is asked with c == 'all'; a campus row
+    // with d == 'all'. A missing grant errors, so this is always the last term
+    // of an || chain.
+    function customMay(cap, c, d) {
+      let g = get(customGrantPath()).data;
+      let r = get(/databases/$(db)/documents/roles/$(g.roleId)).data;
+      return g.active == true && request.time < g.expiresAt && isStudent(me())
+        && cap in r.caps
+        && (c == 'all' || r.campus == 'all'
+            || (r.campus == c && campusOf(me()) == c
+                && (r.dept == 'all' || r.dept == d || d == 'all')));
+    }
+
+    // The one check every §4 row goes through. '' for d or k means "no
+    // department / course at this site". Cap tests come before the grant
+    // reads, so an unticked role costs no lookup. Worst case: owners 1 +
+    // roles/builtin 1 + admin, president and CR grants 3 + custom grant and
+    // role 2 = 7 lookups, before the site's own.
+    function may(cap, c, d, k) {
+      let b = builtin();
+      return isOwner()
+        || (cap in b.admin.caps && isAdmin()
+            && (!(cap in ['departmentResources', 'courseResources']) || c == campusOf(me())))
+        || (d != '' && cap in b.president.caps && isPresident(c, d))
+        || (k != '' && cap in b.cr.caps && isCr(c, k))
+        || customMay(cap, c, d);
+    }
+
+    // [caps] lie inside the rows the signed-in author holds: an admin's current
+    // rows, or those of their live custom role. (Each side may error when the
+    // author is not that kind of holder; || shrugs that off.) Owners skip it.
+    function withinMyRows(caps) {
+      let g = get(customGrantPath()).data;
+      return (isAdmin() && caps.hasOnly(builtin().admin.caps))
+        || (g.active == true && request.time < g.expiresAt
+            && caps.hasOnly(get(/databases/$(db)/documents/roles/$(g.roleId)).data.caps));
+    }
+
     function staffPath(email) { return /databases/$(db)/documents/staff/$(email); }
 
     // The staff index says who is a president where. It is trusted for reads
@@ -333,6 +402,38 @@ service cloud.firestore {
         && (request.resource.data.role != 'contributor' || contributorApproved(request.resource.data))
         && audited('grants/' + id)
         && pathBumped(markerCampus(request.resource.data.campus), 'grants');
+      // A custom role's grant: one per person, id custom|{email}, scope 'role',
+      // on the holder's campus. B3: owners only (B5 widens the granter).
+      allow create: if mayUse()
+        && request.resource.data.role == 'custom'
+        && id == 'custom|' + request.resource.data.email
+        && customGrantOk(request.resource.data)
+        && request.resource.data.active == true
+        && request.resource.data.expiresAt is timestamp
+        && request.resource.data.expiresAt > request.time
+        && request.resource.data.expiresAt <= request.time + duration.value(
+             get(/databases/$(db)/documents/roles/$(request.resource.data.roleId)).data.termDays, 'd')
+        && request.resource.data.name
+             == get(/databases/$(db)/documents/people/$(request.resource.data.email)).data.name
+        && request.resource.data.grantedBy.email == me()
+        && request.resource.data.grantedAt == request.time
+        && audited('grants/' + id)
+        && pathBumped(request.resource.data.campus, 'grants');
+      // Revoke, renew or change the role of a custom grant.
+      allow update: if mayUse()
+        && resource.data.role == 'custom'
+        && request.resource.data.diff(resource.data).affectedKeys()
+             .hasOnly(['active', 'expiresAt', 'name', 'grantedBy', 'grantedAt', 'auditId', 'roleId'])
+        && customGrantOk(request.resource.data)
+        && (request.resource.data.active == false
+            || (request.resource.data.expiresAt is timestamp
+                && request.resource.data.expiresAt > request.time
+                && request.resource.data.expiresAt <= request.time + duration.value(
+                     get(/databases/$(db)/documents/roles/$(request.resource.data.roleId)).data.termDays, 'd')))
+        && request.resource.data.grantedBy.email == me()
+        && request.resource.data.grantedAt == request.time
+        && audited('grants/' + id)
+        && pathBumped(request.resource.data.campus, 'grants');
       // Revoke (active false) or renew (a new expiry); who and what are fixed,
       // save the branch a renewed president is appointed for.
       allow update: if mayUse()
@@ -360,6 +461,15 @@ service cloud.firestore {
         && audited('grants/' + id)
         && pathBumped(markerCampus(request.resource.data.campus), 'grants');
       allow delete: if false;
+    }
+
+    // A custom grant: a student on their own campus, naming a role that
+    // exists and sits on that campus (or on every campus). B3: owners grant.
+    function customGrantOk(d) {
+      let r = get(/databases/$(db)/documents/roles/$(d.roleId)).data;
+      return isOwner()
+        && d.scope == 'role' && isStudent(d.email) && d.campus == campusOf(d.email)
+        && (r.campus == 'all' || r.campus == d.campus);
     }
 
     function handingOver(before, d) {
@@ -867,6 +977,60 @@ service cloud.firestore {
     }
 
     // ---- Configuration (§4, §10.5) -----------------------------------------
+
+    // ---- Roles (CUSTOM_ROLES_DESIGN.md) ------------------------------------
+
+    function capsOk(l) { return l is list && l.size() <= 60; }
+    function termOk(n) { return n is int && n >= 1 && n <= 1095; }
+    function builtinRoleOk(x) { return x is map && capsOk(x.caps) && termOk(x.termDays); }
+
+    // A custom role: a name, rows, a term and a scope (campus, department).
+    function customRoleOk(d) {
+      return d.keys().hasOnly(['name', 'caps', 'termDays', 'campus', 'dept',
+                               'createdBy', 'updatedAt', 'auditId'])
+        && d.name is string && d.name.size() >= 1 && d.name.size() <= 60
+        && capsOk(d.caps) && termOk(d.termDays)
+        && d.campus in ['all', 'goa', 'pilani', 'hyderabad', 'dubai']
+        && d.dept in ['all', 'BIO', 'BIOT', 'CE', 'CHE', 'CHEM', 'CS', 'ECON', 'ELEC',
+                      'ENVS', 'GEN', 'MAC', 'MATH', 'ME', 'MF', 'PHA', 'PHY', 'SNS']
+        && (d.campus != 'all' || d.dept == 'all')
+        && d.createdBy.email == me() && d.updatedAt == request.time;
+    }
+
+    match /roles/builtin {
+      allow read: if mayUse();
+      // All three roles at once, so a partial write can never leave a hole
+      // that denies every built-in check.
+      allow create, update: if isOwner()
+        && request.resource.data.keys().hasOnly(['admin', 'president', 'cr', 'auditId'])
+        && builtinRoleOk(request.resource.data.get('admin', null))
+        && builtinRoleOk(request.resource.data.get('president', null))
+        && builtinRoleOk(request.resource.data.get('cr', null))
+        && audited('roles/builtin')
+        && pathBumped('goa', 'roles');
+      allow delete: if false;
+    }
+
+    // Custom roles: an owner, or a manager whose own rows include every row
+    // of the role, before and after.
+    match /roles/{id} {
+      allow read: if mayUse();
+      allow create: if id != 'builtin' && customRoleOk(request.resource.data)
+        && (isOwner() || (may('manageRoles', 'all', 'all', '')
+                          && withinMyRows(request.resource.data.caps)))
+        && audited('roles/' + id)
+        && pathBumped('goa', 'roles');
+      allow update: if id != 'builtin' && customRoleOk(request.resource.data)
+        && (isOwner() || (may('manageRoles', 'all', 'all', '')
+                          && withinMyRows(request.resource.data.caps)
+                          && withinMyRows(resource.data.caps)))
+        && audited('roles/' + id)
+        && pathBumped('goa', 'roles');
+      allow delete: if id != 'builtin'
+        && (isOwner() || (may('manageRoles', 'all', 'all', '')
+                          && withinMyRows(resource.data.caps)))
+        && pathBumped('goa', 'roles');
+    }
 
     match /config/grantTerms {
       allow read: if mayUse();

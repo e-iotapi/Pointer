@@ -24,6 +24,7 @@ export const STUDENT = 'f20230456@goa.bits-pilani.ac.in';
 export const OTHER = 'f20230119@hyderabad.bits-pilani.ac.in';
 export const FACULTY = 'rmenon@goa.bits-pilani.ac.in';
 export const NEVER = 'f20239999@goa.bits-pilani.ac.in'; // never signed in
+export const CUSTOM = 'f20231234@goa.bits-pilani.ac.in'; // holds a custom role in custom_roles tests
 
 export let env;
 export const days = (n) => Timestamp.fromMillis(Date.now() + n * 864e5);
@@ -106,12 +107,14 @@ export function appoint(db, actor, g, staff, { audit = true, auditPath, marker =
 }
 
 /// Registers the emulator hooks and the seed every test starts from.
-export function useEmulator() {
+export function useEmulator({ extraRules = '' } = {}) {
 before(async () => {
   env = await initializeTestEnvironment({
     projectId: process.env.RULES_PROJECT ?? 'demo-pointer', // warm runs use their own, sparing up.sh's seed
     firestore: {
-      rules: readFileSync(new URL('../../firestore.rules', import.meta.url), 'utf8'),
+      rules: readFileSync(new URL('../../firestore.rules', import.meta.url), 'utf8')
+        // extraRules (test-only matches) go inside the documents block.
+        .replace(/\}\s*\}\s*$/, `${extraRules}\n  }\n}`),
       host: '127.0.0.1',
       port: Number(process.env.RULES_PORT ?? 8085),
     },
@@ -143,4 +146,46 @@ beforeEach(async () => {
     });
   });
 });
+}
+
+/// The rules' inline defaults for roles/builtin (firestore.rules builtin()),
+/// which must equal defaultBuiltinCaps() in lib/core/roles/capabilities.dart.
+export const DEFAULT_CAPS = {
+  admin: ['appointPresidents', 'appointCrs', 'publicContact', 'grantTermsCrPresident', 'mergeProfessors',
+    'courseStructures', 'bulkUpload', 'degreeRequirements', 'departmentResources', 'courseResources',
+    'averages', 'professors', 'moderateReviews', 'readAuditAndRoster', 'contribute', 'manageRoles',
+    'approveContributors', 'claimElectives', 'reviewGateSwitch', 'publishTimetable', 'publishDirectly'],
+  president: ['appointCrs', 'mergeProfessors', 'courseStructures', 'bulkUpload', 'degreeRequirements',
+    'departmentResources', 'courseResources', 'averages', 'professors', 'moderateReviews',
+    'readAuditAndRoster', 'contribute', 'approveContributors', 'claimElectives', 'reviewGateSwitch',
+    'publishDirectly'],
+  cr: ['courseStructures', 'courseResources', 'averages', 'contribute'],
+};
+
+/// Seeds roles/builtin with [caps] ({admin, president, cr}, default the §4 table).
+export function seedBuiltin(caps = DEFAULT_CAPS) {
+  return seed((db) => setDoc(doc(db, 'roles', 'builtin'), {
+    admin: { caps: caps.admin ?? DEFAULT_CAPS.admin, termDays: 730 },
+    president: { caps: caps.president ?? DEFAULT_CAPS.president, termDays: 365 },
+    cr: { caps: caps.cr ?? DEFAULT_CAPS.cr, termDays: 183 },
+  }));
+}
+
+/// Seeds a custom role; the scope (campus, dept) lives on the role.
+export function customRole(id, caps, termDays = 365, campus = 'all', dept = 'all') {
+  return seed((db) => setDoc(doc(db, 'roles', id), {
+    name: `Role ${id}`, caps, termDays, campus, dept,
+    createdBy: { email: OWNER, name: name(OWNER) },
+  }));
+}
+
+/// Seeds grants/custom|{email} naming [roleId] (live unless opts say otherwise).
+export function customGrant(email, roleId, { campus, active = true, expiresAt = days(100) } = {}) {
+  return seed(async (db) => {
+    await setDoc(doc(db, 'people', email), { name: name(email), campus: email.split('@')[1].split('.')[0], firstSignIn: 1 });
+    await setDoc(doc(db, 'grants', `custom|${email}`), {
+      role: 'custom', campus: campus ?? email.split('@')[1].split('.')[0], scope: 'role', email,
+      name: name(email), roleId, active, expiresAt,
+    });
+  });
 }
