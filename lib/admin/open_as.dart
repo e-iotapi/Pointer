@@ -271,15 +271,26 @@ Widget _rows(List<(String, String, VoidCallback)> rows) => AppCard(
 /// Board `ViewAsDept`: which department to open as its president; the last
 /// opened sits on top. ELEC has a row per programme, since each has its own
 /// presidents, and every row opens the ELEC they manage together.
+///
+/// With [tools] (Controls › Course tools, or Reviews with [reviews]) it opens
+/// the department's own screen without setting [viewAs], starting on
+/// [campus].
 class ViewAsDeptPage extends StatefulWidget {
-  const ViewAsDeptPage({super.key});
+  const ViewAsDeptPage({
+    super.key,
+    this.tools = false,
+    this.reviews = false,
+    this.campus = 'goa',
+  });
+  final bool tools, reviews;
+  final String campus;
 
   @override
   State<ViewAsDeptPage> createState() => _ViewAsDeptPageState();
 }
 
 class _ViewAsDeptPageState extends State<ViewAsDeptPage> {
-  String _campus = 'goa';
+  late String _campus = widget.campus;
   final _search = TextEditingController();
 
   @override
@@ -289,6 +300,14 @@ class _ViewAsDeptPageState extends State<ViewAsDeptPage> {
   }
 
   Future<void> _open(String dept) async {
+    if (widget.tools) {
+      await context.push(
+        widget.reviews
+            ? Routes.deptReviews(_campus, dept)
+            : '${Routes.dept(_campus, dept)}?tools=1',
+      );
+      return;
+    }
     await _remember('dept:$_campus:$dept');
     viewAs.value = ViewAs(Role.president, campus: _campus, scope: dept);
     if (mounted) context.go(Routes.dept(_campus, dept));
@@ -336,6 +355,12 @@ class _ViewAsDeptPageState extends State<ViewAsDeptPage> {
               .length;
       return _PickerFrame(
         title: 'Which department?',
+        eyebrow:
+            widget.tools
+                ? (widget.reviews
+                    ? 'CONTROLS · REVIEWS'
+                    : 'CONTROLS · COURSE TOOLS')
+                : 'OPEN AS · DEPARTMENT PRESIDENT',
         campus: _campus,
         onCampus: (c) => setState(() => _campus = c),
         search: _search,
@@ -371,15 +396,20 @@ typedef _Offered = ({String id, List<String> professors, int crs});
 
 /// Board `ViewAsCourse`: which of this term's offerings to open as its CR,
 /// each with its professors and CR count; the last opened on top.
+///
+/// With [tools] it opens the CR's course screen without setting [viewAs],
+/// starting on [campus].
 class ViewAsCoursePage extends StatefulWidget {
-  const ViewAsCoursePage({super.key});
+  const ViewAsCoursePage({super.key, this.tools = false, this.campus = 'goa'});
+  final bool tools;
+  final String campus;
 
   @override
   State<ViewAsCoursePage> createState() => _ViewAsCoursePageState();
 }
 
 class _ViewAsCoursePageState extends State<ViewAsCoursePage> {
-  String _campus = 'goa';
+  late String _campus = widget.campus;
   final _search = TextEditingController();
   final _term = currentTerm(DateTime.now());
 
@@ -423,6 +453,10 @@ class _ViewAsCoursePageState extends State<ViewAsCoursePage> {
   }
 
   Future<void> _open(String id) async {
+    if (widget.tools) {
+      await context.push(Routes.crCourse(_campus, id));
+      return;
+    }
     await _remember('course:$_campus:$id');
     viewAs.value = ViewAs(Role.cr, campus: _campus, scope: id);
     if (mounted) context.go(Routes.crCourse(_campus, id));
@@ -487,7 +521,8 @@ class _ViewAsCoursePageState extends State<ViewAsCoursePage> {
             byId[id]!,
       ];
       return _PickerFrame(
-        eyebrow: 'OPEN AS · COURSE MANAGER',
+        eyebrow:
+            widget.tools ? 'CONTROLS · COURSE TOOLS' : 'OPEN AS · COURSE MANAGER',
         title: 'Which course?',
         campus: _campus,
         onCampus: (c) => setState(() => _campus = c),

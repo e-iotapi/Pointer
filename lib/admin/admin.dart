@@ -5,6 +5,8 @@ library;
 export 'package:cgpa_calculator/admin/approvals.dart';
 export 'package:cgpa_calculator/admin/admin_home.dart';
 export 'package:cgpa_calculator/admin/config_pages.dart';
+export 'package:cgpa_calculator/admin/course_tools.dart';
+export 'package:cgpa_calculator/admin/reviews_tools.dart';
 export 'package:cgpa_calculator/admin/dept_resources.dart';
 export 'package:cgpa_calculator/admin/dept_reviews.dart';
 export 'package:cgpa_calculator/admin/succession.dart';

@@ -1,4 +1,3 @@
-import 'package:cgpa_calculator/admin/gate_switch.dart';
 import 'package:cgpa_calculator/admin/leaderboard_name.dart';
 import 'package:cgpa_calculator/admin/widgets.dart';
 import 'package:cgpa_calculator/app/routes.dart';
@@ -10,7 +9,6 @@ import 'package:cgpa_calculator/core/roles/capabilities.dart';
 import 'package:cgpa_calculator/core/roles/role_store.dart';
 import 'package:cgpa_calculator/core/roles/roles.dart';
 import 'package:cgpa_calculator/core/roles/session.dart';
-import 'package:cgpa_calculator/features/setup/campus_pick_page.dart';
 import 'package:cgpa_calculator/shared/widgets/app_card.dart';
 import 'package:cgpa_calculator/shared/widgets/card_row.dart';
 import 'package:cgpa_calculator/shared/widgets/count_badge.dart';
@@ -185,6 +183,23 @@ class _AdminHomeState extends State<AdminHome> {
             () => go(Routes.adminRoster),
           ),
         ]),
+        const SectionLabel('Tools'),
+        _Rows([
+          _Row(
+            Icons.build_outlined,
+            'Course tools',
+            'Courses, eval schemes, professors, resources',
+            () => go(Routes.adminCourseTools),
+            badge: const CountBadge('NEW', tone: CountTone.on),
+          ),
+          _Row(
+            Icons.rate_review_outlined,
+            'Reviews',
+            'Moderation and compulsory reviews',
+            () => go(Routes.adminReviews),
+            badge: const CountBadge('NEW', tone: CountTone.on),
+          ),
+        ]),
         const SectionLabel('Owners and admins'),
         _Rows([
           _Row(
@@ -211,28 +226,6 @@ class _AdminHomeState extends State<AdminHome> {
                     : contactOn
                     ? const CountBadge('ON', tone: CountTone.on)
                     : const CountBadge('OFF', tone: CountTone.neutral),
-          ),
-          _Row(
-            Icons.merge_type_rounded,
-            'Merge professors',
-            'Two entries for one person',
-            () => go(Routes.adminMerge),
-          ),
-          _Row(
-            Icons.check_rounded,
-            'Contributor approvals',
-            'Applications and link requests',
-            () => go(Routes.adminApprovals),
-          ),
-          _Row(
-            Icons.visibility_outlined,
-            'Compulsory reviews',
-            'Lock reviews until electives are reviewed',
-            () => Navigator.of(context).push(
-              MaterialPageRoute<void>(
-                builder: (_) => GateSwitchPage(campus: viewCampus() ?? 'goa'),
-              ),
-            ),
           ),
           _Row(
             Icons.notes_rounded,
@@ -281,8 +274,8 @@ class _AdminHomeState extends State<AdminHome> {
           ]),
         ],
         const Note(
-          'An admin sees everything above Owner only. Publishing and ownership '
-          'stay with owners; the admin term is set by owners alone.',
+          'Merge professors and Contributor approvals are inside Course tools; '
+          'Compulsory reviews is inside Reviews.',
         ),
       ],
     );

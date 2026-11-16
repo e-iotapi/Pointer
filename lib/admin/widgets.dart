@@ -226,6 +226,23 @@ class Note extends StatelessWidget {
   );
 }
 
+/// The four campuses as equal pills (the board's short "Hyd"), as the Open as
+/// pickers draw them.
+class CampusPills extends StatelessWidget {
+  const CampusPills({super.key, required this.campus, required this.onSelected});
+  final String campus;
+  final ValueChanged<String> onSelected;
+
+  @override
+  Widget build(BuildContext context) => ChoicePills<String>(
+    values: const ['goa', 'hyderabad', 'pilani', 'dubai'],
+    selected: campus,
+    label: (c) => c == 'hyderabad' ? 'Hyd' : campusName(c),
+    equal: true,
+    onSelected: onSelected,
+  );
+}
+
 /// A row of choices, one selected, flexing to the width.
 class ChoicePills<T> extends StatelessWidget {
   const ChoicePills({
