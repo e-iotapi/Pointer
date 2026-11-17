@@ -251,14 +251,18 @@ class _PickerFrame extends StatelessWidget {
   Widget build(BuildContext context) => PageFrame(
     header: PageHeader(eyebrow: eyebrow, title: title),
     children: [
-      ChoicePills<String>(
-        values: _campuses,
-        selected: campus,
-        // The board's short form, so four fit at 320.
-        label: (c) => c == 'hyderabad' ? 'Hyd' : campusName(c),
-        equal: true,
-        onSelected: onCampus,
-      ),
+      // Only owners cross campuses; an admin sees their own, as a label.
+      if (myRoles.value.owner)
+        ChoicePills<String>(
+          values: _campuses,
+          selected: campus,
+          // The board's short form, so four fit at 320.
+          label: (c) => c == 'hyderabad' ? 'Hyd' : campusName(c),
+          equal: true,
+          onSelected: onCampus,
+        )
+      else
+        SectionLabel(campusName(campus)),
       const SizedBox(height: Space.sm),
       SearchBox(controller: search, hint: hint, onChanged: (_) => onSearch()),
       ...children,

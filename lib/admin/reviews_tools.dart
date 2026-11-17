@@ -3,6 +3,7 @@ import 'package:cgpa_calculator/admin/open_as.dart';
 import 'package:cgpa_calculator/admin/widgets.dart';
 import 'package:cgpa_calculator/app/theme/palette.dart';
 import 'package:cgpa_calculator/app/theme/tokens.dart';
+import 'package:cgpa_calculator/core/roles/roles.dart';
 import 'package:cgpa_calculator/core/roles/session.dart';
 import 'package:cgpa_calculator/features/reviews/gate_ui.dart';
 import 'package:cgpa_calculator/features/setup/campus_pick_page.dart';
@@ -39,10 +40,13 @@ class _ReviewsToolsPageState extends State<ReviewsToolsPage> {
     return PageFrame(
       header: const PageHeader(eyebrow: 'CONTROLS · REVIEWS', title: 'Reviews'),
       children: [
-        CampusPills(
-          campus: _campus,
-          onSelected: (c) => setState(() => _campus = c),
-        ),
+        if (myRoles.value.owner)
+          CampusPills(
+            campus: _campus,
+            onSelected: (c) => setState(() => _campus = c),
+          )
+        else
+          SectionLabel(campusName(_campus)),
         const SizedBox(height: Space.sm),
         AppCard(
           padding: EdgeInsets.zero,

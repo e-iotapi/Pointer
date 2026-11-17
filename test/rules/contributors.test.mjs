@@ -1,13 +1,15 @@
 // firestore.rules for contributors (B7): requests, the grant, unapproved
 // links and their pending index, approval with +4, usernames, leaderboard.
-import { describe, test } from 'node:test';
+import { beforeEach, describe, test } from 'node:test';
 import { assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import {
   Timestamp, collection, deleteField, doc, getDoc, increment, serverTimestamp, setDoc, writeBatch,
 } from 'firebase/firestore';
-import { ADMIN, OTHER, OWNER, PRES, STUDENT, as, days, name, seed, seedBuiltin, useEmulator } from './helpers.mjs';
+import { ADMIN, ADMIN_GOA, adminGoa, OTHER, OWNER, PRES, STUDENT, as, days, name, seed, seedBuiltin, useEmulator } from './helpers.mjs';
 
 useEmulator();
+// Admins act on their own campus only (Decision 11): the contributors here are on Goa.
+beforeEach(() => adminGoa());
 
 const C = 'f20230777@goa.bits-pilani.ac.in'; // contributor
 const C2 = 'f20230888@goa.bits-pilani.ac.in';
@@ -204,7 +206,7 @@ describe('requests', () => {
     await assertSucceeds(getDoc(doc(as(PRES), 'contributorRequests', reqId(STUDENT))));
   });
 
-  for (const [who, actor] of [['admin', ADMIN], ['president', PRES], ['owner', OWNER]]) {
+  for (const [who, actor] of [['admin', ADMIN_GOA], ['president', PRES], ['owner', OWNER]]) {
     test(`${who} approves: request, grant and audit in one batch`, async () => {
       await apply(as(STUDENT), STUDENT);
       await assertSucceeds(decide(as(actor), actor, STUDENT, 'approved'));
@@ -396,7 +398,7 @@ describe('links', () => {
 });
 
 describe('approval and points', () => {
-  for (const [who, actor] of [['admin', ADMIN], ['president', PRES], ['owner', OWNER]]) {
+  for (const [who, actor] of [['admin', ADMIN_GOA], ['president', PRES], ['owner', OWNER]]) {
     test(`${who} approves with everything in one batch: +4, board mirror, pending dropped`, async () => {
       await seedContributor();
       await seedPending('r1');
@@ -409,7 +411,7 @@ describe('approval and points', () => {
   test('first approval creates the contributors doc', async () => {
     await seedContributor();
     await seedPending('r1');
-    await assertSucceeds(approve(as(ADMIN), ADMIN, 'r1', { username: null }));
+    await assertSucceeds(approve(as(ADMIN_GOA), ADMIN_GOA, 'r1', { username: null }));
   });
 
   test('approve after 15 days is denied; just inside works', async () => {
@@ -479,7 +481,7 @@ describe('approval and points', () => {
   test('reject: the contributor cannot, an admin can; no points', async () => {
     await seedContributor();
     await seedPending('r1');
-    for (const [actor, ok] of [[C, false], [ADMIN, true]]) {
+    for (const [actor, ok] of [[C, false], [ADMIN_GOA, true]]) {
       const db = as(actor);
       const b = writeBatch(db);
       const auditId = audit(b, db, actor, 'resources/r1');

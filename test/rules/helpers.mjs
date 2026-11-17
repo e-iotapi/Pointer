@@ -19,6 +19,7 @@ import {
 
 export const OWNER = 'owner@gmail.com';
 export const ADMIN = 'f20200001@pilani.bits-pilani.ac.in';
+export const ADMIN_GOA = 'f20200002@goa.bits-pilani.ac.in'; // seeded on demand by adminGoa()
 export const PRES = 'f20230802@goa.bits-pilani.ac.in'; // ELEC president, Goa
 export const STUDENT = 'f20230456@goa.bits-pilani.ac.in';
 export const OTHER = 'f20230119@hyderabad.bits-pilani.ac.in';
@@ -157,7 +158,7 @@ export const DEFAULT_CAPS = {
     'approveContributors', 'claimElectives', 'reviewGateSwitch', 'publishTimetable', 'publishDirectly'],
   president: ['appointCrs', 'mergeProfessors', 'courseStructures', 'bulkUpload', 'degreeRequirements',
     'departmentResources', 'courseResources', 'averages', 'professors', 'moderateReviews',
-    'readAuditAndRoster', 'contribute', 'approveContributors', 'claimElectives', 'reviewGateSwitch',
+    'readAuditAndRoster', 'contribute', 'approveContributors', 'claimElectives',
     'publishDirectly'],
   cr: ['courseStructures', 'courseResources', 'averages', 'contribute'],
 };
@@ -186,6 +187,19 @@ export function customGrant(email, roleId, { campus, active = true, expiresAt = 
     await setDoc(doc(db, 'grants', `custom|${email}`), {
       role: 'custom', campus: campus ?? email.split('@')[1].split('.')[0], scope: 'role', email,
       name: name(email), roleId, active, expiresAt,
+    });
+  });
+}
+
+/// A second admin, on Goa (ADMIN is on Pilani): for own-campus-only tests.
+export async function adminGoa() {
+  await seed(async (db) => {
+    await setDoc(doc(db, 'people', ADMIN_GOA), { name: name(ADMIN_GOA), campus: 'goa', firstSignIn: 1 });
+    await setDoc(doc(db, 'grants', `admin|all|all|${ADMIN_GOA}`), {
+      role: 'admin', campus: 'all', scope: 'all', email: ADMIN_GOA, name: name(ADMIN_GOA), active: true, expiresAt: days(100),
+    });
+    await setDoc(doc(db, 'staff', ADMIN_GOA), {
+      email: ADMIN_GOA, campus: 'all', admin: true, presidentOf: [], courses: [], owner: false, expiresAt: days(100),
     });
   });
 }

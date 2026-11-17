@@ -155,24 +155,24 @@ The table below is the **defaults, editable in Controls › Roles**. The owner's
 | Public contact (`config/public`) | ✓ | ✓ | — | — |
 | Grant terms — CR and president lengths | ✓ | ✓ | — | — |
 | Grant terms — admin length | ✓ | — | — | — |
-| Merge duplicate professors | ✓ | ✓ | ✓ in scope | — |
-| Course structures, eval schemes | ✓ | ✓ | ✓ | ✓ own courses |
-| Bulk upload a JSON of eval schemes | ✓ | ✓ | ✓ | — |
-| Degree requirements | ✓ | ✓ | ✓ | — |
+| Merge duplicate professors | ✓ | ✓ own campus | ✓ in scope | — |
+| Course structures, eval schemes | ✓ | ✓ own campus | ✓ | ✓ own courses |
+| Bulk upload a JSON of eval schemes | ✓ | ✓ own campus | ✓ | — |
+| Degree requirements | ✓ | ✓ own campus | ✓ | — |
 | Department resources | ✓ | ✓ own campus | ✓ | — |
 | Course resources | ✓ | ✓ own campus | ✓ | ✓ own courses |
-| Averages — course, component, part | ✓ | ✓ | ✓ | ✓ own courses |
-| Professors — create, rename | ✓ | ✓ | ✓ | pick only |
-| Moderate reviews | ✓ | ✓ | ✓ in scope | — |
+| Averages — course, component, part | ✓ | ✓ own campus | ✓ | ✓ own courses |
+| Professors — create, rename | ✓ | ✓ own campus | ✓ | pick only |
+| Moderate reviews | ✓ | ✓ own campus | ✓ in scope | — |
 | **Read the audit log and the roster** | ✓ | ✓ | ✓ own campus | — |
-| Contribute links (approved within 15 days) | ✓ | ✓ | ✓ | ✓ |
+| Contribute links (approved within 15 days) | ✓ | ✓ own campus | ✓ | ✓ |
 | Manage roles | ✓ | ✓ | — | — |
-| Approve contributors | ✓ | ✓ | ✓ | — |
-| Claim elective courses | ✓ | ✓ | ✓ | — |
-| Compulsory reviews switch | ✓ | ✓ | ✓ own campus | — |
-| Publish the timetable | ✓ | ✓ | — | — |
+| Approve contributors | ✓ | ✓ own campus | ✓ | — |
+| Claim elective courses | ✓ | ✓ own campus | ✓ | — |
+| Compulsory reviews switch | ✓ | ✓ own campus | — | — |
+| Publish the timetable | ✓ | ✓ own campus | — | — |
 | Open Pointer as | ✓ | — | — | — |
-| Links publish without approval | ✓ | ✓ | ✓ | — |
+| Links publish without approval | ✓ | ✓ own campus | ✓ | — |
 
 **How the rules enforce the table (custom roles).** Every row above goes through one `may(cap, campus, dept, course)` in `firestore.rules`. Two rows share a site and are not separable there: *Bulk upload* writes the same offering documents as a save (the offering site accepts *Course structures*, *Bulk upload* or *Averages*), and a save that moves only `courseAverage` needs *Averages*. **Averages requires Course structures**: averages live inside the eval scheme (the components list), which rules cannot compare field by field, so the rules refuse any role, built-in or custom, that holds *Averages* without *Course structures*. *Degree requirements* has no writer yet. *Open Pointer as* is app-only. Presidents and CRs reach the campus-level rows (roster, review switch) through the staff index or their department grant, as before. Rules stop at 1000 evaluated expressions per request: no row is currently excluded from custom roles for lack of room.
 
@@ -192,7 +192,7 @@ The table below is the **defaults, editable in Controls › Roles**. The owner's
 **Admin is deliberately narrow.** It exists so appointments do not queue behind one person,
 and to run course tools and moderation. An admin can edit course structures, bulk upload,
 degree requirements, averages and professors, moderate reviews, and add resource links, on
-any campus. An admin cannot publish and cannot appoint another admin. That is the whole
+its own campus (Decision 11, CUSTOM_ROLES_DESIGN.md; only owners cross campuses for campus data). An admin cannot publish and cannot appoint another admin. That is the whole
 point of separating it from Owner: the dangerous powers stay with named owner accounts.
 
 ### Owners are a list, and any verified account can be on it

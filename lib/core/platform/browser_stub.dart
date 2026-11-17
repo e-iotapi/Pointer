@@ -24,6 +24,10 @@ bool promptInstall() => false;
 
 Future<String?> pickPdfText() async => null;
 
+void Function() watchPdfDrop(
+  void Function(Future<String?> Function() read) onDrop,
+) => () {};
+
 void onPageHidden(void Function() run) {}
 
 void openUrl(String url) {}

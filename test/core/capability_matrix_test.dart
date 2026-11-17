@@ -152,9 +152,25 @@ bool _expected(Capability cap, MyRoles a, _Target t) {
   final defs = a.defs ?? RoleDefs.defaults();
   bool ticked(String id) => defs[id]?.caps.contains(cap) ?? false;
   final deptRow = cap.reach == CapReach.dept;
-  final ownCampusOnly =
-      cap == Capability.departmentResources ||
-      cap == Capability.courseResources;
+  // Decision 11: campus data is every non-owner's own campus only.
+  const campusData = {
+    Capability.mergeProfessors,
+    Capability.courseStructures,
+    Capability.bulkUpload,
+    Capability.degreeRequirements,
+    Capability.departmentResources,
+    Capability.courseResources,
+    Capability.averages,
+    Capability.professors,
+    Capability.moderateReviews,
+    Capability.approveContributors,
+    Capability.claimElectives,
+    Capability.reviewGateSwitch,
+    Capability.publishTimetable,
+    Capability.publishDirectly,
+    Capability.contribute,
+  };
+  final ownCampusOnly = campusData.contains(cap);
   final admin = a.grants.any((g) => g.role == GrantRole.admin);
   if (admin &&
       ticked('admin') &&
@@ -182,10 +198,11 @@ bool _expected(Capability cap, MyRoles a, _Target t) {
   if (r == null || !r.caps.contains(cap) || customExcluded.contains(cap)) {
     return false;
   }
-  if (cap.reach == CapReach.everywhere || r.campus == 'all') return true;
-  return r.campus == t.campus &&
-      campusOfAddress(a.email) == t.campus &&
-      (r.dept == 'all' || cap.reach == CapReach.campus || r.dept == t.dept);
+  if (cap.reach == CapReach.everywhere && !ownCampusOnly) return true;
+  if (campusOfAddress(a.email) != t.campus) return false;
+  return r.campus == 'all' ||
+      (r.campus == t.campus &&
+          (r.dept == 'all' || cap.reach == CapReach.campus || r.dept == t.dept));
 }
 
 void main() {
@@ -236,11 +253,27 @@ void main() {
     expect(r.single.covers('goa', 'CS', null), isFalse);
   });
 
-  test('reach: owner and admin everywhere, CR by course, custom by scope', () {
+  test('reach: owner everywhere, admin own campus, CR by course, custom by scope', () {
     const all = {'role': 'admin', 'campus': 'all'};
     final c = Capability.averages;
     expect(_actors[0].build(c).reach(c).single.toMap(), all);
-    expect(_actors[1].build(c).reach(c).single.toMap(), all);
+    expect(_actors[1].build(c).reach(c).single.toMap(), {
+      'role': 'admin',
+      'campus': 'pilani',
+    });
+    expect(
+      _actors[1]
+          .build(Capability.appointCrs)
+          .reach(Capability.appointCrs)
+          .single
+          .toMap(),
+      all,
+    );
+    // "Every campus" is the holder's own campus.
+    expect(_custom(c, 'all', 'all').reach(c).single.toMap(), {
+      'role': 'custom',
+      'campus': 'goa',
+    });
     expect(_actors[4].build(c).reach(c).single.toMap(), {
       'role': 'cr',
       'campus': 'goa',
@@ -321,13 +354,10 @@ void main() {
 
   test('presidents and CRs keep their own-campus campus rows', () {
     final p = _actors[2].build(Capability.averages);
-    for (final c in [
-      Capability.readAuditAndRoster,
-      Capability.reviewGateSwitch,
-    ]) {
-      expect(p.may(c, campus: 'goa'), isTrue);
-      expect(p.may(c, campus: 'hyderabad'), isFalse);
-    }
+    expect(p.may(Capability.readAuditAndRoster, campus: 'goa'), isTrue);
+    expect(p.may(Capability.readAuditAndRoster, campus: 'hyderabad'), isFalse);
+    // Decision 11: presidents lose the compulsory reviews switch.
+    expect(p.may(Capability.reviewGateSwitch, campus: 'goa'), isFalse);
     final cr = _actors[4].build(Capability.averages);
     expect(cr.may(Capability.contribute, campus: 'goa'), isTrue);
     expect(cr.may(Capability.contribute, campus: 'hyderabad'), isFalse);

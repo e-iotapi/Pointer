@@ -513,10 +513,25 @@ class MyRoles {
         : null;
   }
 
-  // Admin's rows, except these two, are every campus's.
+  // CAMPUS DATA (Decision 11): every non-owner acts on the campus of their own
+  // address only. Admin's other rows (appointments, public contact, roles,
+  // the audit log) keep every campus. Mirrors the rules' campusData().
   static const _ownCampus = {
+    Capability.mergeProfessors,
+    Capability.courseStructures,
+    Capability.bulkUpload,
+    Capability.degreeRequirements,
     Capability.departmentResources,
     Capability.courseResources,
+    Capability.averages,
+    Capability.professors,
+    Capability.moderateReviews,
+    Capability.approveContributors,
+    Capability.claimElectives,
+    Capability.reviewGateSwitch,
+    Capability.publishTimetable,
+    Capability.publishDirectly,
+    Capability.contribute,
   };
 
   /// Whether this person may do [action] on [campus]/[scope] ([scope] is a
@@ -540,7 +555,8 @@ class MyRoles {
       for (final g in presidencies) {
         if ((campus == null || campus == g.campus) &&
             (campusRow ||
-                scope == null || scope == g.scope ||
+                scope == null ||
+                scope == g.scope ||
                 deptOf(scope) == g.scope)) {
           return true;
         }
@@ -556,13 +572,19 @@ class MyRoles {
     }
     final r = _customRole(action);
     if (r == null) return false;
-    if (action.reach == CapReach.everywhere || r.campus == 'all') return true;
+    if (action.reach == CapReach.everywhere && !_ownCampus.contains(action)) {
+      return true;
+    }
+    // Never across campuses. "Every campus" is the holder's own campus,
+    // every department.
+    final own = campusOfAddress(email);
+    if (campus != null && campus != own) return false;
+    if (r.campus == 'all') return true;
     final d =
         action.reach == CapReach.campus || scope == null
             ? 'all'
             : (scope.contains(' ') ? deptOf(scope) : scope);
-    return (campus == null ||
-            (r.campus == campus && campusOfAddress(email) == campus)) &&
+    return r.campus == (campus ?? own) &&
         (r.dept == 'all' || r.dept == d || d == 'all');
   }
 
@@ -593,16 +615,21 @@ class MyRoles {
       'cr' => Capability.appointCrs,
       _ => Capability.manageRoles,
     };
-    final place = target.builtin
-        ? at == null
-              ? null
-              : (at.campus, at.dept ?? _deptOfCourse(at.course), at.course)
-        : (target.campus ?? 'all', target.dept ?? 'all', null);
-    bool through(RoleDef? mine, Reach reach) =>
+    final place =
+        target.builtin
+            ? at == null
+                ? null
+                : (at.campus, at.dept ?? _deptOfCourse(at.course), at.course)
+            : (target.campus ?? 'all', target.dept ?? 'all', null);
+    bool through(RoleDef? mine, Reach reach, {bool ownOnly = false}) =>
         mine != null &&
         mine.caps.contains(row) &&
         target.caps.every(mine.caps.contains) &&
-        (place == null || reach.covers(place.$1, place.$2, place.$3));
+        (place == null ||
+            (ownOnly
+                ? place.$1 == campusOfAddress(this.email) ||
+                    (!target.builtin && place.$1 == 'all')
+                : reach.covers(place.$1, place.$2, place.$3)));
     if (admin &&
         through(_defs['admin'], const Reach(role: 'admin', campus: 'all'))) {
       return true;
@@ -631,6 +658,8 @@ class MyRoles {
     return through(
       mine,
       Reach(role: 'custom', campus: mine?.campus ?? 'all', dept: mine?.dept),
+      // "Every campus" is the holder's own campus (Decision 11).
+      ownOnly: mine?.campus == 'all',
     );
   }
 
@@ -642,9 +671,7 @@ class MyRoles {
       return const [Reach(role: 'admin', campus: 'all')];
     }
     return [
-      if (admin &&
-          _ticked('admin', action) &&
-          own != null) // own-campus rows
+      if (admin && _ticked('admin', action) && own != null) // own-campus rows
         Reach(role: 'admin', campus: own),
       if (action.reach != CapReach.everywhere && _ticked('president', action))
         for (final g in presidencies)
@@ -661,9 +688,14 @@ class MyRoles {
             course: action.reach == CapReach.dept ? g.scope : null,
           ),
       if (_customRole(action) case final r?)
-        action.reach == CapReach.everywhere
-            ? const Reach(role: 'custom', campus: 'all')
-            : Reach(role: 'custom', campus: r.campus ?? 'all', dept: r.dept),
+        if (action.reach == CapReach.everywhere && !_ownCampus.contains(action))
+          const Reach(role: 'custom', campus: 'all')
+        else if (own != null)
+          Reach(
+            role: 'custom',
+            campus: r.campus == 'all' ? own : r.campus ?? own,
+            dept: r.campus == 'all' ? null : r.dept,
+          ),
     ];
   }
 }

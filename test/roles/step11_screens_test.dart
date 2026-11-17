@@ -857,6 +857,47 @@ void main() {
     expect(find.text('Compulsory reviews'), findsOneWidget);
   });
 
+  // Decision 11: only owners cross campuses. In-memory roles, no Hive write.
+  for (final page in <(String, Widget)>[
+    ('Course tools', const CourseToolsPage()),
+    ('Reviews', const ReviewsToolsPage()),
+  ]) {
+    testWidgets('${page.$1}: an owner sees the campus pills', (t) async {
+      signIn(
+        'owner@example.com',
+        roles: const MyRoles(email: 'owner@example.com', owner: true),
+      );
+      await t.pumpWidget(app(page.$2));
+      await t.pumpAndSettle();
+      expect(find.byType(CampusPills), findsOneWidget);
+    });
+
+    testWidgets('${page.$1}: an admin sees their own campus, no pills', (t) async {
+      const me = 'f20230001@goa.bits-pilani.ac.in';
+      signIn(
+        me,
+        roles: MyRoles(
+          email: me,
+          grants: [
+            Grant(
+              role: GrantRole.admin,
+              email: me,
+              name: 'Ad Min',
+              campus: 'all',
+              scope: 'all',
+              active: true,
+              expiresAt: far,
+            ),
+          ],
+        ),
+      );
+      await t.pumpWidget(app(page.$2));
+      await t.pumpAndSettle();
+      expect(find.byType(CampusPills), findsNothing);
+      expect(find.text('GOA'), findsOneWidget);
+    });
+  }
+
   testWidgets('a department opened from Course tools hides Reviews', (t) async {
     signIn(
       'owner@example.com',

@@ -2,7 +2,7 @@
 // catalogue publish (ARCHITECTURE.md §9 step 6, §13.2, §11).
 import { describe, test } from 'node:test';
 import { assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
-import { collection, doc, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
+import { collection, collectionGroup, doc, getDoc, getDocs, query, where, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
 import { ADMIN, OWNER, PRES, STUDENT, as, days, name, seed, useEmulator } from './helpers.mjs';
 
 useEmulator();
@@ -56,9 +56,30 @@ describe('offerings', () => {
     await assertFails(writeOffering(as(PRES), PRES, 'EEE F111', 'pilani_2026-27-1'));
   });
 
-  test('an admin edits a course structure on any campus', async () => {
-    await assertSucceeds(writeOffering(as(ADMIN), ADMIN, 'EEE F111', 'goa_2026-27-1'));
-    await assertSucceeds(writeOffering(as(ADMIN), ADMIN, 'EEE F111', 'hyderabad_2026-27-1'));
+  test('an admin edits a course structure on their own campus only', async () => {
+    await assertSucceeds(writeOffering(as(ADMIN), ADMIN, 'EEE F111', 'pilani_2026-27-1'));
+    await assertFails(writeOffering(as(ADMIN), ADMIN, 'EEE F111', 'goa_2026-27-1'));
+    await assertFails(writeOffering(as(ADMIN), ADMIN, 'EEE F111', 'hyderabad_2026-27-1'));
+    await assertSucceeds(writeOffering(as(OWNER), OWNER, 'EEE F111', 'hyderabad_2026-27-1'));
+  });
+
+  test('an owner lists offerings on any campus; an admin on their own only', async () => {
+    await seed(async (db) => {
+      for (const campus of ['goa', 'pilani']) {
+        await setDoc(doc(db, 'courses', 'EEE F111', 'offerings', `${campus}_2026-27-1`), { courseId: 'EEE F111', campus, term: '2026-27-1' });
+      }
+    });
+    const list = (who, campus) => getDocs(query(collectionGroup(as(who), 'offerings'),
+      where('campus', '==', campus), where('term', '==', '2026-27-1')));
+    await assertSucceeds(list(OWNER, 'goa'));
+    await assertSucceeds(list(OWNER, 'pilani'));
+    await assertSucceeds(list(ADMIN, 'pilani'));
+    await assertFails(list(ADMIN, 'goa'));
+  });
+
+  test('an admin cannot read another campus\'s offerings', async () => {
+    await seed((db) => setDoc(doc(db, 'courses', 'EEE F111', 'offerings', 'goa_2026-27-1'), { courseId: 'EEE F111' }));
+    await assertFails(getDoc(doc(as(ADMIN), 'courses', 'EEE F111', 'offerings', 'goa_2026-27-1')));
   });
 
   test('a CR writes their own course only', async () => {
@@ -126,7 +147,7 @@ describe('catalogue', () => {
     await assertFails(draft(as(STUDENT), STUDENT, 'CS F211', { credits: 3 }));
   });
 
-  test('an admin drafts a course on any campus; a student still cannot', async () => {
+  test('an admin drafts a course (identity is not campus-scoped); a student still cannot', async () => {
     await assertSucceeds(draft(as(ADMIN), ADMIN, 'CS F211', { credits: 4 }));
     await assertSucceeds(draft(as(ADMIN), ADMIN, 'EEE F111', { title: 'Electrical Sciences' }));
     await assertFails(draft(as(STUDENT), STUDENT, 'EEE F111', { credits: 3 }));

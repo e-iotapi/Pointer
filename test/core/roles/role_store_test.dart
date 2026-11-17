@@ -160,8 +160,53 @@ void main() {
         expect(r.may(c, campus: 'goa', scope: 'ELEC'), isTrue);
         expect(r.may(c, campus: 'pilani', scope: 'ELEC'), isFalse);
       }
-      // Course tools are every campus's (Phase A, §4 admin column).
-      expect(r.may(Capability.courseStructures, campus: 'pilani'), isTrue);
+      // Course and review data are walled to the admin's own campus.
+      for (final c in [
+        Capability.courseStructures,
+        Capability.bulkUpload,
+        Capability.degreeRequirements,
+        Capability.averages,
+        Capability.professors,
+        Capability.mergeProfessors,
+        Capability.moderateReviews,
+        Capability.reviewGateSwitch,
+      ]) {
+        expect(r.may(c, campus: 'goa'), isTrue, reason: c.label);
+        expect(r.may(c, campus: 'pilani'), isFalse, reason: c.label);
+      }
+      // Owners cross campuses.
+      expect(
+        const MyRoles(
+          email: 'o',
+          owner: true,
+        ).may(Capability.reviewGateSwitch, campus: 'pilani'),
+        isTrue,
+      );
+    });
+
+    test('a president cannot switch compulsory reviews', () {
+      final r = MyRoles(
+        email: 'p@goa.bits-pilani.ac.in',
+        grants: [
+          Grant(
+            role: GrantRole.dept,
+            email: 'p@goa.bits-pilani.ac.in',
+            name: 'P',
+            campus: 'goa',
+            scope: 'ELEC',
+            active: true,
+            expiresAt: until,
+          ),
+        ],
+      );
+      expect(
+        r.may(Capability.reviewGateSwitch, campus: 'goa', scope: 'ELEC'),
+        isFalse,
+      );
+      expect(
+        r.may(Capability.moderateReviews, campus: 'goa', scope: 'ELEC'),
+        isTrue,
+      );
     });
 
     test('an owner may publish; nobody else may', () {

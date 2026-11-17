@@ -19,7 +19,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:hive_ce/hive.dart';
 
 const _ownerMail = 'owner@example.com';
-const _adminMail = 'admin@example.com';
+const _adminMail = 'f20200001@pilani.bits-pilani.ac.in';
 final _far = DateTime.now().add(const Duration(days: 100));
 
 void main() {

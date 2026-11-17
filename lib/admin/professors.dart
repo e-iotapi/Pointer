@@ -626,6 +626,7 @@ class _ProfessorMergeState extends State<ProfessorMerge> {
       bottom: bottom,
       children: [
         if (free) ...[
+          // Only owners reach every campus (Decision 11), so only they get here.
           ChoicePills<String>(
             values: const ['goa', 'hyderabad', 'pilani', 'dubai'],
             selected: _campus,

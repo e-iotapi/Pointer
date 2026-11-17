@@ -101,7 +101,7 @@ describe('built-in defaults and roles/builtin', () => {
   test('a stored roles/builtin replaces the defaults', async () => {
     await seedBuiltin({ admin: ['averages'] });
     await assertFails(may(ADMIN, 'publicContact'));
-    await assertSucceeds(may(ADMIN, 'averages'));
+    await assertSucceeds(may(ADMIN, 'averages', 'pilani', 'all'));
   });
 
   test('only owners write roles/builtin', async () => {
@@ -148,10 +148,35 @@ describe('custom roles', () => {
     await assertFails(may(CUSTOM, 'averages', 'goa', 'ELEC', 'EEE F211'));
   });
 
-  test('an everywhere row in a department-scoped role works on every campus', async () => {
-    await customRole('tt', ['publishTimetable', 'readAuditAndRoster'], 365, 'goa', 'ELEC');
+  test('Decision 11: a custom role never crosses campuses', async () => {
+    await customRole('tt', ['publishTimetable', 'publicContact', 'averages'], 365, 'goa', 'ELEC');
     await customGrant(CUSTOM, 'tt');
-    await assertSucceeds(may(CUSTOM, 'publishTimetable', 'all', 'all'));
+    await assertSucceeds(may(CUSTOM, 'publishTimetable', 'goa', 'all'));
+    await assertFails(may(CUSTOM, 'publishTimetable', 'hyderabad', 'all'));
+    await assertFails(may(CUSTOM, 'publishTimetable', 'all', 'all'));
+    // A row with no campus at its site (config) needs the row alone.
+    await assertSucceeds(may(CUSTOM, 'publicContact', 'all', 'all'));
+  });
+
+  test('Decision 11: "Every campus" means the holder\'s own campus, every department', async () => {
+    await customRole('ev', ['averages', 'courseStructures'], 365, 'all', 'all');
+    await customGrant(CUSTOM, 'ev');
+    await assertSucceeds(may(CUSTOM, 'averages', 'goa', 'CS'));
+    await assertFails(may(CUSTOM, 'averages', 'hyderabad', 'CS'));
+  });
+
+  test('Decision 11: an admin acts on campus data on their own campus only', async () => {
+    await assertSucceeds(may(ADMIN, 'courseStructures', 'pilani', 'CS'));
+    await assertFails(may(ADMIN, 'courseStructures', 'goa', 'CS'));
+    await assertFails(may(ADMIN, 'moderateReviews', 'goa', 'CS'));
+    // People and config rows keep every campus.
+    await assertSucceeds(may(ADMIN, 'appointCrs', 'goa', 'CS'));
+    await assertSucceeds(may(ADMIN, 'publicContact', 'all', 'all'));
+  });
+
+  test('Decision 11: presidents lose the compulsory reviews switch by default', async () => {
+    await assertFails(may(PRES, 'reviewGateSwitch', 'goa', 'ELEC'));
+    await assertSucceeds(may(PRES, 'courseStructures', 'goa', 'ELEC'));
   });
 
   test('a campus row in a department-scoped role covers that campus', async () => {

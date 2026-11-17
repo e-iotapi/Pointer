@@ -115,3 +115,10 @@ bool promptInstall() => impl.promptInstall();
 /// window.pickPdfText in index.html), or null if nothing was picked. Throws
 /// a String when the file cannot be read.
 Future<String?> pickPdfText() => impl.pickPdfText();
+
+/// Until the returned function is called, a file dropped anywhere on the
+/// page goes to [onDrop] as a read that, once called, returns the file's
+/// text the way [pickPdfText] does.
+void Function() watchPdfDrop(
+  void Function(Future<String?> Function() read) onDrop,
+) => impl.watchPdfDrop(onDrop);

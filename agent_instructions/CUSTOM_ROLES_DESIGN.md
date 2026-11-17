@@ -58,6 +58,29 @@ person for one department, for every department on one campus, or everywhere.
     department-scoped role cover that department's campus. This supersedes
     every "reach chosen at grant time" below. Drawn on the UI board.
 
+11. **Decision 11 (owner, 2026-11-17): campus separation.** Only owners cross
+    campuses for campus data. The §4 rows split in two:
+    - *Campus data*: every non-owner (admin, president, CR, custom) acts only
+      on the campus of their own address. Rows: merge professors, course
+      structures, bulk upload, degree requirements, department resources,
+      course resources, averages, professors, moderate reviews, approve
+      contributors, claim electives, compulsory reviews switch, publish the
+      timetable, links publish without approval, contribute. The admin column
+      reads "✓ own campus" on them.
+    - *People and config*: admins keep every campus (appoint presidents and
+      CRs, public contact, grant terms, read the audit log and roster, manage
+      roles). Owner-only rows are unchanged.
+    - **Presidents lose the compulsory reviews switch** (reverses ruling 3 of
+      2026-10-03); they stay off it in the defaults, and an owner may tick it.
+    - A custom role keeps the "Every campus" scope option, but it now means the
+      holder's own campus, every department (the reach of "Whole campus").
+      `customMay`, `customMayAny` and `customAppoints` never cross campuses,
+      for any row: a custom manager appoints only people on their own campus.
+      Only a site that names no campus (c == 'all') on a people/config row is
+      satisfied by the row alone.
+    - `courses/{id}` drafts stay global by design: one shared catalogue; a
+      draft goes live only when an owner publishes.
+
 ## Goals
 
 - G1. Admin column change (decision 1), in `ARCHITECTURE.md` §4,

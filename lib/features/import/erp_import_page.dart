@@ -51,6 +51,25 @@ void importLog(String stage) => debugPrint('[Pointer import] $stage');
 class _ErpImportPageState extends State<ErpImportPage> {
   var _busy = false;
 
+  /// Stops reading files dropped on the page.
+  void Function()? _stopDrop;
+
+  @override
+  void initState() {
+    super.initState();
+    if (kIsWeb) {
+      _stopDrop = watchPdfDrop((read) {
+        if (!_busy) _choose(read);
+      });
+    }
+  }
+
+  @override
+  void dispose() {
+    _stopDrop?.call();
+    super.dispose();
+  }
+
   /// What went wrong last time, shown on the page itself.
   String? _error;
 
@@ -70,13 +89,15 @@ class _ErpImportPageState extends State<ErpImportPage> {
   void _finish() =>
       _setup ? widget.onDone!() : Navigator.of(context).maybePop();
 
-  Future<void> _choose() async {
+  /// Imports the sheet [read] returns: a picked file by default, or one
+  /// dropped on the page.
+  Future<void> _choose([Future<String?> Function() read = pickPdfText]) async {
     setState(() {
       _busy = true;
       _error = null;
     });
     try {
-      if (await _import() && mounted) {
+      if (await _import(read) && mounted) {
         importLog('saved');
         _toast('Imported from your ERP sheet');
         _finish();
@@ -98,14 +119,21 @@ class _ErpImportPageState extends State<ErpImportPage> {
   }
 
   /// True once the sheet's grades are saved.
-  Future<bool> _import() async {
+  Future<bool> _import(Future<String?> Function() read) async {
     importLog('picking');
     String? json;
     try {
-      json = await pickPdfText();
+      json = await read();
     } catch (e) {
       importLog('pdf unreadable: $e');
-      if (mounted) _toast('Could not read that PDF. Is it the one from ERP?');
+      if (mounted) {
+        _toast(
+          '$e'.contains('timeout')
+              ? 'Reading that PDF took too long. Check your connection and '
+                  'try again.'
+              : 'Could not read that PDF. Is it the one from ERP?',
+        );
+      }
       return false;
     }
     if (json == null || !mounted) return false;

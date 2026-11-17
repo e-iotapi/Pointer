@@ -6,7 +6,7 @@ import { assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import {
   collection, collectionGroup, deleteDoc, deleteField, doc, getDoc, getDocs, increment, limit, orderBy, query, serverTimestamp, setDoc, where, writeBatch,
 } from 'firebase/firestore';
-import { ADMIN, OTHER, PRES, STUDENT, as, bump, env, name, seed, useEmulator } from './helpers.mjs';
+import { ADMIN, ADMIN_GOA, adminGoa, OTHER, PRES, STUDENT, as, bump, env, name, seed, useEmulator } from './helpers.mjs';
 
 useEmulator();
 
@@ -270,7 +270,8 @@ describe('reviews', () => {
     await assertFails(deleteDoc(doc(as(PRES), 'reviews', C, 'entries', id)));
   });
 
-  test('an admin hides a review; a student cannot', async () => {
+  test('an admin hides a review on their own campus only; a student cannot', async () => {
+    await adminGoa();
     await professors();
     await post(as(STUDENT), STUDENT);
     const id = hash(STUDENT, C);
@@ -287,8 +288,11 @@ describe('reviews', () => {
       return b.commit();
     };
     await assertFails(hide(S2));
-    await assertSucceeds(hide(ADMIN));
-    await assertSucceeds(getDoc(doc(as(ADMIN), 'reviews', C, 'entries', id)));
+    // ADMIN is on Pilani, the review on Goa.
+    await assertFails(hide(ADMIN));
+    await assertFails(getDoc(doc(as(ADMIN), 'reviews', C, 'entries', id)));
+    await assertSucceeds(hide(ADMIN_GOA));
+    await assertSucceeds(getDoc(doc(as(ADMIN_GOA), 'reviews', C, 'entries', id)));
   });
 });
 

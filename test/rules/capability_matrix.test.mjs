@@ -100,10 +100,12 @@ const ACTORS = [
 ];
 
 /// What a custom role of [scope] covers for a row of reach [reach] at [t].
-function customCovers(reach, scope, t) {
-  if (reach === 'everywhere') return true;
-  const campus = scope.campus === 'all' || scope.campus === t.campus;
-  return reach === 'campus' ? campus : campus && (scope.dept === 'all' || scope.dept === t.dept);
+function customCovers(cap, reach, scope, t, own) {
+  // Decision 11: a custom role never crosses campuses; "every campus" is the holder's own.
+  if (reach === 'everywhere' && !OWN_CAMPUS_SITES.includes(cap)) return true;
+  if (t.campus !== own) return false;
+  if (scope.campus === 'all') return true;
+  return scope.campus === t.campus && (reach === 'campus' || scope.dept === 'all' || scope.dept === t.dept);
 }
 
 /// Whether [actor] may do [cap] at target [t], from the seeded built-in rows.
@@ -128,7 +130,7 @@ function expected(cap, actor, t, caps = DEFAULT_CAPS) {
   }
   if (actor.kind === 'custom') {
     const viaCustom = actor.ticked && !actor.bad && !CUSTOM_EXCLUDED.includes(cap)
-      && customCovers(reach, actor.scope, t) && ownCampus;
+      && customCovers(cap, reach, actor.scope, t, actor.email.split('@')[1].split('.')[0]);
     const viaCr = actor.alsoCr && expected(cap, { kind: 'cr', email: CR }, t, caps);
     return viaCustom || viaCr;
   }

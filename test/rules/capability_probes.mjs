@@ -35,7 +35,11 @@ export const CUSTOM_EXCLUDED = [];
 
 /// Rows whose site needs the writer to be on the target's campus (the rules
 /// compare it with the address); owners are exempt.
-export const OWN_CAMPUS_SITES = ['departmentResources', 'courseResources', 'publishDirectly', 'contribute'];
+export const OWN_CAMPUS_SITES = [
+  'mergeProfessors', 'courseStructures', 'bulkUpload', 'degreeRequirements', 'departmentResources',
+  'courseResources', 'averages', 'professors', 'moderateReviews', 'approveContributors',
+  'claimElectives', 'reviewGateSwitch', 'publishTimetable', 'publishDirectly', 'contribute',
+];
 
 /// Rows a CR can use (the probe's request names their course).
 export const COURSE_SITES = ['courseStructures', 'averages', 'courseResources'];
@@ -93,17 +97,17 @@ const publicContact = mk(none, (db, actor) => {
 });
 
 const publishTimetable = mk(none, async (db, actor, t) => {
-  const base = `goa|2026-${t.n}`;
-  const marker = ((await getDoc(doc(db, 'heads', 'goa'))).data()?.v?.timetable ?? 0) + 1;
+  const base = `${t.campus}|2026-${t.n}`;
+  const marker = ((await getDoc(doc(db, 'heads', t.campus))).data()?.v?.timetable ?? 0) + 1;
   const b = writeBatch(db);
-  const auditId = audit(b, db, actor, `timetable/${base}`, 'goa');
+  const auditId = audit(b, db, actor, `timetable/${base}`, t.campus);
   b.set(doc(db, 'timetable', base), {
-    v: 1, sem: `2026-${t.n}`, campus: 'goa', hours: { 1: [480, 540] }, examSlots: { FN: [570, 750] },
+    v: 1, sem: `2026-${t.n}`, campus: t.campus, hours: { 1: [480, 540] }, examSlots: { FN: [570, 750] },
     events: [], chunks: 1, publishedAt: serverTimestamp(), marker, auditId,
   });
   b.set(doc(db, 'timetable', `${base}|0`), { n: 0, courses: { 'AAA F100': { t: 'x', sec: [] } } });
-  b.set(doc(db, 'timetable', 'goa|current'), { sem: `2026-${t.n}`, marker });
-  bump(b, db, 'goa', 'timetable');
+  b.set(doc(db, 'timetable', `${t.campus}|current`), { sem: `2026-${t.n}`, marker });
+  bump(b, db, t.campus, 'timetable');
   return b.commit();
 });
 
