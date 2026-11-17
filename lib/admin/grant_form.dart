@@ -247,6 +247,9 @@ class _AdminGrantState extends State<AdminGrant> {
       return 'Refused: this is not a student address. Presidents and CRs '
           'are students.';
     }
+    if (_role == GrantRole.custom && a == roleStore?.me) {
+      return 'You cannot give yourself a custom role.';
+    }
     final d = _customDef;
     if (_role == GrantRole.custom &&
         d != null &&

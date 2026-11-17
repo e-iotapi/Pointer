@@ -1235,6 +1235,27 @@ void main() {
     expect(reach.single['role'], 'custom');
   });
 
+  testWidgets('nobody gives themselves a custom role, owners included', (
+    t,
+  ) async {
+    signIn(
+      pres,
+      roles: MyRoles(email: pres, owner: true, defs: customDefs()),
+    );
+    await db.collection('people').doc(pres).set({
+      'name': 'Meera Iyer',
+      'campus': 'goa',
+    });
+    await t.pumpWidget(app(const AdminGrant()));
+    await t.pumpAndSettle();
+    await t.enterText(find.byType(TextField).first, pres);
+    await t.pump(const Duration(milliseconds: 450));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Resources lead · ELEC'));
+    await t.pumpAndSettle();
+    expect(find.text('You cannot give yourself a custom role.'), findsOneWidget);
+  });
+
   testWidgets('unknown address says Can not be found', (t) async {
     await appointForm(t, 'f20249999@goa.bits-pilani.ac.in');
     expect(find.text('Can not be found'), findsOneWidget);

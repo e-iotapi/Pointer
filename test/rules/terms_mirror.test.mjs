@@ -120,3 +120,39 @@ describe('legacy renewals and terms', () => {
     await assertSucceeds(writeCr(PRES, 'EEE F213', days(50)));
   });
 });
+
+// Each term needs its row (grantTermsCrPresident, grantTermsAdmin); owners any.
+function saveGrantTerms(actor, terms) {
+  const db = as(actor), b = writeBatch(db);
+  b.set(doc(db, 'config', 'grantTerms'), { ...terms, auditId: auditOf(b, db, actor, 'config/grantTerms') });
+  for (const c of CAMPUSES) bump(b, db, c, 'terms');
+  return b.commit();
+}
+
+describe('who may change config/grantTerms', () => {
+  const base = { crDays: 183, presidentDays: 365, adminDays: 730 };
+
+  test('an admin without grantTermsCrPresident cannot change the CR or president term', async () => {
+    await seedBuiltin({ ...DEFAULT_CAPS, admin: DEFAULT_CAPS.admin.filter((c) => c !== 'grantTermsCrPresident') });
+    await assertFails(saveGrantTerms(ADMIN, { ...base, crDays: 400, presidentDays: 800 }));
+    await assertFails(saveGrantTerms(ADMIN, { ...base, crDays: 30 }));
+    await assertSucceeds(saveGrantTerms(ADMIN, base)); // nothing changed
+  });
+
+  test('an admin with the row changes CR and president terms, never the admin term', async () => {
+    await assertSucceeds(saveGrantTerms(ADMIN, { ...base, crDays: 30, presidentDays: 200 }));
+    await assertFails(saveGrantTerms(ADMIN, { ...base, adminDays: 900 }));
+  });
+
+  test('the admin term needs grantTermsAdmin; an owner needs nothing', async () => {
+    await seedBuiltin({ ...DEFAULT_CAPS, admin: [...DEFAULT_CAPS.admin, 'grantTermsAdmin'] });
+    await assertSucceeds(saveGrantTerms(ADMIN, { ...base, adminDays: 900 }));
+    await assertSucceeds(saveGrantTerms(OWNER, { ...base, adminDays: 1000 }));
+  });
+
+  test('an overlong appointment is refused once the term row was refused', async () => {
+    await seedBuiltin({ ...DEFAULT_CAPS, admin: DEFAULT_CAPS.admin.filter((c) => c !== 'grantTermsCrPresident') });
+    await assertFails(saveGrantTerms(ADMIN, { ...base, crDays: 400 }));
+    await assertFails(writeCr(ADMIN, 'EEE F211', days(390)));
+  });
+});

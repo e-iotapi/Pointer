@@ -138,9 +138,15 @@ function expected(cap, actor, t, caps = DEFAULT_CAPS) {
 for (const cap of CAPABILITY_KEYS) {
   if (UNENFORCED.includes(cap) || APP_ONLY.includes(cap)) continue;
   describe(cap, () => {
-    for (const actor of ACTORS) {
-      test(`${cap} x ${actor.label}`, async () => {
-        await seedBuiltin();
+    // Also with no roles/builtin document: the rules' inline defaults (builtin()
+    // and capIn()) must answer exactly as the seeded DEFAULT_CAPS do.
+    for (const seeded of [true, false]) for (const actor of ACTORS) {
+      // One cap per role (the two lists differ only by the cap): the unseeded path
+      // costs a lookup more, so the heaviest rows do not fit and are not asked.
+      if (!seeded && (!['admin', 'president', 'secretary', 'cr'].includes(actor.label)
+          || !['professors', 'averages'].includes(cap))) continue;
+      test(`${cap} x ${actor.label}${seeded ? '' : ' (roles/builtin absent)'}`, async () => {
+        if (seeded) await seedBuiltin();
         await PROBES[cap].setup();
         await actor.setup(cap);
         const db = as(actor.email);
