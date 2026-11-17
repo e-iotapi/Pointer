@@ -142,5 +142,45 @@ void main() {
       await owner.revoke(g);
       expect(await reach(), isEmpty);
     });
+
+    test('revoking a grant whose role was deleted drops its reach', () async {
+      final id = await owner.saveCustomRole(
+        name: 'Marks team',
+        caps: {Capability.publish},
+        termDays: 90,
+        campus: 'goa',
+        dept: 'ELEC',
+      );
+      final g = await appointCustom(id);
+      await owner.deleteCustomRole(id);
+      await owner.revoke(g);
+      expect(await reach(), isEmpty);
+      final raw = (await db.collection('grants').doc(g.id).get()).data()!;
+      expect(raw['active'], false);
+    });
+
+    test('re-appointing over a deleted role uses the new role', () async {
+      final old = await owner.saveCustomRole(
+        name: 'Old',
+        caps: {Capability.publish},
+        termDays: 90,
+        campus: 'goa',
+        dept: 'ELEC',
+      );
+      await appointCustom(old);
+      await owner.deleteCustomRole(old);
+      final fresh = await owner.saveCustomRole(
+        name: 'New',
+        caps: {Capability.publish},
+        termDays: 90,
+        campus: 'goa',
+        dept: 'CS',
+      );
+      final g = await appointCustom(fresh);
+      expect(g.roleId, fresh);
+      expect(await reach(), [
+        {'role': 'custom', 'campus': 'goa', 'dept': 'CS'},
+      ]);
+    });
   });
 }

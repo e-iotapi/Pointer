@@ -351,3 +351,45 @@ describe('custom grants and the staff index (M3)', () => {
     await assertFails(grantCustom(ADMIN, CUSTOM, 'avg', {}, { courses: ['EEE F211'] }));
   });
 });
+
+// ---- a grant whose role was deleted -----------------------------------------
+
+describe('a grant whose role was deleted', () => {
+  // STUDENT holds grants/custom|STUDENT naming role 'gone', which no longer exists.
+  const dangling = async () => {
+    await customGrant(STUDENT, 'gone');
+    await seed((db) => setDoc(doc(db, 'staff', STUDENT), {
+      email: STUDENT, name: name(STUDENT), campus: 'goa', owner: false, admin: false, presidentOf: [],
+      courses: [], expiresAt: days(100), lastGrant: `custom|${STUDENT}`,
+      reach: [{ role: 'custom', campus: 'goa', dept: 'CS' }],
+    }));
+  };
+
+  test('a person whose old custom role was deleted can be given a new one', async () => {
+    await dangling();
+    await customRole('new', ['averages', 'courseStructures'], 365, 'goa', 'CS');
+    await assertSucceeds(grantRole(OWNER, STUDENT, 'new'));
+  });
+
+  test('an admin revokes a grant whose role was deleted', async () => {
+    await dangling();
+    await assertSucceeds(grantCustom(ADMIN, STUDENT, 'gone', { active: false }));
+  });
+
+  test('a custom manager cannot overwrite a dangling grant with a role outside their scope', async () => {
+    await customRole('mgr', MGR, 365, 'goa', 'CS');
+    await customGrant(CUSTOM, 'mgr');
+    await dangling();
+    await customRole('cs', ['averages', 'courseStructures'], 365, 'goa', 'CS');
+    await customRole('wide', ['averages', 'courseStructures'], 365, 'goa', 'all');
+    await assertFails(grantRole(CUSTOM, STUDENT, 'wide'));
+    await assertSucceeds(grantRole(CUSTOM, STUDENT, 'cs'));
+  });
+
+  test('a custom manager cannot revoke a dangling grant', async () => {
+    await customRole('mgr', MGR, 365, 'goa', 'CS');
+    await customGrant(CUSTOM, 'mgr');
+    await dangling();
+    await assertFails(grantCustom(CUSTOM, STUDENT, 'gone', { active: false }));
+  });
+});

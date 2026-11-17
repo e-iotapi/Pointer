@@ -352,7 +352,7 @@ class _PersonPageState extends State<PersonPage> {
       ),
       GrantRole.custom => switch (defs[_g.roleId ?? '']) {
         final d? => r.mayAppoint(d),
-        null => r.owner,
+        null => r.owner || r.admin,
       },
       GrantRole.admin => r.mayAppoint(defs['admin']!),
       GrantRole.dept => r.mayAppoint(
@@ -380,7 +380,7 @@ class _PersonPageState extends State<PersonPage> {
       header: PageHeader(
         eyebrow:
             _g.role == GrantRole.custom
-                ? (defs[_g.roleId ?? '']?.name.toUpperCase() ?? _g.role.tag)
+                ? (defs[_g.roleId ?? '']?.name.toUpperCase() ?? 'DELETED ROLE')
                 : _g.role.tag,
         title: _g.name,
       ),
