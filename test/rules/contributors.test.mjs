@@ -5,7 +5,7 @@ import { assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import {
   Timestamp, collection, deleteField, doc, getDoc, increment, serverTimestamp, setDoc, writeBatch,
 } from 'firebase/firestore';
-import { ADMIN, OTHER, OWNER, PRES, STUDENT, as, days, name, seed, useEmulator } from './helpers.mjs';
+import { ADMIN, OTHER, OWNER, PRES, STUDENT, as, days, name, seed, seedBuiltin, useEmulator } from './helpers.mjs';
 
 useEmulator();
 
@@ -420,7 +420,11 @@ describe('approval and points', () => {
     await assertSucceeds(approve(as(PRES), PRES, 'r2', { username: null, bid: 'b2' }));
   });
 
-  test('one link of a two-link batch: the batch stays, then the last drops it', async () => {
+  // Also with roles/builtin seeded: the second approval (an existing
+  // contributors doc, no username) must fit the expression budget either way.
+  for (const seeded of [false, true])
+  test(`one link of a two-link batch: the batch stays, then the last drops it (${seeded ? 'builtin seeded' : 'no builtin'})`, async () => {
+    if (seeded) await seedBuiltin();
     await seedContributor();
     await seedPending('r1');
     await seedPending('r2');
