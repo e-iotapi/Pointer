@@ -114,19 +114,13 @@ service cloud.firestore {
     // ponytail: these lists repeat builtin()'s defaults; change them together.
     function capIn(r, cap) {
       let p = /databases/$(db)/documents/roles/builtin;
-      return cap in get(p).data[r].caps || (!exists(p) && cap in (r == 'admin' ? [
-          'appointPresidents', 'appointCrs', 'publicContact', 'grantTermsCrPresident',
-          'mergeProfessors', 'courseStructures', 'bulkUpload', 'degreeRequirements',
-          'departmentResources', 'courseResources', 'averages', 'professors',
-          'moderateReviews', 'readAuditAndRoster', 'contribute', 'manageRoles',
-          'approveContributors', 'claimElectives', 'reviewGateSwitch',
-          'publishTimetable', 'publishDirectly']
-        : r == 'president' ? [
-          'appointCrs', 'mergeProfessors', 'courseStructures', 'bulkUpload',
-          'degreeRequirements', 'departmentResources', 'courseResources', 'averages',
-          'professors', 'moderateReviews', 'readAuditAndRoster', 'contribute',
-          'approveContributors', 'claimElectives', 'reviewGateSwitch', 'publishDirectly']
-        : ['courseStructures', 'courseResources', 'averages', 'contribute']));
+      // The defaults as one string, not a list: every list element counts as an
+      // evaluated expression, and a request has only 1000 of them.
+      return cap in get(p).data[r].caps || (!exists(p) && (r == 'admin'
+        ? '|appointPresidents|appointCrs|publicContact|grantTermsCrPresident|mergeProfessors|courseStructures|bulkUpload|degreeRequirements|departmentResources|courseResources|averages|professors|moderateReviews|readAuditAndRoster|contribute|manageRoles|approveContributors|claimElectives|reviewGateSwitch|publishTimetable|publishDirectly|'
+        : r == 'president'
+        ? '|appointCrs|mergeProfessors|courseStructures|bulkUpload|degreeRequirements|departmentResources|courseResources|averages|professors|moderateReviews|readAuditAndRoster|contribute|approveContributors|claimElectives|reviewGateSwitch|publishDirectly|'
+        : '|courseStructures|courseResources|averages|contribute|').matches('.*[|]' + cap + '[|].*'));
     }
 
     function customGrantPath() {

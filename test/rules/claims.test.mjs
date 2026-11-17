@@ -105,6 +105,7 @@ test('unclaim needs the marker; another department cannot unclaim', async () => 
   await assertFails((await unclaim(as(STUDENT), STUDENT)).b.commit());
 });
 
+// Unseeded on purpose: no roles/builtin, as right after the rules deploy.
 test('the claimant, not GEN, manages the claimed course', async () => {
   // A president of the claimant may now appoint a CR for it; before, only GEN.
   const cr = { role: 'course', campus: 'goa', scope: COURSE, email: STUDENT };

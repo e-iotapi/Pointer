@@ -150,6 +150,13 @@ describe('who may change config/grantTerms', () => {
     await assertSucceeds(saveGrantTerms(OWNER, { ...base, adminDays: 1000 }));
   });
 
+  // Right after the rules deploy, before an owner opens Controls > Roles.
+  test('with roles/builtin absent an admin still changes the CR and president terms', async () => {
+    await assertSucceeds(saveGrantTerms(ADMIN, { ...base, crDays: 30, presidentDays: 200 }));
+    await assertFails(saveGrantTerms(ADMIN, { ...base, adminDays: 900 }));
+    await assertFails(saveGrantTerms(PRES, { ...base, crDays: 30 }));
+  });
+
   test('an overlong appointment is refused once the term row was refused', async () => {
     await seedBuiltin({ ...DEFAULT_CAPS, admin: DEFAULT_CAPS.admin.filter((c) => c !== 'grantTermsCrPresident') });
     await assertFails(saveGrantTerms(ADMIN, { ...base, crDays: 400 }));

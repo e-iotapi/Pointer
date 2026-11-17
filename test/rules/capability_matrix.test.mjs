@@ -141,10 +141,9 @@ for (const cap of CAPABILITY_KEYS) {
     // Also with no roles/builtin document: the rules' inline defaults (builtin()
     // and capIn()) must answer exactly as the seeded DEFAULT_CAPS do.
     for (const seeded of [true, false]) for (const actor of ACTORS) {
-      // One cap per role (the two lists differ only by the cap): the unseeded path
-      // costs a lookup more, so the heaviest rows do not fit and are not asked.
-      if (!seeded && (!['admin', 'president', 'secretary', 'cr'].includes(actor.label)
-          || !['professors', 'averages'].includes(cap))) continue;
+      // Custom roles need roles/builtin seeded by their owner first; the four
+      // built-in actors must work on the defaults alone (backward compatibility).
+      if (!seeded && !['admin', 'president', 'secretary', 'cr'].includes(actor.label)) continue;
       test(`${cap} x ${actor.label}${seeded ? '' : ' (roles/builtin absent)'}`, async () => {
         if (seeded) await seedBuiltin();
         await PROBES[cap].setup();

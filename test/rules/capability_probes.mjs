@@ -374,8 +374,17 @@ const manageRoles = mk(none, (db, actor, t) => {
 });
 
 /// roles/builtin with one term changed (the setup seeds the defaults).
-const termsProbe = (role) => mk(none, (db, actor, t) => {
+const termsProbe = (role) => mk(none, async (db, actor, t) => {
   const b = writeBatch(db);
+  // Before an owner first saves roles/builtin there is nothing to update; the
+  // stable app's Grant terms page writes config/grantTerms (same rows).
+  if (!(await getDoc(doc(db, 'roles', 'builtin'))).exists()) {
+    const days = { crDays: 183, presidentDays: 365, adminDays: 730 };
+    days[{ cr: 'crDays', admin: 'adminDays' }[role]] = 100 + t.n;
+    b.set(doc(db, 'config', 'grantTerms'), { ...days, auditId: audit(b, db, actor, 'config/grantTerms', 'all') });
+    for (const c of ['goa', 'pilani', 'hyderabad', 'dubai']) bump(b, db, c, 'terms');
+    return b.commit();
+  }
   const auditId = audit(b, db, actor, 'roles/builtin', 'all');
   const terms = { admin: 730, president: 365, cr: 183, [role]: 100 + t.n };
   b.set(doc(db, 'roles', 'builtin'), {
