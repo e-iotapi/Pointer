@@ -78,6 +78,9 @@ service cloud.firestore {
     }
 
     function isAdmin() { return isBits() && holds('admin', 'all', 'all'); }
+    // Course and review data is walled by campus: an admin acts only on the
+    // campus of their own address; owners cross campuses (not here).
+    function adminOn(c) { return isAdmin() && c == campusOf(me()); }
     function isPresident(c, dept) { return isStudent(me()) && holds('dept', c, dept); }
     function isCr(c, course) { return isStudent(me()) && holds('course', c, course); }
 
@@ -1004,10 +1007,8 @@ service cloud.firestore {
     // anyone on it. The unlock count is enforced in the app only.
     match /reviewGate/{campus} {
       allow read: if mayUse();
-      // A president or secretary (a dept grant; holds() covers both) names the
-      // dept whose grant authorises the write; owners and admins need none.
-      allow create, update: if (isOwner() || isAdmin()
-          || isPresident(campus, request.resource.data.get('dept', '')))
+      // Owners (any campus) and admins (their own) only; presidents cannot.
+      allow create, update: if (isOwner() || adminOn(campus))
         && request.resource.data.keys().hasOnly(['on', 'by', 'at', 'auditId', 'dept'])
         && request.resource.data.on is bool
         && request.resource.data.by.email == me()
@@ -1031,7 +1032,7 @@ service cloud.firestore {
     // the pointer <campus>|current (marker equal to the head's after the batch).
     match /timetable/{id} {
       allow read: if mayUse();
-      allow create, update: if (isOwner() || isAdmin()) && ttOk(id);
+      allow create, update: if (isOwner() || adminOn(id.split('[|]')[0])) && ttOk(id);
       allow delete: if false;
     }
 
@@ -1085,7 +1086,7 @@ service cloud.firestore {
     // An owner, an admin, the department's president or the course's CR, on
     // the campus in the path. Each is checked against the grant, not the index.
     function maintains(campus, courseId) {
-      return isOwner() || isAdmin() || isPresident(campus, managingDept(campus, courseId))
+      return isOwner() || adminOn(campus) || isPresident(campus, managingDept(campus, courseId))
         || isCr(campus, courseId);
     }
 
@@ -1119,12 +1120,12 @@ service cloud.firestore {
     // The courses a professor teaches (Reviews search), across courses on
     // the reader's own campus.
     match /{path=**}/offerings/{offering} {
-      allow list: if mayUse() && resource.data.campus == campusOf(me());
+      allow list: if mayUse() && (resource.data.campus == campusOf(me()) || isOwner());
     }
 
     match /courses/{courseId}/offerings/{offering} {
       allow read: if mayUse()
-        && (offering.split('_')[0] == campusOf(me()) || isOwner() || isAdmin());
+        && (offering.split('_')[0] == campusOf(me()) || isOwner());
       allow create, update: if mayUse()
         && maintains(offering.split('_')[0], courseId)
         && request.resource.data.courseId == courseId
@@ -1141,7 +1142,7 @@ service cloud.firestore {
     // Presidents in scope, admins and owners add, rename and merge; CRs only
     // pick one for their offering.
     function editsProfessors(campus, dept) {
-      return isOwner() || isAdmin() || isPresident(campus, dept);
+      return isOwner() || adminOn(campus) || isPresident(campus, dept);
     }
 
     function professorOk(d) {
@@ -1259,7 +1260,7 @@ service cloud.firestore {
     // Moderators read through the staff index; writes check the grant.
     function readsModeration(d) {
       let s = get(staffPath(me())).data;
-      return isOwner() || isAdmin() || (s.campus == d.campus && request.time < s.expiresAt
+      return isOwner() || adminOn(d.campus) || (s.campus == d.campus && request.time < s.expiresAt
         && d.department in s.presidentOf);
     }
 
@@ -1360,7 +1361,8 @@ service cloud.firestore {
       // Moderation is hide-only, with a reason and an audit entry; a hide
       // takes the review off the counters and an unhide puts it back.
       allow update: if mayUse()
-        && (isOwner() || isAdmin() || isPresident(resource.data.campus, managingDept(resource.data.campus, c)))
+        && (isOwner() || adminOn(resource.data.campus)
+            || isPresident(resource.data.campus, managingDept(resource.data.campus, c)))
         && request.resource.data.diff(resource.data).affectedKeys()
              .hasOnly(['hidden', 'reason', 'hiddenBy', 'reports', 'auditId', 'moderatedAt'])
         && request.resource.data.moderatedAt == request.time

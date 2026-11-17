@@ -3,7 +3,7 @@
 import { describe, test } from 'node:test';
 import { assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import { collection, doc, getDoc, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
-import { ADMIN, OWNER, PRES, STUDENT, as, bump, name, seed, useEmulator } from './helpers.mjs';
+import { ADMIN_GOA, adminGoa, ADMIN, OWNER, PRES, STUDENT, as, bump, name, seed, useEmulator } from './helpers.mjs';
 
 useEmulator();
 
@@ -28,7 +28,12 @@ describe('timetable', () => {
   test('owner and admin publish the whole set in one batch', async () => {
     await assertSucceeds(publish(as(OWNER), OWNER));
     await seed(async (db) => { await setDoc(doc(db, 'heads', 'goa'), { v: { timetable: 1 } }); });
-    await assertSucceeds(publish(as(ADMIN), ADMIN, { marker: 2 }));
+    await adminGoa();
+    await assertSucceeds(publish(as(ADMIN_GOA), ADMIN_GOA, { marker: 2 }));
+  });
+
+  test('an admin cannot publish another campus\'s timetable', async () => {
+    await assertFails(publish(as(ADMIN), ADMIN));
   });
 
   test('students, presidents and others cannot write', async () => {

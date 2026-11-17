@@ -35,9 +35,8 @@ class GateStore {
       peekCache<bool>('gate|$campus', (v) => v as bool? ?? false);
 
   /// Turns the gate on or off for [campus]. Throws `permission-denied` for
-  /// anyone who may not. A president or secretary passes the [dept] they
-  /// hold; owners and admins need none.
-  Future<void> set(String campus, bool on, {String? dept}) async {
+  /// anyone who may not: only owners, and admins on their own campus, may.
+  Future<void> set(String campus, bool on) async {
     final b = _db.batch();
     final id = roles.logInto(
       b,
@@ -50,7 +49,6 @@ class GateStore {
       'by': {'email': roles.me, 'name': roles.myName},
       'at': FieldValue.serverTimestamp(),
       'auditId': id,
-      if (dept != null) 'dept': dept,
     });
     bumpPath(b, _db, campus, Paths.reviewGate);
     await b.commit();

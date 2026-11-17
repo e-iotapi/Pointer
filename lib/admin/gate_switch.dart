@@ -15,13 +15,11 @@ import 'package:flutter/material.dart';
 
 const _gateCampuses = ['goa', 'hyderabad', 'pilani', 'dubai'];
 
-/// Board `CompulsorySwitch`: the review gate's own page, opened from a row
-/// on DeptHome (that president's campus, their [dept]) and AdminHome (pills
-/// pick the campus, no [dept]).
+/// Board `CompulsorySwitch`: the review gate's own page, opened from
+/// Controls › Reviews (owners and admins only; admins on their own campus).
 class GateSwitchPage extends StatelessWidget {
-  const GateSwitchPage({super.key, required this.campus, this.dept});
+  const GateSwitchPage({super.key, required this.campus});
   final String campus;
-  final String? dept;
 
   @override
   Widget build(BuildContext context) => PageFrame(
@@ -29,33 +27,15 @@ class GateSwitchPage extends StatelessWidget {
       eyebrow: 'AT · ${campus.toUpperCase()}',
       title: 'Compulsory reviews',
     ),
-    children: [GateSwitchRow(campus: campus, dept: dept)],
+    children: [GateSwitchRow(campus: campus)],
   );
 }
-
-/// The row that opens [GateSwitchPage] (boards AdminHome, DeptHome).
-CardRow gateSwitchEntry(BuildContext context, String campus, {String? dept}) =>
-    CardRow(
-      leading: IconTile(Icons.visibility_outlined),
-      title: 'Compulsory reviews',
-      subtitle: 'Lock reviews until electives are reviewed',
-      minHeight: 58,
-      onTap:
-          () => Navigator.of(context).push(
-            MaterialPageRoute<void>(
-              builder: (_) => GateSwitchPage(campus: campus, dept: dept),
-            ),
-          ),
-    );
 
 /// The switch for a campus. Switching on asks first (`SwitchOn`); off does
 /// not.
 class GateSwitchRow extends StatefulWidget {
-  const GateSwitchRow({super.key, required this.campus, this.dept});
+  const GateSwitchRow({super.key, required this.campus});
   final String campus;
-
-  /// The department the writer holds; null for owners and admins.
-  final String? dept;
 
   @override
   State<GateSwitchRow> createState() => _GateSwitchRowState();
@@ -114,7 +94,7 @@ class _GateSwitchRowState extends State<GateSwitchRow> {
     if (!mounted) return;
     setState(() => _busy = true);
     try {
-      await GateStore(roleStore!).set(_campus, on, dept: widget.dept);
+      await GateStore(roleStore!).set(_campus, on);
       await forget('gateinfo|$_campus');
       await _load();
     } catch (e) {
@@ -143,7 +123,7 @@ class _GateSwitchRowState extends State<GateSwitchRow> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (widget.dept == null) ...[
+        if (myRoles.value.owner) ...[
           ChoicePills<String>(
             values: _gateCampuses,
             selected: _campus,

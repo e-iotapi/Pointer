@@ -3,7 +3,6 @@ import 'dart:async';
 import 'package:cgpa_calculator/admin/bulk_upload.dart';
 import 'package:cgpa_calculator/core/search/hints.dart';
 import 'package:cgpa_calculator/admin/dept_resources.dart';
-import 'package:cgpa_calculator/admin/gate_switch.dart';
 import 'package:cgpa_calculator/admin/leaderboard_name.dart';
 import 'package:cgpa_calculator/admin/offering_scale.dart';
 import 'package:cgpa_calculator/admin/professors.dart';
@@ -328,7 +327,6 @@ class DeptHome extends StatelessWidget {
             minHeight: 58,
             onTap: () => context.push(Routes.deptApprovals(campus, dept)),
           ),
-          gateSwitchEntry(context, campus, dept: dept),
           CardRow(
             leading: IconTile(Icons.badge_outlined),
             title: 'People',

@@ -6,7 +6,7 @@ import { describe, test } from 'node:test';
 import { assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import { collection, doc, increment, serverTimestamp, setDoc, updateDoc, writeBatch } from 'firebase/firestore';
 import {
-  ADMIN, OTHER, OWNER, PRES, STUDENT,
+  ADMIN, ADMIN_GOA, adminGoa, OTHER, OWNER, PRES, STUDENT,
   appoint, as, bump, days, name, seed, useEmulator,
 } from './helpers.mjs';
 
@@ -98,14 +98,15 @@ describe('a marker moves by exactly one, on the right path', () => {
   });
 
   test('professors, by department', async () => {
+    await adminGoa();
     const add = (id, dept, marker) => {
-      const db = as(ADMIN);
+      const db = as(ADMIN_GOA);
       const b = writeBatch(db);
-      const [a, ad] = auditEntry(db, ADMIN, `professors/${id}`);
+      const [a, ad] = auditEntry(db, ADMIN_GOA, `professors/${id}`);
       b.set(a, ad);
       b.set(doc(db, 'professors', id), {
         name: 'Dr. R. Menon', campus: 'goa', department: dept, aliases: [], nameTokens: [], mergedIds: [], active: true,
-        updatedBy: { email: ADMIN, name: name(ADMIN) }, updatedAt: serverTimestamp(), auditId: a.id,
+        updatedBy: { email: ADMIN_GOA, name: name(ADMIN_GOA) }, updatedAt: serverTimestamp(), auditId: a.id,
       });
       if (marker) bump(b, db, 'goa', marker);
       return b.commit();

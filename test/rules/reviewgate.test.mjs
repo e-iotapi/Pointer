@@ -1,5 +1,5 @@
-// firestore.rules for reviewGate/<campus> (B6): owner/admin any campus,
-// president or secretary on their own campus, audited, marker bumped.
+// firestore.rules for reviewGate/<campus> (B6): owner any campus, admin
+// on their own campus; presidents cannot, audited, marker bumped.
 import { describe, test } from 'node:test';
 import { assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import { collection, doc, getDoc, serverTimestamp, writeBatch } from 'firebase/firestore';
@@ -17,32 +17,31 @@ function setGate(db, actor, campus, on, { audit = true, marker = true, byEmail =
 }
 
 describe('reviewGate', () => {
-  test('owner and admin any campus', async () => {
+  test('owner any campus; an admin on their own campus only', async () => {
     await assertSucceeds(setGate(as(OWNER), OWNER, 'goa', true));
     await assertSucceeds(setGate(as(OWNER), OWNER, 'pilani', true));
-    await assertSucceeds(setGate(as(ADMIN), ADMIN, 'hyderabad', true));
-    await assertSucceeds(setGate(as(ADMIN), ADMIN, 'goa', false));
+    await assertSucceeds(setGate(as(ADMIN), ADMIN, 'pilani', false));
+    await assertFails(setGate(as(ADMIN), ADMIN, 'hyderabad', true));
+    await assertFails(setGate(as(ADMIN), ADMIN, 'goa', false));
   });
 
-  test('president on own campus only; students never', async () => {
-    await assertSucceeds(setGate(as(PRES), PRES, 'goa', true, { dept: 'ELEC' }));
-    await assertFails(setGate(as(PRES), PRES, 'pilani', true, { dept: 'ELEC' }));
-    await assertFails(setGate(as(PRES), PRES, 'goa', true, { dept: 'CS' }));
+  test('a president cannot switch compulsory reviews; students never', async () => {
+    await assertFails(setGate(as(PRES), PRES, 'goa', true, { dept: 'ELEC' }));
     await assertFails(setGate(as(PRES), PRES, 'goa', true));
     await assertFails(setGate(as(STUDENT), STUDENT, 'goa', true));
     await assertFails(setGate(as(OTHER), OTHER, 'hyderabad', true));
   });
 
   test('needs its audit entry, the marker bump and an honest by', async () => {
-    await assertFails(setGate(as(ADMIN), ADMIN, 'goa', true, { audit: false }));
-    await assertFails(setGate(as(ADMIN), ADMIN, 'goa', true, { marker: false }));
-    await assertFails(setGate(as(ADMIN), ADMIN, 'goa', true, { byEmail: OWNER }));
+    await assertFails(setGate(as(ADMIN), ADMIN, 'pilani', true, { audit: false }));
+    await assertFails(setGate(as(ADMIN), ADMIN, 'pilani', true, { marker: false }));
+    await assertFails(setGate(as(ADMIN), ADMIN, 'pilani', true, { byEmail: OWNER }));
   });
 
   test('any signed-in campus user reads; no delete', async () => {
-    await setGate(as(ADMIN), ADMIN, 'goa', true);
+    await setGate(as(OWNER), OWNER, 'goa', true);
     await assertSucceeds(getDoc(doc(as(STUDENT), 'reviewGate', 'goa')));
-    const db = as(ADMIN);
+    const db = as(OWNER);
     const b = writeBatch(db);
     b.delete(doc(db, 'reviewGate', 'goa'));
     await assertFails(b.commit());

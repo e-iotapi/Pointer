@@ -153,15 +153,16 @@ document no longer has to carry the catalogue.
 | Public contact (`config/public`) | ✓ | ✓ | — | — |
 | Grant terms — CR and president lengths | ✓ | ✓ | — | — |
 | Grant terms — admin length | ✓ | — | — | — |
-| Merge duplicate professors | ✓ | ✓ | ✓ in scope | — |
-| Course structures, eval schemes | ✓ | ✓ | ✓ | ✓ own courses |
-| Bulk upload a JSON of eval schemes | ✓ | ✓ | ✓ | — |
-| Degree requirements | ✓ | ✓ | ✓ | — |
+| Merge duplicate professors | ✓ | ✓ own campus | ✓ in scope | — |
+| Course structures, eval schemes | ✓ | ✓ own campus | ✓ | ✓ own courses |
+| Bulk upload a JSON of eval schemes | ✓ | ✓ own campus | ✓ | — |
+| Degree requirements | ✓ | ✓ own campus | ✓ | — |
 | Department resources | ✓ | ✓ own campus | ✓ | — |
 | Course resources | ✓ | ✓ own campus | ✓ | ✓ own courses |
-| Averages — course, component, part | ✓ | ✓ | ✓ | ✓ own courses |
-| Professors — create, rename | ✓ | ✓ | ✓ | pick only |
-| Moderate reviews | ✓ | ✓ | ✓ in scope | — |
+| Averages — course, component, part | ✓ | ✓ own campus | ✓ | ✓ own courses |
+| Professors — create, rename | ✓ | ✓ own campus | ✓ | pick only |
+| Moderate reviews | ✓ | ✓ own campus | ✓ in scope | — |
+| Compulsory reviews switch | ✓ | ✓ own campus | — | — |
 | **Read the audit log and the roster** | ✓ | ✓ | ✓ own campus | — |
 | Contribute links (approved within 15 days) | ✓ | ✓ | ✓ | ✓ |
 

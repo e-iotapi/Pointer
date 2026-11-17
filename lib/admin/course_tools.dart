@@ -6,6 +6,7 @@ import 'package:cgpa_calculator/admin/widgets.dart';
 import 'package:cgpa_calculator/app/theme/tokens.dart';
 import 'package:cgpa_calculator/core/platform/browser.dart';
 import 'package:cgpa_calculator/core/roles/roles.dart';
+import 'package:cgpa_calculator/core/roles/session.dart';
 import 'package:cgpa_calculator/features/setup/campus_pick_page.dart';
 import 'package:cgpa_calculator/shared/widgets/app_card.dart';
 import 'package:cgpa_calculator/shared/widgets/card_row.dart';
@@ -36,10 +37,13 @@ class _CourseToolsPageState extends State<CourseToolsPage> {
       title: 'Course tools',
     ),
     children: [
-      CampusPills(
-        campus: _campus,
-        onSelected: (c) => setState(() => _campus = c),
-      ),
+      if (myRoles.value.owner)
+        CampusPills(
+          campus: _campus,
+          onSelected: (c) => setState(() => _campus = c),
+        )
+      else
+        SectionLabel(campusName(_campus)),
       const SizedBox(height: Space.sm),
       AppCard(
         padding: EdgeInsets.zero,

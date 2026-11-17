@@ -3,7 +3,7 @@
 import { describe, test } from 'node:test';
 import { assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import { deleteDoc, deleteField, collection, collectionGroup, doc, getDoc, getDocs, query, serverTimestamp, setDoc, where, writeBatch } from 'firebase/firestore';
-import { ADMIN, OTHER, PRES, STUDENT, as, bump, days, name, seed, useEmulator } from './helpers.mjs';
+import { ADMIN, ADMIN_GOA, adminGoa, OTHER, PRES, STUDENT, as, bump, days, name, seed, useEmulator } from './helpers.mjs';
 
 useEmulator();
 
@@ -55,11 +55,21 @@ describe('professors', () => {
       role: 'course', campus: 'goa', scope: 'EEE F211', email: CR, name: name(CR), active: true, expiresAt: days(100),
     }));
     await assertSucceeds(add(as(PRES), PRES, 'a'));
-    await assertSucceeds(add(as(ADMIN), ADMIN, 'b', { department: 'CS' }));
+    await adminGoa();
+    await assertSucceeds(add(as(ADMIN_GOA), ADMIN_GOA, 'b', { department: 'CS' }));
     await assertFails(add(as(PRES), PRES, 'c', { department: 'CS' }));
     await assertFails(add(as(CR), CR, 'd'));
     await assertFails(add(as(STUDENT), STUDENT, 'e'));
     await assertFails(add(as(PRES), PRES, 'f', { mergedInto: 'a' }));
+  });
+
+  test('an admin cannot add, rename or merge on another campus', async () => {
+    await two();
+    await assertFails(add(as(ADMIN), ADMIN, 'x'));
+    await assertFails(merge(as(ADMIN), ADMIN, 'p1', 'p2'));
+    await assertFails(setDoc(doc(as(ADMIN), 'professors', 'p1'), { name: 'Renamed' }, { merge: true }));
+    await adminGoa();
+    await assertSucceeds(merge(as(ADMIN_GOA), ADMIN_GOA, 'p1', 'p2'));
   });
 
   test('read by the same campus', async () => {
@@ -108,7 +118,8 @@ describe('professor soft delete', () => {
     await assertFails(setRemoved(as(PRES), PRES, 'p1', true, { bumped: false }));
     await assertFails(setRemoved(as(PRES), PRES, 'p1', true, { at: new Date(0) }));
     await assertSucceeds(setRemoved(as(PRES), PRES, 'p1', true));
-    await assertSucceeds(setRemoved(as(ADMIN), ADMIN, 'p2', true));
+    await adminGoa();
+    await assertSucceeds(setRemoved(as(ADMIN_GOA), ADMIN_GOA, 'p2', true));
   });
 
   test("another department's president cannot remove", async () => {

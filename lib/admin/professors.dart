@@ -622,16 +622,20 @@ class _ProfessorMergeState extends State<ProfessorMerge> {
       bottom: bottom,
       children: [
         if (free) ...[
-          ChoicePills<String>(
-            values: const ['goa', 'hyderabad', 'pilani', 'dubai'],
-            selected: _campus,
-            label: campusName,
-            onSelected:
-                (c) => setState(() {
-                  _campus = c;
-                  _keep = _gone = null;
-                }),
-          ),
+          // Only owners cross campuses; an admin merges on their own.
+          if (r.owner)
+            ChoicePills<String>(
+              values: const ['goa', 'hyderabad', 'pilani', 'dubai'],
+              selected: _campus,
+              label: campusName,
+              onSelected:
+                  (c) => setState(() {
+                    _campus = c;
+                    _keep = _gone = null;
+                  }),
+            )
+          else
+            SectionLabel(campusName(_campus)),
           const SizedBox(height: Space.sm),
           SelectRow(
             text:
