@@ -578,6 +578,20 @@ service cloud.firestore {
         && customStaffAgrees(id, request.resource.data)
         && audited('grants/' + id)
         && pathBumped(request.resource.data.campus, 'grants');
+      // Revoke a custom grant whose role was deleted: nothing to read the old
+      // scope from, so an owner or admin may switch it off. The staff write in the
+      // batch may only lose reach entries (staffWriteOk, the grant being
+      // inactive); the app removes the custom one. ponytail: rules cannot tell
+      // which entry went, and the lookup budget has no room to ask.
+      // ponytail: the 1000-expression budget has no room for isAdmin()'s
+      // address regex (holds() instead; an admin grant exists only for a BITS
+      // address), diff(), pathBumped (the app still bumps the marker) or a
+      // scope check (the scope of a role grant is always 'role').
+      allow update: if (holds('admin', 'all', 'all') || isOwner())
+        && resource.data.role == 'custom'
+        && !exists(/databases/$(db)/documents/roles/$(resource.data.roleId))
+        && sameButOff(resource.data, request.resource.data)
+        && audited('grants/' + id);
       // Revoke (active false) or renew (a new expiry); who and what are fixed,
       // save the branch a renewed president is appointed for.
       allow update: if mayUse()
@@ -605,6 +619,15 @@ service cloud.firestore {
         && audited('grants/' + id)
         && pathBumped(markerCampus(request.resource.data.campus), 'grants');
       allow delete: if false;
+    }
+
+    // A custom grant as it was, switched off by me now (the fields that name
+    // who, what and where are as they were).
+    function sameButOff(was, d) {
+      return d.active == false
+        && d.roleId == was.roleId && d.email == was.email
+        && d.campus == was.campus && d.role == was.role
+        && d.grantedBy.email == me() && d.grantedAt == request.time;
     }
 
     // A custom grant: a student on their own campus, naming a role that
