@@ -228,35 +228,42 @@
       return true;
     };
 
-    // Opens a PDF picker and returns its text with positions, as JSON
+    // Reading the ERP performance sheet. pickPdfText and watchPdfDrop both
+    // give a promise of the PDF's text with positions, as JSON
     // {width, items: [[page, x, y, width, text], …]} with y measured down the
-    // page; null if nothing was picked. pdf.js loads only when this runs, and
-    // the file never leaves the browser.
-    window.pickPdfText = function() {
+    // page, or null if nothing was picked; it rejects with a message when the
+    // file cannot be read. pdf.js loads only when a file comes in, and the
+    // file never leaves the browser.
+    (function() {
       function log(stage) { console.info('[Pointer import] ' + stage); }
-      return new Promise(function(resolve, reject) {
-        var input = document.createElement('input');
-        input.type = 'file';
-        input.accept = 'application/pdf,.pdf';
-        input.addEventListener('cancel', function() {
-          log('picker cancelled');
-          resolve(null);
-        });
-        input.onchange = async function() {
-          var file = input.files && input.files[0];
-          if (!file) { log('no file'); resolve(null); return; }
-          log('picked ' + file.size + ' bytes');
-          var doc = null;
-          try {
-            var base = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/';
-            var pdfjs = await import(base + 'pdf.min.mjs');
-            pdfjs.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.mjs';
-            log('pdf.js loaded');
-            doc = await pdfjs.getDocument({
-              data: new Uint8Array(await file.arrayBuffer()),
-            }).promise;
-            log('opened, ' + doc.numPages + ' pages');
-            var items = [], width = 0;
+
+      // Every stage gives up after a while, so a stalled network or worker
+      // shows an error instead of an endless spinner.
+      function within(ms, stage, promise) {
+        var timer;
+        return Promise.race([promise, new Promise(function(_, reject) {
+          timer = setTimeout(function() {
+            reject(new Error('timeout ' + stage));
+          }, ms);
+        })]).finally(function() { clearTimeout(timer); });
+      }
+
+      async function readPdf(file) {
+        log('reading ' + file.size + ' bytes');
+        var task = null;
+        try {
+          var base = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/4.10.38/';
+          var pdfjs = await within(45000, 'loading pdf.js',
+            import(base + 'pdf.min.mjs'));
+          pdfjs.GlobalWorkerOptions.workerSrc = base + 'pdf.worker.min.mjs';
+          log('pdf.js loaded');
+          task = pdfjs.getDocument({
+            data: new Uint8Array(await file.arrayBuffer()),
+          });
+          var doc = await within(45000, 'opening the PDF', task.promise);
+          log('opened, ' + doc.numPages + ' pages');
+          var items = [], width = 0;
+          await within(45000, 'reading the PDF', (async function() {
             for (var p = 1; p <= doc.numPages; p++) {
               var page = await doc.getPage(p);
               var vp = page.getViewport({scale: 1});
@@ -269,23 +276,73 @@
               }
               page.cleanup();
             }
-            log('read ' + items.length + ' text items');
-            resolve(JSON.stringify({width: width, items: items}));
-          } catch (e) {
-            log('failed: ' + ((e && e.message) || e));
-            reject(String((e && e.message) || e));
-          } finally {
-            // A phone has little headroom: let the bytes, the worker and the
-            // input go as soon as the text is out.
-            if (doc) doc.destroy();
-            input.value = '';
-            input.onchange = null;
-            file = null;
-          }
+          })());
+          log('read ' + items.length + ' text items');
+          return JSON.stringify({width: width, items: items});
+        } catch (e) {
+          log('failed: ' + ((e && e.message) || e));
+          throw String((e && e.message) || e);
+        } finally {
+          // A phone has little headroom: let the bytes and the worker go as
+          // soon as the text is out.
+          if (task) task.destroy();
+        }
+      }
+
+      window.pickPdfText = function() {
+        return new Promise(function(resolve, reject) {
+          var input = document.createElement('input');
+          input.type = 'file';
+          input.accept = 'application/pdf,.pdf';
+          // In the page, not detached: Safari can drop a detached input's
+          // change event and Chrome can collect it while the picker is open,
+          // and either leaves the read waiting forever.
+          input.style.cssText = 'position:fixed;left:-9999px;opacity:0';
+          document.body.appendChild(input);
+          input.addEventListener('cancel', function() {
+            log('picker cancelled');
+            input.remove();
+            resolve(null);
+          });
+          input.onchange = function() {
+            var file = input.files && input.files[0];
+            input.remove();
+            if (!file) { log('no file'); resolve(null); return; }
+            log('picked');
+            readPdf(file).then(resolve, reject);
+          };
+          input.click();
+        });
+      };
+
+      // Until the returned function is called, a file dropped anywhere on
+      // the page goes to onDrop as a function that starts reading it.
+      window.watchPdfDrop = function(onDrop) {
+        function hasFile(e) {
+          return e.dataTransfer &&
+            Array.prototype.indexOf.call(e.dataTransfer.types, 'Files') >= 0;
+        }
+        function over(e) {
+          if (!hasFile(e)) return;
+          e.preventDefault();
+          e.dataTransfer.dropEffect = 'copy';
+        }
+        function drop(e) {
+          if (!hasFile(e)) return;
+          e.preventDefault();
+          var file = e.dataTransfer.files[0];
+          if (!file) return;
+          log('dropped');
+          onDrop(function() { return readPdf(file); });
+        }
+        window.addEventListener('dragover', over, true);
+        window.addEventListener('drop', drop, true);
+        return function() {
+          window.removeEventListener('dragover', over, true);
+          window.removeEventListener('drop', drop, true);
         };
-        input.click();
-      });
-    };
+      };
+    })();
 
     // Chromium on Android can drop the canvas's GL context while the file
     // picker has the app in the background: the engine lives on, nothing

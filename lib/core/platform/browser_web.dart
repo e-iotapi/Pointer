@@ -144,6 +144,23 @@ Future<String?> pickPdfText() async {
   return result?.toDart;
 }
 
+/// Calls window.watchPdfDrop from index.html.
+void Function() watchPdfDrop(
+  void Function(Future<String?> Function() read) onDrop,
+) {
+  final stop = globalContext.callMethod<JSFunction>(
+    'watchPdfDrop'.toJS,
+    ((JSFunction read) {
+      onDrop(() async {
+        final text =
+            await (read.callAsFunction() as JSPromise<JSString?>).toDart;
+        return text?.toDart;
+      });
+    }).toJS,
+  );
+  return () => stop.callAsFunction();
+}
+
 void onPageHidden(void Function() run) {
   web.document.addEventListener(
     'visibilitychange',
