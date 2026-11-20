@@ -38,11 +38,15 @@ service cloud.firestore {
     // Departments are keyed by course prefix; electronics is one (§4). A
     // prefix no department owns belongs to GEN, the electives department (B2).
     function deptOf(course) {
+      // Strings, not list literals: every list element costs an expression,
+      // and this runs several times in an appointment. p is letters only
+      // before it is used as a pattern.
       let p = course.trim().upper().split(' ')[0];
-      return p in ['EEE', 'ECE', 'INSTR', 'ECOM'] ? 'ELEC'
+      return !p.matches('[A-Z]{2,5}') ? 'GEN'
+        : '|EEE|ECE|INSTR|ECOM|'.matches('.*[|]' + p + '[|].*') ? 'ELEC'
         : p == 'FIN' ? 'ECON'
-        : p in ['BIO', 'BIOT', 'CE', 'CHE', 'CHEM', 'CS', 'ECON', 'ELEC', 'ENVS',
-                'MAC', 'MATH', 'ME', 'MF', 'PHA', 'PHY', 'SNS'] ? p : 'GEN';
+        : '|BIO|BIOT|CE|CHE|CHEM|CS|ECON|ELEC|ENVS|MAC|MATH|ME|MF|PHA|PHY|SNS|'
+            .matches('.*[|]' + p + '[|].*') ? p : 'GEN';
     }
 
     // Who manages a course: its department, or, for a GEN course a department
@@ -51,16 +55,21 @@ service cloud.firestore {
       return /databases/$(db)/documents/courseClaims/$(campus + '|' + course);
     }
     function managingDept(campus, course) {
-      return deptOf(course) == 'GEN' && exists(claimPath(campus, course))
-        ? get(claimPath(campus, course)).data.dept : deptOf(course);
+      let d = deptOf(course);
+      let c = claimPath(campus, course);
+      return d == 'GEN' && exists(c) ? get(c).data.dept : d;
     }
 
     // An owner need not be a BITS account: the list in owners/{email} is the
     // only way a non-BITS address gets in. A get() on a missing document is an
     // error, and an error denies — so no exists() first (lookups are capped).
+    // A missing document is a clean false, not an error: an error on the left
+    // of && does not stop the right side from being evaluated, and a failing
+    // identity check was costing the budget its whole chain (the same holds
+    // for holds, live, customMay and the other readers of one grant below).
     function isOwner() {
-      return signedIn()
-        && get(/databases/$(db)/documents/owners/$(me())).data.active == true;
+      let o = /databases/$(db)/documents/owners/$(me());
+      return signedIn() && exists(o) && get(o).data.active == true;
     }
 
     function mayUse() { return isBits() || isOwner(); }
@@ -72,8 +81,9 @@ service cloud.firestore {
     // A live grant, used on the holder's own campus (checked on use as well as
     // on write, which catches a grant typed by hand in the console).
     function holds(role, campus, scope) {
-      let g = get(grantPath(role, campus, scope, me())).data;
-      return g.active == true && request.time < g.expiresAt
+      let p = grantPath(role, campus, scope, me());
+      let g = get(p).data;
+      return exists(p) && g.active == true && request.time < g.expiresAt
         && (campus == 'all' || campusOf(me()) == campus);
     }
 
@@ -139,18 +149,18 @@ service cloud.firestore {
     // one me(), no repeated signedIn(), no grantPath() round trips.)
     function live(p) {
       let g = get(p).data;
-      return g.active == true && request.time < g.expiresAt;
+      return exists(p) && g.active == true && request.time < g.expiresAt;
     }
 
     // The signed-in person's live custom grant covers [cap] at campus [c],
     // department [d]. An everywhere row is asked with c == 'all'; a campus row
-    // with d == 'all'. A missing grant errors, so this is always the last term
-    // of an || chain.
+    // with d == 'all'. Someone with no custom grant gets false.
     function customMay(cap, c, d) {
       let e = me();
-      let g = get(/databases/$(db)/documents/grants/$('custom|' + e)).data;
+      let gp = /databases/$(db)/documents/grants/$('custom|' + e);
+      let g = get(gp).data;
       let r = get(/databases/$(db)/documents/roles/$(g.roleId)).data;
-      return g.active == true && request.time < g.expiresAt && isStudent(e)
+      return exists(gp) && g.active == true && request.time < g.expiresAt && isStudent(e)
         && cap in r.caps
         && ((c == 'all' && !campusData(cap))
             || (campusOf(e) == c && (r.campus == 'all'
@@ -161,9 +171,10 @@ service cloud.firestore {
     // read of the grant and role, however many rows.
     function customMayAny(caps, c, d) {
       let e = me();
-      let g = get(/databases/$(db)/documents/grants/$('custom|' + e)).data;
+      let gp = /databases/$(db)/documents/grants/$('custom|' + e);
+      let g = get(gp).data;
       let r = get(/databases/$(db)/documents/roles/$(g.roleId)).data;
-      return g.active == true && request.time < g.expiresAt && isStudent(e)
+      return exists(gp) && g.active == true && request.time < g.expiresAt && isStudent(e)
         && r.caps.hasAny(caps)
         && (c == 'all'
             || (campusOf(e) == c && (r.campus == 'all'
@@ -225,10 +236,11 @@ service cloud.firestore {
     // role's scope; an admin's reach is everywhere. (Each side may error when the
     // author is not that kind of holder; || shrugs that off.) Owners skip it.
     function withinMyRows(caps, campus, dept) {
-      let g = get(customGrantPath()).data;
+      let gp = customGrantPath();
+      let g = get(gp).data;
       let r = get(/databases/$(db)/documents/roles/$(g.roleId)).data;
-      return (isAdmin() && caps.hasOnly(builtin().admin.caps))
-        || (g.active == true && request.time < g.expiresAt && caps.hasOnly(r.caps)
+      return (isAdmin() && caps.hasOnly(capsOf('admin')))
+        || (exists(gp) && g.active == true && request.time < g.expiresAt && caps.hasOnly(r.caps)
             && ((r.campus == 'all' && (campus == 'all' || campus == campusOf(me())))
                 || (r.campus == campus && (r.dept == 'all' || r.dept == dept))));
     }
@@ -264,18 +276,21 @@ service cloud.firestore {
 
     function afterPath(p) { return path('/databases/' + db + '/documents/' + p); }
 
-    match /audit/{id} {
-      allow create: if mayUse()
-        && request.resource.data.keys().hasAll(['actor', 'action', 'path', 'campus', 'at'])
-        && request.resource.data.actor.email == me()
-        && request.resource.data.actor.name == myName()
-        && request.resource.data.at == request.time
-        && request.resource.data.path is string
+    // An audit entry: [d] is the new document, bound once.
+    function auditOk(id, d) {
+      let ap = afterPath(d.path);
+      return d.keys().hasAll(['actor', 'action', 'path', 'campus', 'at'])
+        && d.actor.email == me()
+        && d.actor.name == myName()
+        && d.at == request.time
+        && d.path is string
         // The document it describes names it, or is deleted in this batch
         // (an unclaim, B2: the only delete in the build-out).
-        && (existsAfter(afterPath(request.resource.data.path))
-            ? getAfter(afterPath(request.resource.data.path)).data.auditId == id
-            : exists(afterPath(request.resource.data.path)));
+        && (existsAfter(ap) ? getAfter(ap).data.auditId == id : exists(ap));
+    }
+
+    match /audit/{id} {
+      allow create: if mayUse() && auditOk(id, request.resource.data);
       allow read: if readsRoster(resource.data.campus);
       allow update, delete: if false;
     }
@@ -381,31 +396,34 @@ service cloud.firestore {
     // The term of a grant. While config/grantTerms exists it is THE term, as
     // before roles (the stable app's Grant terms page writes it; the new app
     // mirrors every term change into it, RoleStore.saveBuiltin). Without it,
-    // roles/builtin termDays, else the defaults. [b] is builtin(), read once
-    // by the caller (the budget is 1000 expressions a request).
+    // roles/builtin termDays, else the defaults.
     // ponytail: B12 drops the grantTerms read once stable carries B9.
-    function termFor(role, b) {
+    // The built-in map is never read whole: its saved fields one at a time,
+    // and the defaults as plain numbers (each use of builtin() costs the
+    // budget dear, seeded or not).
+    function termFor(role) {
       let p = /databases/$(db)/documents/config/grantTerms;
+      let bp = /databases/$(db)/documents/roles/builtin;
       return exists(p)
         ? get(p).data.get(role == 'admin' ? 'adminDays'
             : role == 'dept' ? 'presidentDays' : 'crDays', 0)
-        : role == 'admin' ? b.admin.termDays
-        : role == 'dept' ? b.president.termDays : b.cr.termDays;
+        : exists(bp)
+          ? get(bp).data[role == 'admin' ? 'admin' : role == 'dept' ? 'president' : 'cr'].termDays
+          : role == 'admin' ? 730 : role == 'dept' ? 365 : 183;
     }
 
     // Counted from today; a grant can end sooner, never later.
-    function expiryOk(d, b) {
+    function expiryOk(d) {
       return d.role == 'contributor' ? d.expiresAt == timestamp.date(2100, 1, 1)
         : d.expiresAt is timestamp && d.expiresAt > request.time
-        && d.expiresAt <= request.time + duration.value(termFor(d.role, b), 'd');
+        && d.expiresAt <= request.time + duration.value(termFor(d.role), 'd');
     }
 
     // Who may give this grant, for this term: roles/builtin read once for both.
     // [renew]: an update, where a revoke (active false) needs no term.
     function grantOk(d, renew) {
-      let b = builtin();
-      return mayGrant(d, b) && (renew ? (d.active == false || expiryOk(d, b))
-                                      : (d.active == true && expiryOk(d, b)));
+      return mayGrant(d) && (renew ? (d.active == false || expiryOk(d))
+                                    : (d.active == true && expiryOk(d)));
     }
 
     // ---- One appointment rule (M1) -----------------------------------------
@@ -417,10 +435,24 @@ service cloud.firestore {
 
     function targetRole(d) { return get(/databases/$(db)/documents/roles/$(d.roleId)).data; }
 
-    function targetCaps(d, b) {
-      return d.role == 'admin' ? b.admin.caps
-           : d.role == 'dept' ? b.president.caps
-           : d.role == 'course' ? b.cr.caps : targetRole(d).caps;
+    // The rows of built-in role [r]: as saved, else the defaults.
+    function capsOf(r) {
+      let p = /databases/$(db)/documents/roles/builtin;
+      return exists(p) ? get(p).data[r].caps : builtin()[r].caps;
+    }
+
+    function targetCaps(d) {
+      return d.role == 'admin' ? capsOf('admin')
+           : d.role == 'dept' ? capsOf('president')
+           : d.role == 'course' ? capsOf('cr') : targetRole(d).caps;
+    }
+
+    // The target's rows lie inside role [r]'s. With no roles/builtin saved,
+    // the defaults nest (CR inside president inside admin), so a built-in
+    // target needs no comparison.
+    function withinCaps(d, r) {
+      return (d.role != 'custom' && !exists(/databases/$(db)/documents/roles/builtin))
+        || targetCaps(d).hasOnly(capsOf(r));
     }
 
     function targetCampus(d) { return d.role == 'custom' ? targetRole(d).campus : d.campus; }
@@ -434,12 +466,13 @@ service cloud.firestore {
     // A custom manager: a live custom grant whose role holds the appoint row
     // and every row of the target, with a scope that covers the target's.
     // Never for themselves.
-    function customAppoints(d, row, b) {
+    function customAppoints(d, row) {
       let e = me();
-      let g = get(customGrantPath()).data;
+      let gp = customGrantPath();
+      let g = get(gp).data;
       let r = get(/databases/$(db)/documents/roles/$(g.roleId)).data;
-      return d.email != e && g.active == true && request.time < g.expiresAt
-        && row in r.caps && isStudent(e) && targetCaps(d, b).hasOnly(r.caps)
+      return exists(gp) && d.email != e && g.active == true && request.time < g.expiresAt
+        && row in r.caps && isStudent(e) && targetCaps(d).hasOnly(r.caps)
         && campusOf(e) == d.campus
         && (r.campus == 'all'
             || (r.campus == targetCampus(d)
@@ -449,36 +482,47 @@ service cloud.firestore {
     // Who may appoint [d]: an owner; an admin or a president holding the
     // appoint row, for a role whose rows lie inside theirs; or a custom manager.
     // Row tests come before grant reads, so a role without the row costs none.
-    function mayAppoint(d, b) {
+    function mayAppoint(d) {
       let row = appointRow(d);
       return isOwner()
-        || (row in b.admin.caps && targetCaps(d, b).hasOnly(b.admin.caps) && isAdmin())
-        || (d.role != 'admin' && row in b.president.caps
-            && targetCaps(d, b).hasOnly(b.president.caps)
-            && isPresident(d.campus, targetDept(d)))
-        || customAppoints(d, row, b);
+        // A president is the usual appointer of CRs, so that branch is asked
+        // first, and each branch asks who they are (their grant) before the
+        // row lists are compared: for anyone else it fails at once and the
+        // list work is never done.
+        // A custom role is mostly given by an admin: asked first, so that
+        // case never pays for the president's failing grant lookups.
+        || (d.role == 'custom'
+            && ((isAdmin() && capIn('admin', row) && withinCaps(d, 'admin'))
+                || customAppoints(d, row)))
+        || (d.role != 'admin' && capIn('president', row)
+            && isPresident(d.campus, targetDept(d))
+            && withinCaps(d, 'president'))
+        || (isAdmin() && capIn('admin', row) && withinCaps(d, 'admin'))
+        || customAppoints(d, row);
     }
 
     // Who may give or change a grant like [d].
-    function mayGrant(d, b) {
+    function mayGrant(d) {
       return d.role == 'admin'
-          ? mayAppoint(d, b) && d.campus == 'all' && d.scope == 'all' && isBitsAddress(d.email)
+          ? mayAppoint(d) && d.campus == 'all' && d.scope == 'all' && isBitsAddress(d.email)
         : d.role == 'dept'
           ? (d.get('secretary', false) == true
               // A secretary serves one branch: the appointing president's.
               ? (presidentNotSecretary(d.campus, d.scope)
                   && d.get('programme', null) == get(grantPath('dept', d.campus,
                        d.scope, me())).data.get('programme', null)
-                || (mayAppoint(d, b)
+                || (mayAppoint(d)
                   && (d.get('programme', null) == null || d.programme is string)))
               : d.scope == 'GEN'
                 // The electives department: no branch, no handover (B2).
-                ? mayAppoint(d, b) && d.get('programme', null) == null
-                : (handsOver(d) || cancelsHandover(d) || mayAppoint(d, b))
+                ? mayAppoint(d) && d.get('programme', null) == null
+                : ((presidentNotSecretary(d.campus, d.scope)
+                     && (handsOver(d) || cancelsHandover(d)))
+                   || mayAppoint(d))
                   && d.programme is string)
             && isStudent(d.email) && campusOf(d.email) == d.campus
         : d.role == 'course'
-          ? mayAppoint(d, b)
+          ? mayAppoint(d)
             && isStudent(d.email) && campusOf(d.email) == d.campus
         // B7: campus-wide, no expiry; `dept` names the president (or
         // secretary) whose request it answers. isPresident covers both.
@@ -499,10 +543,11 @@ service cloud.firestore {
     // Succession (§13.4): a live president names the next one. Their own
     // grant, in the same batch, records the successor — once: a second
     // handover while one runs is refused.
+    // (handsOver and cancelsHandover assume the caller asked presidentNotSecretary
+    // once, for both: a failing one is the expensive part for a non-president.)
     function handsOver(d) {
       let mine = grantPath('dept', d.campus, d.scope, me());
-      return presidentNotSecretary(d.campus, d.scope)
-        && d.get('secretary', false) == false
+      return d.get('secretary', false) == false
         && get(mine).data.get('handedTo', null) == null
         && getAfter(mine).data.get('handedTo', '') == d.email
         && d.get('programme', '') == get(mine).data.get('programme', '');
@@ -511,7 +556,7 @@ service cloud.firestore {
     // The outgoing president cancels while the overlap runs.
     function cancelsHandover(d) {
       let mine = grantPath('dept', d.campus, d.scope, me());
-      return d.active == false && presidentNotSecretary(d.campus, d.scope)
+      return d.active == false
         && get(mine).data.get('handedTo', '') == d.email
         && getAfter(mine).data.get('handedTo', null) == null;
     }
@@ -552,6 +597,22 @@ service cloud.firestore {
           : (d.scope in s.courses) == d.active);
     }
 
+    // A built-in grant (admin, dept, course, contributor) is created: [d] is
+    // the new document, bound once (each request.resource.data costs three
+    // expressions, and this path is near the 1000-expression limit).
+    function builtinGrantOk(id, d) {
+      return id == d.role + '|' + d.campus + '|' + d.scope + '|' + d.email
+        && grantOk(d, false)
+        // Only someone who has signed in can be appointed; the name is theirs.
+        && d.name == get(/databases/$(db)/documents/people/$(d.email)).data.name
+        && d.grantedBy.email == me()
+        && d.grantedAt == request.time
+        && staffAgrees(id, d)
+        && (d.role != 'contributor' || contributorApproved(d))
+        && audited('grants/' + id)
+        && pathBumped(markerCampus(d.campus), 'grants');
+    }
+
     match /grants/{id} {
       // A get() on a grant that does not exist yet is how the app checks
       // whether an appointment is new or a renewal (RoleStore.appoint); with
@@ -563,19 +624,7 @@ service cloud.firestore {
             || readsRoster(resource.data.campus));
       allow list: if (signedIn() && resource.data.email == me())
         || readsRoster(resource.data.campus);
-      allow create: if mayUse()
-        && id == request.resource.data.role + '|' + request.resource.data.campus
-                 + '|' + request.resource.data.scope + '|' + request.resource.data.email
-        && grantOk(request.resource.data, false)
-        // Only someone who has signed in can be appointed; the name is theirs.
-        && request.resource.data.name
-             == get(/databases/$(db)/documents/people/$(request.resource.data.email)).data.name
-        && request.resource.data.grantedBy.email == me()
-        && request.resource.data.grantedAt == request.time
-        && staffAgrees(id, request.resource.data)
-        && (request.resource.data.role != 'contributor' || contributorApproved(request.resource.data))
-        && audited('grants/' + id)
-        && pathBumped(markerCampus(request.resource.data.campus), 'grants');
+      allow create: if mayUse() && builtinGrantOk(id, request.resource.data);
       // A custom role's grant: one per person, id custom|{email}, scope 'role',
       // on the holder's campus. granter by mayAppoint (customGrantOk).
       allow create: if mayUse()
@@ -706,7 +755,7 @@ service cloud.firestore {
       let r = get(/databases/$(db)/documents/roles/$(d.roleId)).data;
       return d.email != me() && d.scope == 'role' && isStudent(d.email) && d.campus == campusOf(d.email)
         && (r.campus == 'all' || r.campus == d.campus)
-        && mayAppoint(d, builtin());
+        && mayAppoint(d);
     }
 
     function handingOver(before, d) {
@@ -745,6 +794,12 @@ service cloud.firestore {
       return after.get(field, empty) == before.get(field, empty);
     }
 
+    // The new `reach` list adds nothing, or only this grant's own entry.
+    function reachGains(d, before, g) {
+      let gained = d.reach.toSet().difference(before.get('reach', []).toSet());
+      return d.reach is list && (gained.size() == 0 || (g.active && gained.hasOnly([reachOf(g)])));
+    }
+
     function staffWriteOk(email) {
       let d = request.resource.data;
       let before = resource == null ? {} : resource.data;
@@ -754,11 +809,7 @@ service cloud.firestore {
         && same(before, d, 'owner', false)
         // reach, when written, gains at most this grant's own entry (an old
         // build leaves it out, and the old fields still stand).
-        && (!('reach' in d) || (d.reach is list
-            && (d.reach.toSet().difference(before.get('reach', []).toSet()).size() == 0
-                || (g.active
-                    && d.reach.toSet().difference(before.get('reach', []).toSet())
-                         .hasOnly([reachOf(g)])))))
+        && (!('reach' in d) || reachGains(d, before, g))
         && (g.role == 'custom'
             ? same(before, d, 'presidentOf', []) && same(before, d, 'courses', [])
               && same(before, d, 'admin', false)
@@ -1350,8 +1401,9 @@ service cloud.firestore {
     // A live custom role that spans every campus moves the markers of any
     // campus (its holder's writes there carry a marker bump).
     function wideCustom() {
-      let g = get(customGrantPath()).data;
-      return g.active == true && request.time < g.expiresAt && isStudent(me())
+      let gp = customGrantPath();
+      let g = get(gp).data;
+      return exists(gp) && g.active == true && request.time < g.expiresAt && isStudent(me())
         && get(/databases/$(db)/documents/roles/$(g.roleId)).data.campus == 'all';
     }
 
@@ -1431,12 +1483,37 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Who may move markers on [campus]'s head and how: [nv] is the new `v`
+    // map, its diff bound once (this runs in every batch that bumps a marker,
+    // and the diff and the head lookups are most of its expressions).
+    function markersOk(campus, nv) {
+      let dv = nv.diff(resource == null ? {} : resource.data.get('v', {}));
+      return (campus == campusOf(me()) || isOwner() || isAdmin() || wideCustom()
+                // The global roles marker lives on goa: any custom role manager
+                // may move it (that key only).
+                || (campus == 'goa' && dv.affectedKeys().hasOnly(['roles'])
+                    && customMay('manageRoles', 'all', 'all')))
+        && nv.size() <= 3000
+        && dv.removedKeys().size() == 0
+        && dv.affectedKeys().size() <= 4;
+    }
+
     match /heads/{campus} {
       allow read: if mayUse() && (campus == campusOf(me()) || isOwner() || isAdmin());
       // Offering versions move in the batch that saves a scheme. ponytail:
       // not tied to the offering written; a stray bump only costs students
       // one re-read of that course, never wrong data.
-      allow create, update: if (
+        // Markers move by writes that bumped them elsewhere (pathBumped, in
+        // the source rule, enforces the exact +1). This only limits who moves
+        // markers, how many at once, how big the map grows, and that none is
+        // removed. ponytail: decreases and +2 are not checkable in rules (no
+        // Set to List, so no per-key value check); clients compare markers by
+        // equality, so a decrease costs a re-read, never a freeze. A stray
+        // string is healed by pathBumped (a non-int counts as 0) and skipped
+        // by Head.fromMap.
+      allow create, update: if (mayUse() && headDiff().hasOnly(['v']) && request.resource.data.v is map
+            && markersOk(campus, request.resource.data.v))
+        || (
           headDiff().hasOnly(['offerings'])
             && request.resource.data.offerings is map
             && (isOwner() || isAdmin() || staffOn(campus)
@@ -1450,28 +1527,7 @@ service cloud.firestore {
                  == getAfter(/databases/$(db)/documents/config/public).data.contactEnabled
             && request.resource.data.contact.contactTarget
                  == getAfter(/databases/$(db)/documents/config/public).data.contactTarget
-            && may('publicContact', 'all', 'all', ''))
-        // Markers move by writes that bumped them elsewhere (pathBumped, in
-        // the source rule, enforces the exact +1). This only limits who moves
-        // markers, how many at once, how big the map grows, and that none is
-        // removed. ponytail: decreases and +2 are not checkable in rules (no
-        // Set to List, so no per-key value check); clients compare markers by
-        // equality, so a decrease costs a re-read, never a freeze. A stray
-        // string is healed by pathBumped (a non-int counts as 0) and skipped
-        // by Head.fromMap.
-        || (mayUse() && headDiff().hasOnly(['v']) && request.resource.data.v is map
-            && (campus == campusOf(me()) || isOwner() || isAdmin() || wideCustom()
-                // The global roles marker lives on goa: any custom role manager
-                // may move it (that key only).
-                || (campus == 'goa'
-                    && request.resource.data.v.diff(resource == null ? {} : resource.data.get('v', {}))
-                         .affectedKeys().hasOnly(['roles'])
-                    && customMay('manageRoles', 'all', 'all')))
-            && request.resource.data.v.size() <= 3000
-            && request.resource.data.v.diff(resource == null ? {} : resource.data.get('v', {}))
-                 .removedKeys().size() == 0
-            && request.resource.data.v.diff(resource == null ? {} : resource.data.get('v', {}))
-                 .affectedKeys().size() <= 4);
+            && may('publicContact', 'all', 'all', ''));
       allow delete: if false;
     }
 

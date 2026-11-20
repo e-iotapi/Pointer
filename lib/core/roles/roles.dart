@@ -693,7 +693,7 @@ class MyRoles {
         else if (own != null)
           Reach(
             role: 'custom',
-            campus: r.campus == 'all' ? own : r.campus ?? own,
+            campus: own,
             dept: r.campus == 'all' ? null : r.dept,
           ),
     ];

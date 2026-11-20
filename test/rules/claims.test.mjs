@@ -2,7 +2,7 @@
 import { test } from 'node:test';
 import { assertFails, assertSucceeds } from '@firebase/rules-unit-testing';
 import { collection, doc, getDoc, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
-import { ADMIN, OWNER, PRES, STUDENT, appoint, as, bump, name, seed, useEmulator } from './helpers.mjs';
+import { ADMIN, ADMIN_GOA, adminGoa, OWNER, PRES, STUDENT, appoint, as, bump, name, seed, seedBuiltin, useEmulator } from './helpers.mjs';
 
 useEmulator();
 
@@ -113,4 +113,22 @@ test('the claimant, not GEN, manages the claimed course', async () => {
   await assertFails(appoint(as(PRES), PRES, cr, staff));
   await seedClaim('ELEC');
   await assertSucceeds(appoint(as(PRES), PRES, cr, staff));
+});
+
+// The same appointment with roles/builtin saved. It sits near the 1000-expression
+// limit of the grant create rule, so a rules change that adds work there shows up
+// here first (a padded rule was measured to fail only after ~160 spare expressions).
+test('the claimant appoints a CR with roles/builtin saved', async () => {
+  await seedBuiltin();
+  await seedClaim('ELEC');
+  const cr = { role: 'course', campus: 'goa', scope: COURSE, email: STUDENT };
+  await assertSucceeds(appoint(as(PRES), PRES, cr, { courses: [COURSE] }));
+});
+
+// A same-campus admin appointing a president (the handover checks are asked once,
+// and missing grants are clean falses: an error on the left of && still evaluates the right).
+test('a Goa admin appoints a president, roles/builtin absent', async () => {
+  await adminGoa();
+  const pres = { role: 'dept', campus: 'goa', scope: 'CS', programme: 'A7', email: STUDENT };
+  await assertSucceeds(appoint(as(ADMIN_GOA), ADMIN_GOA, pres, { presidentOf: ['CS'] }));
 });

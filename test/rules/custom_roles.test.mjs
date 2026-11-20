@@ -490,11 +490,11 @@ describe('custom roles, batch 2', () => {
     await qaManager();
     await customRole('wide', ['courseStructures'], 30, 'all', 'all');
     await customRole('narrow', ['courseStructures'], 30, 'goa', 'ELEC');
-    console.log('STEP1'); await assertSucceeds(qaGrant(OWNER, STUDENT, 'wide'));
-    console.log('STEP2'); await assertFails(qaGrant(CUSTOM, STUDENT, 'narrow'));
-    console.log('STEP3'); await assertSucceeds(qaGrant(OWNER, STUDENT, 'narrow'));
+    await assertSucceeds(qaGrant(OWNER, STUDENT, 'wide'));
+    await assertFails(qaGrant(CUSTOM, STUDENT, 'narrow'));
+    await assertSucceeds(qaGrant(OWNER, STUDENT, 'narrow'));
     await customRole('also', ['courseStructures'], 30, 'goa', 'ELEC');
-    console.log('STEP4'); await assertSucceeds(qaGrant(CUSTOM, STUDENT, 'also'));
+    await assertSucceeds(qaGrant(CUSTOM, STUDENT, 'also'));
   });
 
   test('replacing a custom role leaves only the new role in the staff index', async () => {
