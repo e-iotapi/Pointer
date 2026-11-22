@@ -4,7 +4,9 @@ import 'package:cgpa_calculator/app/routes.dart';
 import 'package:cgpa_calculator/core/models/programmes.dart';
 import 'package:cgpa_calculator/core/platform/browser.dart';
 import 'package:cgpa_calculator/core/prefs/prefs_store.dart';
+import 'package:cgpa_calculator/core/roles/roles.dart' show campusName;
 import 'package:cgpa_calculator/core/roles/session.dart';
+import 'package:cgpa_calculator/features/setup/campus_pick_page.dart';
 import 'package:cgpa_calculator/features/roles/rep_profile.dart';
 import 'package:cgpa_calculator/features/roles/role_switch_page.dart';
 import 'package:cgpa_calculator/features/import/erp_import_page.dart';
@@ -175,6 +177,21 @@ class _SettingsPageState extends State<SettingsPage> {
               // The door to Controls: the screens inside ask for their rows.
               onControls: myRoles.value.reachesAdmin
                   ? () => openRoute(context, Routes.admin, () => const SizedBox())
+                  : null,
+              // Owners and admins switch the campus the student pages show.
+              campusLabel: switch (viewCampus()) {
+                final c? => campusName(c),
+                null => null,
+              },
+              onCampus: myRoles.value.reachesAdmin
+                  ? () async {
+                      await openRoute(
+                        context,
+                        Routes.previewCampus,
+                        () => const CampusPickPage(),
+                      );
+                      if (mounted) setState(() {});
+                    }
                   : null,
             ),
       ),

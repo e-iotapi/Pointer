@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import 'package:cgpa_calculator/core/roles/roles.dart';
 import 'package:cgpa_calculator/core/roles/session.dart';
 import 'package:cgpa_calculator/core/storage/cache_boxes.dart';
 import 'package:cgpa_calculator/features/setup/campus_pick_page.dart';
@@ -26,6 +27,20 @@ void main() {
         me: 'f20239992@goa.bits-pilani.ac.in',
         myName: 'S',
       );
+      expect(viewCampus(), 'goa');
+      // Anyone who reaches Controls (owner flag here) picked Pilani in
+      // Settings › Campus: they see Pilani; without that reach, their own.
+      roleStore = RoleStore(
+        db,
+        me: 'f20200001@goa.bits-pilani.ac.in',
+        myName: 'A',
+      );
+      myRoles.value = const MyRoles(
+        email: 'f20200001@goa.bits-pilani.ac.in',
+        owner: true,
+      );
+      expect(viewCampus(), 'pilani');
+      myRoles.value = const MyRoles(email: 'f20200001@goa.bits-pilani.ac.in');
       expect(viewCampus(), 'goa');
       roleStore = null;
       await Hive.close();

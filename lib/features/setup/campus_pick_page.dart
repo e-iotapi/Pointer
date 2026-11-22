@@ -15,14 +15,17 @@ import 'package:hive_ce/hive.dart';
 const _previewKey = 'previewCampus';
 const _campuses = ['goa', 'hyderabad', 'pilani', 'dubai'];
 
-/// The campus More's pages show: the address's own, else the owner's preview
-/// pick on this device. View only: never written to the profile or Firestore
-/// (BUG-16).
+/// The campus More's pages show: an owner's or admin's pick on this device
+/// (Settings › Campus), else the address's own, else the pick. View only:
+/// never written to the profile or Firestore (BUG-16).
 String? viewCampus() {
-  if (campusOfAddress(roleStore?.me ?? '') case final own?) return own;
-  if (!Hive.isBoxOpen(deviceBoxName)) return null;
-  final raw = Hive.box(deviceBoxName).get(_previewKey);
-  return _campuses.contains(raw) ? raw as String : null;
+  final raw =
+      Hive.isBoxOpen(deviceBoxName)
+          ? Hive.box(deviceBoxName).get(_previewKey)
+          : null;
+  final pick = _campuses.contains(raw) ? raw as String : null;
+  if (pick != null && myRoles.value.reachesAdmin) return pick;
+  return campusOfAddress(roleStore?.me ?? '') ?? pick;
 }
 
 /// What an empty More page shows when [viewCampus] is null: a row to pick
@@ -83,7 +86,7 @@ class CampusPickPage extends StatelessWidget {
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Text(
-                            'OWNER · PREVIEW ONLY',
+                            'OWNERS AND ADMINS · VIEW ONLY',
                             style: TypeScale.label.copyWith(color: p.textMuted),
                           ),
                           Semantics(

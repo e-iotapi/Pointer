@@ -886,7 +886,9 @@ service cloud.firestore {
     // Every listed person on a campus in one doc: each writes only their
     // own key, a copy of their directory entry after the batch.
     match /repIndex/{campus} {
-      allow get: if mayUse() && campus == campusOf(me());
+      // People data: owners and admins read every campus (Decision 11), so
+      // Representatives works for the campus they pick in Settings.
+      allow get: if mayUse() && (campus == campusOf(me()) || isOwner() || isAdmin());
       // Any key may be refreshed, but only to a copy of that person's own
       // directory entry after the batch, which its own rules guard.
       allow create, update: if mayUse()

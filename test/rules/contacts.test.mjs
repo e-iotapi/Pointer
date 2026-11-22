@@ -342,6 +342,9 @@ describe('directory', () => {
     await assertSucceeds(save(e));
     await assertSucceeds(getDoc(doc(as(STUDENT), 'repIndex', 'goa')));
     await assertFails(getDoc(doc(as(OTHER), 'repIndex', 'goa')));
+    // Owners and admins read every campus's Representatives.
+    await assertSucceeds(getDoc(doc(as(OWNER), 'repIndex', 'goa')));
+    await assertSucceeds(getDoc(doc(as(ADMIN), 'repIndex', 'goa')));
     const db = as(STUDENT);
     const forge = (data) => {
       const b = writeBatch(db);

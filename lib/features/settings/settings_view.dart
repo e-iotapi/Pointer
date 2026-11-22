@@ -38,6 +38,8 @@ class SettingsView extends StatelessWidget {
     this.contactSummary,
     this.onContact,
     this.onControls,
+    this.campusLabel,
+    this.onCampus,
     this.showOffshoot = true,
     this.onShowOffshoot,
     this.onReplayTour,
@@ -99,6 +101,11 @@ class SettingsView extends StatelessWidget {
 
   /// Owners and admins: the /admin controls.
   final VoidCallback? onControls;
+
+  /// Owners and admins: the campus Reviews, Resources and Representatives
+  /// show (a view on this device); null hides the row.
+  final String? campusLabel;
+  final VoidCallback? onCampus;
 
   /// The "Show Offshoot tab" switch (B1 pref); null hides the row.
   final bool showOffshoot;
@@ -168,6 +175,13 @@ class SettingsView extends StatelessWidget {
                         value: 'Admin',
                         icon: Icons.admin_panel_settings_outlined,
                         onTap: onControls,
+                      ),
+                    if (onCampus != null)
+                      _Item(
+                        label: 'Campus',
+                        value: campusLabel ?? 'Pick one',
+                        icon: Icons.location_city_outlined,
+                        onTap: onCampus,
                       ),
                   ]),
                 ],
