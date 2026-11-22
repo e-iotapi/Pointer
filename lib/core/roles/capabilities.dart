@@ -230,6 +230,39 @@ enum Capability {
   /// Stable storage key for this row.
   String get key => name;
 
+  /// One line on what the row lets a holder do (the role editor's (i)).
+  String get help => switch (this) {
+    addRemoveOwners => 'Add or remove owners, who can do everything.',
+    appointAdmins => 'Appoint, renew or revoke admins.',
+    appointPresidents =>
+      'Appoint, renew or revoke department presidents and secretaries.',
+    appointCrs => 'Appoint, renew or revoke course managers (CRs).',
+    publish => 'Publish app releases and see site analytics.',
+    publicContact => 'Edit the public contact shown to students.',
+    grantTermsCrPresident => 'Set how long CR and president terms last.',
+    grantTermsAdmin => 'Set how long admin terms last.',
+    mergeProfessors =>
+      'Merge two entries for one professor, joining their reviews.',
+    courseStructures =>
+      "Edit a course's offering: components, weights and professors.",
+    bulkUpload => 'Upload eval schemes for many courses from a JSON file.',
+    degreeRequirements => "Edit a department's degree requirements.",
+    departmentResources => "Add and edit a department's resource links.",
+    courseResources => "Add and edit a course's resource links.",
+    averages => 'Publish class averages for a course.',
+    professors => 'Add, rename or remove professors in a department.',
+    moderateReviews => 'Hide or restore reviews, with a logged reason.',
+    readAuditAndRoster => 'Read the audit log and who holds which role.',
+    contribute => 'Suggest resource links for approval.',
+    manageRoles => 'Create, edit and delete custom roles, and appoint to them.',
+    approveContributors => 'Approve or decline contributors and their links.',
+    claimElectives => 'Claim elective courses for a department to manage.',
+    reviewGateSwitch => 'Turn compulsory reviews on or off for a campus.',
+    publishTimetable => "Publish a campus's timetable.",
+    openAs => 'Preview Pointer as any role.',
+    publishDirectly => 'Publish resource links without waiting for approval.',
+  };
+
   /// The table text for [role] on this row.
   String cell(Role role) => switch (role) {
     Role.owner => owner,

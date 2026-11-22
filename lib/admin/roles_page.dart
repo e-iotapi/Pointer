@@ -393,6 +393,16 @@ class _RoleFormState extends State<_RoleForm> {
       ),
       title: c.label,
       titleLines: 2,
+      titleBadge: Tooltip(
+        message: c.help,
+        triggerMode: TooltipTriggerMode.tap,
+        showDuration: const Duration(seconds: 4),
+        child: Semantics(
+          button: true,
+          label: 'About ${c.label}',
+          child: Icon(Icons.info_outline_rounded, size: 16, color: p.textMuted),
+        ),
+      ),
       subtitle:
           locked
               ? 'Averages live inside the eval scheme, so this also needs '

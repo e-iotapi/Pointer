@@ -1667,6 +1667,21 @@ void main() {
     expect(find.text('Open Pointer as'), findsNothing);
   });
 
+  testWidgets('merge opened with a campus still offers the department', (
+    t,
+  ) async {
+    // Course tools opens it with the campus picked: an owner, or an admin on
+    // their own campus, must still be able to choose a department.
+    signIn(
+      'owner@example.com',
+      roles: const MyRoles(email: 'owner@example.com', owner: true),
+    );
+    await t.pumpWidget(app(const ProfessorMerge(campus: 'goa')));
+    await t.pumpAndSettle();
+    expect(find.text('Department'), findsOneWidget);
+    expect(find.text('Goa'), findsNothing);
+  });
+
   testWidgets('merge suggests likely duplicates and picks both', (t) async {
     await t.runAsync(() => seedFirestore(db));
     signIn(pres, roles: MyRoles(email: pres, grants: [presidency()]));

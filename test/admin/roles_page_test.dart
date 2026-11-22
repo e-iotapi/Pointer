@@ -167,6 +167,24 @@ void main() {
     expect(tick(t, 'Moderate reviews').onChanged, isNotNull);
   });
 
+  testWidgets('each row has an (i) that explains it without ticking it', (
+    t,
+  ) async {
+    signIn(_ownerMail, owner: true);
+    await open(t, const RoleEditor(id: 'new'));
+    expect(
+      find.byIcon(Icons.info_outline_rounded),
+      findsAtLeastNWidgets(Capability.values.length),
+    );
+    final info = find.byTooltip(Capability.moderateReviews.help);
+    await t.ensureVisible(info);
+    await t.tap(info);
+    await t.pump(const Duration(milliseconds: 300));
+    expect(find.text(Capability.moderateReviews.help), findsOneWidget);
+    expect(tick(t, 'Moderate reviews').value, isFalse);
+    await t.pump(const Duration(seconds: 5));
+  });
+
   testWidgets('ticking Averages ticks and locks Course structures', (t) async {
     signIn(_ownerMail, owner: true);
     await open(t, const RoleEditor(id: 'new'));

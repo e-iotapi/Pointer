@@ -569,9 +569,9 @@ class _ProfessorMergeState extends State<ProfessorMerge> {
       _narrow?.campus ??
       campusOfAddress(roleStore!.me) ??
       'goa';
-  late String? _dept =
-      widget.dept ??
-      (_narrow?.dept == 'all' ? null : _narrow?.dept);
+  late final String? _fixedDept =
+      widget.dept ?? (_narrow?.dept == 'all' ? null : _narrow?.dept);
+  late String? _dept = _fixedDept;
 
   /// The row picked from the shared department list; its label.
   Branch? _branch;
@@ -616,7 +616,9 @@ class _ProfessorMergeState extends State<ProfessorMerge> {
   }
 
   PageFrame _frame(List<Widget> children, {Widget? bottom}) {
-    final free = _reach.any((x) => x.campus == 'all') && widget.campus == null;
+    // Only owners reach every campus (Decision 11), so only they pick one.
+    final pickCampus =
+        _reach.any((x) => x.campus == 'all') && widget.campus == null;
     final dept = _dept;
     return PageFrame(
       header: const PageHeader(
@@ -625,8 +627,7 @@ class _ProfessorMergeState extends State<ProfessorMerge> {
       ),
       bottom: bottom,
       children: [
-        if (free) ...[
-          // Only owners reach every campus (Decision 11), so only they get here.
+        if (pickCampus) ...[
           ChoicePills<String>(
             values: const ['goa', 'hyderabad', 'pilani', 'dubai'],
             selected: _campus,
@@ -638,6 +639,10 @@ class _ProfessorMergeState extends State<ProfessorMerge> {
                 }),
           ),
           const SizedBox(height: Space.sm),
+        ],
+        // A whole-campus reach (an owner, an admin, a campus-wide custom
+        // role) picks the department; a president's is fixed.
+        if (_fixedDept == null) ...[
           SelectRow(
             text:
                 dept == null
