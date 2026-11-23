@@ -72,10 +72,12 @@ async function main() {
   const { accounts } = accountsConfig;
   const password = usingEmulator ? accountsConfig.password : process.env.STAGING_PASSWORD;
   const byKey = Object.fromEntries(accounts.map((a) => [a.key, a]));
+  // Prod-mirror people on staging: sign-in only, their data is the mirror's.
+  const signIns = [...accounts, ...(usingEmulator ? [] : accountsConfig.mirror ?? [])];
 
   if (args.passwordsOnly) {
-    await ensureAuthUsers(auth, accounts, password, { staging: !usingEmulator });
-    console.log(`Passwords reset for ${accounts.length} test accounts.`);
+    await ensureAuthUsers(auth, signIns, password, { staging: !usingEmulator });
+    console.log(`Passwords reset for ${signIns.length} test accounts.`);
     process.exit(0);
   }
 
@@ -86,7 +88,7 @@ async function main() {
   }
 
   console.log(`Seeding ${args.project} (${usingEmulator ? 'emulator' : 'staging'})...`);
-  await ensureAuthUsers(auth, accounts, password, { staging: !usingEmulator });
+  await ensureAuthUsers(auth, signIns, password, { staging: !usingEmulator });
   await seedUserDocs(db, accounts);
   await seedOwners(db, byKey);
   await seedConfig(db, byKey);

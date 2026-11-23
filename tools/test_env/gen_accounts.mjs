@@ -8,7 +8,7 @@ import path from 'node:path';
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', '..');
 
 export function generate(config) {
-  const entries = config.accounts
+  const entries = [...config.accounts, ...(config.mirror ?? [])]
     .map((a) => `  '${a.key}': '${a.email}',`)
     .join('\n');
   return `// GENERATED FILE - do not edit by hand.

@@ -9,7 +9,10 @@ void main() {
     final config =
         jsonDecode(File('test_env/accounts.json').readAsStringSync())
             as Map<String, dynamic>;
-    final accounts = config['accounts'] as List<dynamic>;
+    final accounts = [
+      ...config['accounts'] as List<dynamic>,
+      ...config['mirror'] as List<dynamic>? ?? const [],
+    ];
     final expected = {
       for (final a in accounts)
         (a as Map<String, dynamic>)['key'] as String: a['email'] as String,

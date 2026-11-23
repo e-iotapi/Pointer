@@ -25,5 +25,20 @@
      "roles": [{"role": "dept", "campus": "goa", "scope": "GEN"}]},
     {"key": "gateStudent", "email": "f20249914@goa.bits-pilani.ac.in", "name": "Test Gate Student", "dataset": "gate_student"},
     {"key": "gateExempt", "email": "f20259915@goa.bits-pilani.ac.in", "name": "Test Gate Exempt", "dataset": "gate_exempt"}
+  ],
+  "_mirror": "People from the prod mirror (tools/prod_mirror load): ?as= keys and the staging password only; seed.mjs writes no data for them, their data comes from the mirror load.",
+  "mirror": [
+    {"key": "mirror_owner", "email": "f20239985@goa.bits-pilani.ac.in"},
+    {"key": "mirror_admin", "email": "f20205113@goa.bits-pilani.ac.in"},
+    {"key": "mirror_president", "email": "f20255420@dubai.bits-pilani.ac.in"},
+    {"key": "mirror_secretary", "email": "f20216118@dubai.bits-pilani.ac.in"},
+    {"key": "mirror_cr", "email": "f20237379@dubai.bits-pilani.ac.in"},
+    {"key": "mirror_contributor", "email": "f20229372@dubai.bits-pilani.ac.in"},
+    {"key": "mirror_custom", "email": "f20210498@dubai.bits-pilani.ac.in"},
+    {"key": "mirror_expired", "email": "f20207477@pilani.bits-pilani.ac.in"},
+    {"key": "mirror_student_goa", "email": "f20200056@goa.bits-pilani.ac.in"},
+    {"key": "mirror_student_pilani", "email": "f20200051@pilani.bits-pilani.ac.in"},
+    {"key": "mirror_student_hyderabad", "email": "h20200083@hyderabad.bits-pilani.ac.in"},
+    {"key": "mirror_student_dubai", "email": "f20204153@dubai.bits-pilani.ac.in"}
   ]
 }
