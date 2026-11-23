@@ -2,7 +2,7 @@
 // The hub is per campus. A write can move another campus's head, or every campus's, and the person it
 // concerns can be on a third campus: the Worker must still reach them (server-side fan-out of pokes).
 import { test, expect } from '@playwright/test';
-import { openLive, idToken, bumpHeads, readHead, email, sleep } from '../lib.mjs';
+import { openLive, idToken, bumpHeads, readHead, email, sleep } from '../helpers.mjs';
 
 const CAMPUSES = ['goa', 'hyderabad', 'pilani', 'dubai'];
 

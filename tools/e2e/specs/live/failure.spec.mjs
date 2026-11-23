@@ -1,6 +1,6 @@
 // Failure modes: the app must keep working and recover by itself.
 import { test, expect } from '@playwright/test';
-import { LOCAL, CFG, installLocalCanvasKit, openLive, idToken, bumpHeads, readHead, sleep } from '../lib.mjs';
+import { LOCAL, CFG, installLocalCanvasKit, openLive, idToken, bumpHeads, readHead, sleep } from '../helpers.mjs';
 
 test('socket drop: a reconnecting client is told of a marker that moved meanwhile', async () => {
   const s1 = openLive('goa', await idToken('student_full'));

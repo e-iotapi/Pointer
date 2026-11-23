@@ -4,7 +4,7 @@
 // after such a write (poke with its campuses, pokeUser), so the receiving side is the app under test.
 // Local only: the writes need rules bypass; staging runs the frame-level specs.
 import { test, expect } from '@playwright/test';
-import { LOCAL, CFG, openLive, idToken, bumpHeads, putDoc, increment, commit, docName, openAs, email, str, sleep } from '../lib.mjs';
+import { LOCAL, CFG, openLive, idToken, bumpHeads, putDoc, increment, commit, docName, openAs, email, str, sleep } from '../helpers.mjs';
 
 test.skip(!LOCAL, 'UI-level checks need rules-bypass writes (local emulators only)');
 

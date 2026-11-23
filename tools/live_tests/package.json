@@ -1,8 +1,0 @@
-{
-  "name": "pointer-live-tests",
-  "private": true,
-  "description": "Live-update and infrastructure checks: Worker + hub + app, locally on the emulators or against staging. Run: ./run.sh [local|staging]",
-  "type": "module",
-  "scripts": { "test": "playwright test" },
-  "devDependencies": { "@playwright/test": "1.63.0" }
-}

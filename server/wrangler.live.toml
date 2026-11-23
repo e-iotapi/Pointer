@@ -1,5 +1,5 @@
-# Test config for tools/live_tests (never deployed): the real Worker against the Firebase emulators.
-# Secrets-like values (TEST_*, EMULATOR_FIRESTORE, FIREBASE_SA) are passed with --var by tools/live_tests/run.sh.
+# Test config for tools/e2e (`npm run live`) (never deployed): the real Worker against the Firebase emulators.
+# Secrets-like values (TEST_*, EMULATOR_FIRESTORE, FIREBASE_SA) are passed with --var by tools/e2e/live.sh.
 name = "pointer-heads-live-test"
 main = "test/live/entry.ts"
 compatibility_date = "2026-09-01"

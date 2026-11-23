@@ -1,8 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
-import { MODE, CFG } from './lib.mjs';
+import { MODE, CFG } from './specs/helpers.mjs';
 
 export default defineConfig({
-  testDir: './specs',
+  testDir: './specs/live',
   outputDir: './out/test-results',
   timeout: 120_000,
   workers: 1,

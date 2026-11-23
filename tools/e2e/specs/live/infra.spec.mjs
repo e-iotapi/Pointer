@@ -1,7 +1,7 @@
 // Reachability of every endpoint the app uses, and the socket's refusal rules.
 import { createSign, createPrivateKey } from 'node:crypto';
 import { test, expect } from '@playwright/test';
-import { CFG, LOCAL, ORIGIN, openLive, idToken, readHead, sleep } from '../lib.mjs';
+import { CFG, LOCAL, ORIGIN, openLive, idToken, readHead, sleep } from '../helpers.mjs';
 
 test('Firestore is reachable', async () => {
   const head = await readHead('goa');
@@ -80,7 +80,7 @@ test('an expired token is refused', async () => {
 });
 
 test('a poke after a marker moves pushes a head frame to the same campus', async () => {
-  const { bumpHeads } = await import('../lib.mjs');
+  const { bumpHeads } = await import('../helpers.mjs');
   const s = openLive('goa', await idToken('student_full'));
   await s.opened;
   await s.waitFor((f) => f.t === 'hello');

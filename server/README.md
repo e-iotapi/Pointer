@@ -52,4 +52,4 @@ Check the staging secret exists with `npx wrangler secret list --env staging` (n
 - `pokeUser {email}`: that person's roles changed. Every hub bumps a counter for the address and sends `roles {v}` to the person's sockets (tagged by the token's verified email); `hello.roles` carries the counter for devices that were closed. 4 a second per socket, 30 an hour per sender; no data travels.
 - `pokeMe`: this account changed on another device (`me`).
 
-Tests: `npm test` (frames, fan-out, limits) and `tools/live_tests/` (the real Worker under `wrangler dev` against the emulators, `wrangler.live.toml` + `test/live/entry.ts`).
+Tests: `npm test` (frames, fan-out, limits) and `tools/e2e/specs/live/` (`npm run live`) (the real Worker under `wrangler dev` against the emulators, `wrangler.live.toml` + `test/live/entry.ts`).
