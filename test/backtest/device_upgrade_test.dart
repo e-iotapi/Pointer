@@ -109,7 +109,7 @@ void main() {
     },
   );
 
-  breakTest('cached-defs-damaged-drops-grants', () async {
+  test('cached-defs-damaged-drops-grants', () async {
     final m = jsonDecode(dev.get('roles') as String) as Map<String, dynamic>;
     for (final bad in <Object?>[
       'x',
@@ -126,7 +126,7 @@ void main() {
     }
   });
 
-  breakTest('lapsed-custom-cache-opens-admin', () async {
+  test('lapsed-custom-cache-opens-admin', () async {
     final m = jsonDecode(dev.get('roles') as String) as Map<String, dynamic>;
     final lapsed =
         grant(GrantRole.custom, pres, 'goa', 'role').toMap()
