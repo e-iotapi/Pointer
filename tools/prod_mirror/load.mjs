@@ -4,7 +4,7 @@
 //
 //   node tools/prod_mirror/load.mjs --in <dir> [--target emulator|staging]
 //        [--sample N] [--daily-write-cap 18000] [--resume|--restart]
-//        [--wipe] [--no-auth] [--all-auth] [--accounts-out <file>]
+//        [--wipe] [--no-auth] [--all-auth]
 //
 // The emulator is the default and is wiped first. Staging needs an explicit
 // --target staging, GOOGLE_APPLICATION_CREDENTIALS (a staging key; its
@@ -12,15 +12,14 @@
 // project: 20k writes a day, so the load commits in batches, checkpoints in a
 // state file next to the input, stops at the daily cap and continues with
 // --resume after midnight Pacific. The production project is refused.
-import { randomBytes } from 'node:crypto';
 import { createInterface } from 'node:readline/promises';
-import { chmodSync, existsSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, readFileSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { GeoPoint, Timestamp, getFirestore } from 'firebase-admin/firestore';
-import { assertSafeDir, EMULATOR_PROJECT, PROD_PROJECT_ID, decode, pacificDay, parseArgs, readAuth, readDocs, root, sha256 } from './lib.mjs';
+import { EMULATOR_PROJECT, PROD_PROJECT_ID, decode, pacificDay, parseArgs, readAuth, readDocs, root, sha256 } from './lib.mjs';
 
 const BATCH = 400;
 const EMAIL = /[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)*\.[A-Za-z]{2,}/;
@@ -245,23 +244,9 @@ async function ensureUsers(auth, picks, password) {
   }
 }
 
-/** The password the mirror's sign-in accounts get: read from the file, or made once and kept there (never in the repo). */
-export function passwordFrom(file) {
-  const f = assertSafeDir(file, 'The password file');
-  if (existsSync(f)) return readFileSync(f, 'utf8').trim();
-  const pw = randomBytes(15).toString('base64url');
-  writeFileSync(f, pw + '\n', { mode: 0o600 });
-  chmodSync(f, 0o600);
-  return pw;
-}
-
-export function accountsFile(picks, password = 'pointer-test-only') {
-  return { password, accounts: picks.map((p) => ({ key: p.key, email: p.email, name: p.name })) };
-}
-
 async function main() {
   const a = parseArgs(process.argv.slice(2), ['resume', 'restart', 'wipe', 'no-auth', 'all-auth', 'keep', 'dry']);
-  if (!a.in) { console.error('usage: load.mjs --in <dir> [--target emulator|staging] [--sample N] [--only prefix,prefix] [--skip-same-as <dir>] [--password-file <path>] [--daily-write-cap N] [--resume|--restart] [--wipe] [--no-auth] [--all-auth]'); process.exit(2); }
+  if (!a.in) { console.error('usage: load.mjs --in <dir> [--target emulator|staging] [--sample N] [--only prefix,prefix] [--skip-same-as <dir>] [--daily-write-cap N] [--resume|--restart] [--wipe] [--no-auth] [--all-auth]'); process.exit(2); }
   const inDir = path.resolve(a.in);
   const tgt = resolveTarget(a.target ?? 'emulator');
   if (tgt.kind === 'emulator') {
@@ -283,11 +268,7 @@ async function main() {
   const planId = sha256(`${tgt.project}|${a.sample ?? ''}|${a.only ?? ''}|${a['skip-same-as'] ?? ''}|${docs.length}|${docs[0]?.path}|${docs.at(-1)?.path}`);
   const stateFile = path.join(inDir, `.load_state.${tgt.project}.json`);
 
-  // The mirror's accounts get their own password (--password-file, made on first use), else MIRROR_PASSWORD, else STAGING_PASSWORD; never printed.
-  const password = a['password-file'] ? passwordFrom(a['password-file'])
-    : tgt.kind === 'emulator' ? JSON.parse(readFileSync(path.join(root, 'test_env', 'accounts.json'), 'utf8')).password
-    : process.env.MIRROR_PASSWORD ?? process.env.STAGING_PASSWORD;
-  if (!password && !a['no-auth']) throw new Error('Creating sign-in accounts on staging needs --password-file <path>, MIRROR_PASSWORD or STAGING_PASSWORD (or --no-auth).');
+  const password = tgt.kind === 'emulator' ? JSON.parse(readFileSync(path.join(root, 'test_env', 'accounts.json'), 'utf8')).password : process.env.STAGING_PASSWORD;
   if (a.dry) { console.log(`Plan: ${docs.length} documents would be written to ${tgt.kind} (${tgt.project}).`); process.exit(0); }
   initializeApp({ projectId: tgt.project });
   const db = getFirestore();
@@ -340,11 +321,9 @@ async function main() {
       for (const u of authUsers) if (u.email && !have.has(u.email.toLowerCase())) picks.push({ key: `mirror_${u.uid.slice(0, 8)}`, email: u.email.toLowerCase(), uid: u.uid, name: u.displayName ?? u.email, note: 'all-auth' });
     }
     await ensureUsers(auth, picks, password);
-    const file = a['accounts-out'] ?? path.join(inDir, 'accounts.mirror.json');
-    writeFileSync(file, JSON.stringify(accountsFile(picks, a['password-file'] ? password : undefined), null, 1), { mode: 0o600 });
-    console.log(`\nSign-in accounts (password: ${a['password-file'] ? 'in ' + a['password-file'] : tgt.kind === 'emulator' ? 'the accounts.json one' : '$MIRROR_PASSWORD or $STAGING_PASSWORD'}), wrote ${file}:`);
-    for (const p of picks.slice(0, 30)) console.log(`  ?as=${p.key.padEnd(24)} ${p.email}  (${p.note ?? ''})${p.uid ? '' : '  [no auth record in the export: signs in as a new user]'}`);
-    console.log('To use them in a staging build: node tools/prod_mirror/gen_mirror_accounts.mjs <that file>, build, then git checkout lib/core/env/test_accounts.g.dart.');
+    console.log(`\nSign-in accounts (password: ${tgt.kind === 'emulator' ? 'the accounts.json one' : '$STAGING_PASSWORD'}). For the \`mirror\` list in test_env/accounts.json:`);
+    console.log(JSON.stringify(picks.map((p) => ({ key: p.key, email: p.email })), null, 1));
+    for (const p of picks) console.log(`  ?as=${p.key.padEnd(24)} ${p.note ?? ''}${p.uid ? '' : '  [no auth record in the export: signs in as a new user]'}`);
   }
   process.exit(0);
 }

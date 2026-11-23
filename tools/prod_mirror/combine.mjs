@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// COMBINE: one dataset out of several (anonymised prod, the staging personas,
+// COMBINE: one dataset out of several (anonymised prod,
 // a synthetic set), so one load writes it all and nothing overwrites anything.
 //
 //   node tools/prod_mirror/combine.mjs --out <dir> <first> <second> [<third> …]

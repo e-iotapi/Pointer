@@ -1,11 +1,11 @@
 import assert from 'node:assert/strict';
-import { mkdtempSync, statSync, writeFileSync } from 'node:fs';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import os from 'node:os';
 import path from 'node:path';
 import { test } from 'node:test';
 import { anonymise, shiftToNowSeconds } from './anonymise.mjs';
 import { buildFixture } from './fixtures/build.mjs';
-import { accountsFile, grantsOf, loadOrder, passwordFrom, pickIdentities, resolveTarget, selectSample, writeDocs } from './load.mjs';
+import { grantsOf, loadOrder, pickIdentities, resolveTarget, selectSample, writeDocs } from './load.mjs';
 import { assertSafeDir, collectionsFromRules, decode, encode } from './lib.mjs';
 
 const mirror = () => {
@@ -76,7 +76,6 @@ test('identities: one of each role, with the uid the export linked to the email'
   const grants = grantsOf(m.docs);
   assert.ok(grants.find((g) => g.email === by.mirror_secretary.email).secretary);
   assert.ok(!grants.find((g) => g.email === by.mirror_expired.email).live);
-  assert.equal(accountsFile(picks).accounts.length, picks.length);
 });
 
 test('a sample keeps one of every kind and leaves no dangling reference', () => {
@@ -102,16 +101,6 @@ test('a sample keeps one of every kind and leaves no dangling reference', () => 
   assert.ok(![...paths].some((p) => p.startsWith('signInLog/') || p.startsWith('reports/')));
 });
 
-test('the mirror password is made once, kept in a private file outside the repo, and never in the accounts table', () => {
-  const dir = mkdtempSync(path.join(os.tmpdir(), 'pw-'));
-  const f = path.join(dir, 'pw.txt');
-  const a = passwordFrom(f), b = passwordFrom(f);
-  assert.equal(a, b);
-  assert.ok(a.length >= 20);
-  assert.equal(statSync(f).mode & 0o777, 0o600);
-  assert.throws(() => passwordFrom(path.join(process.cwd(), 'pw.txt')), /inside the repository/);
-  assert.equal(accountsFile([]).password, 'pointer-test-only');
-});
 
 test('--skip-same-as leaves out what was already loaded unchanged', async () => {
   const { execFileSync } = await import('node:child_process');
