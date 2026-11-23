@@ -1,3 +1,4 @@
+// The hub is per campus; a head is re-read at most every 20 s per hub (Spark quota), so head frames may take up to ~22 s.
 // The hub is per campus. A write can move another campus's head, or every campus's, and the person it
 // concerns can be on a third campus: the Worker must still reach them (server-side fan-out of pokes).
 import { test, expect } from '@playwright/test';
@@ -19,7 +20,7 @@ test('a write on another campus\'s head reaches that campus\'s clients', async (
   await bumpHeads(['hyderabad'], 'resources');
   const from = hyd.frames.length;
   owner.send({ t: 'poke', path: 'resources', campuses: ['hyderabad'] });
-  const f = await hyd.waitFor((f) => f.t === 'head' && f.v.resources === before + 1, 10_000, from);
+  const f = await hyd.waitFor((f) => f.t === 'head' && f.v.resources === before + 1, 25_000, from);
   owner.close();
   hyd.close();
   expect(f, 'Hyderabad student told of a Hyderabad write made from the Goa hub').not.toBeNull();
@@ -34,7 +35,7 @@ test('an every-campus write (terms, grants, roles) reaches every campus', async 
   const from = others.map(([, s]) => s.frames.length);
   owner.send({ t: 'poke', path: 'terms', campuses: CAMPUSES });
   const got = [];
-  for (const [i, [c, s]] of others.entries()) got.push([c, await s.waitFor((f) => f.t === 'head' && 'terms' in f.v, 10_000, from[i])]);
+  for (const [i, [c, s]] of others.entries()) got.push([c, await s.waitFor((f) => f.t === 'head' && 'terms' in f.v, 25_000, from[i])]);
   owner.close();
   others.forEach(([, s]) => s.close());
   for (const [c, f] of got) expect(f, `${c} told of the every-campus marker`).not.toBeNull();

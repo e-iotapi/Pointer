@@ -23,6 +23,7 @@ start() { local d="$1"; shift; (cd "$d" && exec setsid "$@" >> "$HERE/out/servic
 if [ "$MODE" = "local" ]; then
   [ -f "$ROOT/build/web/index.html" ] || { echo "No build. Run: flutter build web --release --dart-define=POINTER_ENV=emulator --dart-define=POINTER_EMULATOR_HOST=127.0.0.1 --dart-define=POINTER_HEADS_URL=http://127.0.0.1:8793 --dart-define=POINTER_LIVE_URL=ws://127.0.0.1:8793" >&2; exit 1; }
   : > out/services.log
+  rm -rf out/wrangler-state # a hub remembers the markers it last announced; the emulator restarts from the seed
   [ -f "$ROOT/tools/test_env/out/student_full.json" ] || (cd "$ROOT" && POINTER_SEED=1 flutter test --no-pub tools/test_env/build_snapshots_test.dart >> "$HERE/out/services.log" 2>&1) || { echo "snapshot build failed (out/services.log)" >&2; exit 1; }
   # A throwaway signing key: the Worker trusts it (JWKS) and signs its own fake Google access token with it.
   node --input-type=module -e "
@@ -43,7 +44,7 @@ if [ "$MODE" = "local" ]; then
   start "$ROOT" firebase emulators:start --only auth,firestore --project demo-pointer
   wait_http http://127.0.0.1:8085/; wait_http http://127.0.0.1:9099/
   (cd "$ROOT" && node tools/test_env/seed.mjs >> "$HERE/out/services.log" 2>&1) || { echo "seed failed (out/services.log)" >&2; exit 1; }
-  start "$ROOT/server" npx wrangler dev --config wrangler.live.toml --port 8793 --ip 127.0.0.1 --env-file "$HERE/out/worker.env"
+  start "$ROOT/server" npx wrangler dev --config wrangler.live.toml --port 8793 --ip 127.0.0.1 --persist-to "$HERE/out/wrangler-state" --env-file "$HERE/out/worker.env"
   wait_http http://127.0.0.1:8793/heads/goa
   PORT=5050 start "$ROOT/tools/e2e" node serve.mjs
   wait_http http://127.0.0.1:5050/

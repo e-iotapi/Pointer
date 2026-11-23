@@ -56,3 +56,18 @@ appear here.
   rebuilt UI (an overlay intercepts the More tap; the president lands on
   RepProfile first) before it can gate a deploy.
 
+
+## Live updates (2026-11-23): roles pushed to the grantee, pokes fan out, open screens reload
+
+What changed: an appointment/revoke tells the person's open apps (any campus) to read their roles; a poke names
+the campuses whose heads moved so those campuses' clients hear of it; an open screen loads again when a live marker
+moves. Sums per day for ~3,200 DAU:
+
+| Item | Reads |
+|---|---|
+| Roles re-read on a `roles` frame or a changed counter at hello: 3 reads (owners doc, grants query, role definitions when their marker moved) per appointment/revoke per device. At most ~100 events a day, ≤2 devices each | ≈600/day total, ≈0.2 per user per day |
+| Open screens reloading on a moved marker: the stores fetch only entries whose marker moved (the same fetch the next open would have made, so unchanged screens cost 0). Only users with that screen open at the time; a few dozen shared-data writes a day | ≤0.5 per user per day on a busy day |
+| Worker head reads (Spark counts them): one per hub per burst, the hub's 20 s gap kept. A write on one campus: 1 (as before); an every-campus write (grants, terms, roles): 4 | ≈400/day at ~100 bursts; ceiling 4 hubs × 4,320 = 17,280/day if abused, the same ceiling as four campuses abusing their own hubs today |
+| `pokeUser` | 0 Firestore reads on the Worker (a counter in the hub's own storage). A sender gets 1 a second and 30 an hour; the target's app reads its roles at most once per 10 s, the newest counter only. A stranger forging pokes at someone costs that person ≤ 30 × 3 = 90 reads an hour |
+
+New total per user per day: ≤ +0.7 on a busy day, inside the ≤8 target.

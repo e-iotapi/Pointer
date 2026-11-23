@@ -145,6 +145,8 @@ export async function openAs(browser, key, route, ready) {
   const context = await browser.newContext({ baseURL: CFG.app });
   const page = await context.newPage();
   page.on('pageerror', (e) => console.log(`[${key}] pageerror`, e.message));
+  if (process.env.LIVE_DEBUG) page.on('console', (m) => console.log(`[${key}] console`, m.text().slice(0, 300)));
+  page.on('websocket', (w) => process.env.LIVE_DEBUG && (console.log(`[${key}] ws`, w.url()), w.on('framereceived', (f) => console.log(`[${key}] ws<-`, String(f.payload).slice(0, 200)))));
   await installLocalCanvasKit(page);
   await page.goto(`${route}?as=${key}`);
   const later = page.getByRole('button', { name: 'Not now' }); // the contributor nudge, shown once per open
@@ -152,3 +154,7 @@ export async function openAs(browser, key, route, ready) {
   await ready(page).waitFor({ timeout: 60_000 });
   return { context, page };
 }
+
+/** Increments a number field on a document (as the stores' version docs do). */
+export const increment = (path, field) =>
+  commit([{ transform: { document: doc(path), fieldTransforms: [{ fieldPath: field, increment: { integerValue: '1' } }] } }]);

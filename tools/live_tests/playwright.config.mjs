@@ -4,7 +4,7 @@ import { MODE, CFG } from './lib.mjs';
 export default defineConfig({
   testDir: './specs',
   outputDir: './out/test-results',
-  timeout: 90_000,
+  timeout: 120_000,
   workers: 1,
   fullyParallel: false,
   retries: 0,
