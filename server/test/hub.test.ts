@@ -364,21 +364,27 @@ describe("CampusHub", () => {
       expect(other.sent.some((f) => f.t === "roles")).toBe(false);
     });
 
-    it("pokeUser is rate limited per sender and per target, and the counter shows in the next hello", async () => {
+    it("pokeUser: a burst is one, 30 an hour per sender, none dropped for the target's sake; the counter shows at hello", async () => {
       const m = await four();
       const owner = await m.goa.connect("owner");
       const sam = await m.hyderabad.connect("u2", "sam@x.test");
       const tell = () => m.goa.hub.webSocketMessage(owner as any, JSON.stringify({ t: "pokeUser", email: "sam@x.test" }));
       await tell();
-      await tell(); // same second: the sender's gap
-      vi.setSystemTime(1_000_000 + 2000);
-      await tell(); // sender free again, target's hub gap (5 s) not
+      await tell(); // same instant: the sender's gap
       expect(sam.sent.filter((f) => f.t === "roles")).toHaveLength(1);
-      vi.setSystemTime(1_000_000 + 6000);
-      await tell();
+      vi.setSystemTime(1_000_000 + 300);
+      await tell(); // an appointment right after another is not swallowed
       expect(sam.sent.filter((f) => f.t === "roles")).toHaveLength(2);
+      for (let i = 0; i < 40; i++) {
+        vi.setSystemTime(1_000_000 + 2000 + i * 300);
+        await tell();
+      }
+      expect(sam.sent.filter((f) => f.t === "roles")).toHaveLength(30); // the hourly cap
+      vi.setSystemTime(1_000_000 + 3_700_000);
+      await tell();
+      expect(sam.sent.filter((f) => f.t === "roles")).toHaveLength(31);
       const again = await m.hyderabad.connect("u2", "sam@x.test");
-      expect(again.sent[0].roles).toBe(2);
+      expect(again.sent[0].roles).toBe(31);
       const stranger = await m.hyderabad.connect("u9", "kim@x.test");
       expect(stranger.sent[0].roles).toBe(0);
     });
@@ -390,5 +396,19 @@ describe("CampusHub", () => {
       await m.goa.hub.webSocketMessage(owner as any, JSON.stringify({ t: "pokeUser", email: "a".repeat(300) }));
       expect(owner.sent).toHaveLength(1); // only its hello
     });
+  });
+
+  it("a pokeUser right after a poke is not held back by the poke's fan-out gap", async () => {
+    vi.mocked(readDoc).mockResolvedValue({ v: { p: 1 } });
+    const hubs: Record<string, any> = {};
+    const a = makeHub("goa", hubs), b = makeHub("hyderabad", hubs);
+    hubs.pilani = hubs.dubai = { notifyUser: async () => {}, arm: async () => {} };
+    await b.ctx.storage.put("campus", "hyderabad");
+    const owner = await a.connect("owner");
+    const sam = await b.connect("u2", "sam@x.test");
+    await a.hub.webSocketMessage(owner as any, JSON.stringify({ t: "poke", path: "grants", campuses: ["hyderabad"] }));
+    await a.hub.webSocketMessage(owner as any, JSON.stringify({ t: "pokeUser", email: "sam@x.test" }));
+    expect(b.setAlarm).toHaveBeenCalledTimes(1);
+    expect(sam.sent.filter((f) => f.t === "roles")).toHaveLength(1);
   });
 });

@@ -11,8 +11,9 @@ const POKE_ME_GAP_MS = 2_000;
 const MAX_FRAME = 1024;
 const MAX_RETRIES = 3;
 const FANOUT_GAP_MS = 1_000; // per socket: pokes that reach other campuses' hubs
-const USER_GAP_MS = 5_000; // per hub and target: roles frames to one person
-const MAX_USERS = 256; // targets remembered for that gap
+const USER_GAP_MS = 250; // per socket: pokeUser frames
+const USER_POKES_PER_HOUR = 30; // per sender: pokeUser frames (an appointer does a few an hour; a stranger's cost is capped)
+const MAX_SENDERS = 512;
 
 export const CAMPUSES = ["goa", "hyderabad", "pilani", "dubai"];
 const campusHub = (env: Env, campus: string) => env.HUB.get(env.HUB.idFromName(campus)) as unknown as CampusHub;
@@ -45,8 +46,9 @@ export class CampusHub extends DurableObject<Env> {
   private lastReadAt = 0;
   private retries = 0;
   private pokeMeAt = new WeakMap<WebSocket, number>(); // socket (device) -> last admitted pokeMe; resets on hibernation
-  private fanoutAt = new WeakMap<WebSocket, number>(); // socket -> last poke/pokeUser it fanned out to other hubs
-  private toldAt = new Map<string, number>(); // email -> last roles frame sent here
+  private fanoutAt = new WeakMap<WebSocket, number>(); // socket -> last poke it fanned out to other hubs
+  private userAt = new WeakMap<WebSocket, number>(); // socket -> last pokeUser admitted
+  private sent = new Map<string, { from: number; n: number }>(); // sender uid -> pokeUser count this hour
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -92,10 +94,6 @@ export class CampusHub extends DurableObject<Env> {
 
   /** Called by a poked hub (any campus): count the change and tell the person's sockets here. */
   async notifyUser(email: string): Promise<void> {
-    const now = Date.now();
-    if (now - (this.toldAt.get(email) ?? -Infinity) < USER_GAP_MS) return;
-    if (this.toldAt.size >= MAX_USERS) this.toldAt.clear();
-    this.toldAt.set(email, now);
     this.ctx.storage.sql.exec("INSERT INTO roles (email, v) VALUES (?, 1) ON CONFLICT(email) DO UPDATE SET v = v + 1", email);
     const out = JSON.stringify({ t: "roles", v: this.rolesV(email) });
     for (const s of this.ctx.getWebSockets(`e:${email}`)) s.send(out);
@@ -139,10 +137,18 @@ export class CampusHub extends DurableObject<Env> {
       }
     } else if (msg.t === "pokeUser" && typeof msg.email === "string" && msg.email.length <= 254) {
       // The appointer tells every hub that this person's roles changed. No data travels: the worst a stranger
-      // can do is make the target re-read their own roles (once per USER_GAP_MS per hub).
+      // can do is make the target re-read their own roles; one sender gets USER_POKES_PER_HOUR of those, and the
+      // target's app coalesces what arrives.
       const now = Date.now();
-      if (now - (this.fanoutAt.get(ws) ?? -Infinity) < FANOUT_GAP_MS) return;
-      this.fanoutAt.set(ws, now);
+      if (now - (this.userAt.get(ws) ?? -Infinity) < USER_GAP_MS) return;
+      this.userAt.set(ws, now);
+      const uid = this.ctx.getTags(ws)[0];
+      let c = this.sent.get(uid);
+      if (!c || now - c.from >= 3_600_000) {
+        if (this.sent.size >= MAX_SENDERS) this.sent.clear();
+        this.sent.set(uid, (c = { from: now, n: 0 }));
+      }
+      if (++c.n > USER_POKES_PER_HOUR) return;
       const email = msg.email.trim().toLowerCase();
       const own = await this.ctx.storage.get<string>("campus");
       await Promise.all(CAMPUSES.map((c) => (c === own ? this.notifyUser(email) : campusHub(this.env, c).notifyUser(email))));
