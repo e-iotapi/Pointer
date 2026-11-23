@@ -146,7 +146,7 @@ The table below is the **defaults, editable in Controls › Roles**. The owner's
 |---|---|---|---|---|
 | Who | you, and whoever you add | a trusted second pair of hands | a student, for one department on their own campus | a student, for one course on their own campus |
 | Account | **any verified Google account**, BITS or not | BITS | **BITS student address** | **BITS student address** |
-| Scope | everything | appointments, every campus | one department, own campus | one course, own campus |
+| Scope | everything | campus data on their own campus; appointments and config on every campus (Decision 11) | one department, own campus | one course, own campus |
 | Add / remove owners | ✓ (never themselves) | — | — | — |
 | Appoint / revoke admins | ✓ | — | — | — |
 | Appoint / revoke presidents | ✓ | ✓ | — | — |

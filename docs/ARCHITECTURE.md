@@ -519,7 +519,7 @@ IndexedDB, Hive boxes and sign-in), the production Firestore and the
 production Worker. A beta therefore may not change stored data in a way the
 stable app can't read: new fields are additive, and a rules change is
 deployed only once both channels can live with it. Enrolling in the Beta
-Program from inside the app is planned.
+Program from inside the app is planned and not built yet.
 
 ### Build environments
 
