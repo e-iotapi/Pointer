@@ -1,0 +1,300 @@
+import assert from 'node:assert/strict';
+import { createHash } from 'node:crypto';
+import { test } from 'node:test';
+import { anonymise, leakCheck, leakTable, shiftToNowSeconds, summarise } from './anonymise.mjs';
+import { PEOPLE, buildFixture } from './fixtures/build.mjs';
+
+const SALT = 'unit-test-salt-0123456789';
+const sha = (s) => createHash('sha256').update(s).digest('hex');
+const run = (salt = SALT) => {
+  const { docs, auth } = buildFixture();
+  return { in: { docs, auth }, ...anonymise(structuredClone(docs), structuredClone(auth), { salt }) };
+};
+const byPath = (r) => new Map(r.docs.map((d) => [d.path, d.data]));
+const P = Object.fromEntries(PEOPLE.map((p) => [p.key, p]));
+const fakeEmail = (r, e) => r.maps.email.get(e.toLowerCase());
+const fakeUid = (r, u) => r.maps.uid.get(u);
+
+test('leak check passes on the fixture and nothing personal survives', () => {
+  const r = run();
+  assert.deepEqual(leakCheck(r.docs, r.auth, r.registry, r.fakes), []);
+  const all = JSON.stringify(r.docs) + JSON.stringify(r.auth);
+  for (const p of PEOPLE) {
+    assert.ok(!all.includes(p.email), p.email);
+    assert.ok(!all.includes(p.uid), p.uid);
+    assert.ok(!all.toLowerCase().includes(p.name.toLowerCase().replace(/^dr\. /, '')), p.name);
+  }
+  for (const s of ['98765 43210', '9876543210', '919876500011', '9812345678', 'nisharao_cs', 'Aarti']) assert.ok(!all.includes(s), s);
+});
+
+test('deterministic with the same salt, different with another', () => {
+  assert.deepEqual(run().docs, run().docs);
+  assert.notDeepEqual(run().docs, run('another-salt-9876543210').docs);
+});
+
+test('BITS addresses keep campus, letter, year and length; others become fake', () => {
+  const r = run();
+  for (const p of PEOPLE) {
+    const f = fakeEmail(r, p.email);
+    assert.notEqual(f, p.email.toLowerCase());
+    const m = /^([fhp])(\d{4})(\d+)@(\w+)\.bits-pilani\.ac\.in$/.exec(p.email);
+    if (m) {
+      const g = new RegExp(`^${m[1]}${m[2]}\\d{${m[3].length}}@${m[4]}\\.bits-pilani\\.ac\\.in$`);
+      if (!p.email.includes('+')) assert.match(f, g, p.email);
+    }
+  }
+  assert.match(fakeEmail(r, P.owner.email), /@example\.com$/);
+  const fac = fakeEmail(r, P.faculty.email);
+  assert.match(fac, /@goa\.bits-pilani\.ac\.in$/);
+  assert.doesNotMatch(fac, /^[fhp]\d{4}\d+@/); // still not a student
+  assert.equal(new Set(PEOPLE.map((p) => fakeEmail(r, p.email))).size, PEOPLE.length);
+});
+
+test('doc ids, map keys, nested actors and path strings are rewritten consistently', () => {
+  const r = run();
+  const d = byPath(r);
+  const pres = fakeEmail(r, P.president.email);
+  const gid = `dept|goa|ELEC|${pres}`;
+  assert.ok(d.has(`grants/${gid}`));
+  assert.ok(d.has(`staff/${pres}`) && d.has(`directory/${pres}`) && d.has(`people/${pres}`) && d.has(`staffContacts/${pres}`));
+  assert.ok(d.has(`volunteers/goa|EEE F311|${fakeEmail(r, P.plus.email)}`));
+  assert.ok(d.has(`owners/${fakeEmail(r, P.owner.email)}`));
+  assert.deepEqual(Object.keys(d.get('repIndex/goa').p).sort(), [pres, fakeEmail(r, P.cr.email)].sort());
+  assert.equal(d.get(`grants/${gid}`).email, pres);
+  assert.equal(d.get(`staff/${pres}`).lastGrant, gid);
+  const aud = r.docs.filter((x) => x.path.startsWith('audit/')).map((x) => x.data);
+  assert.ok(aud.some((a) => a.path === `grants/${gid}` && a.after.to === pres));
+  assert.ok(aud.every((a) => a.actor.email !== P.owner.email && a.summary === a.action));
+  // the same person has the same fake name wherever they appear
+  const nm = d.get(`people/${pres}`).name;
+  assert.equal(d.get(`grants/${gid}`).name, nm);
+  assert.equal(d.get(`staff/${pres}`).name, nm);
+  assert.equal(d.get(`resources/r1`).addedBy.name, nm);
+  assert.notEqual(nm, P.president.name);
+});
+
+test('campus, year and student-ness survive in every email that is left', () => {
+  const r = run();
+  const emails = new Set();
+  for (const d of r.docs) for (const m of JSON.stringify(d).matchAll(/[\w.+-]+@[\w.-]+\.[a-z]+/g)) emails.add(m[0]);
+  for (const e of emails) assert.ok(r.fakes.emails.has(e), e);
+});
+
+test('hashed ids are recomputed so the mapped person still owns their rows', () => {
+  const r = run();
+  const d = byPath(r);
+  const c = 'EEE F311';
+  const own = sha(fakeUid(r, P.student.uid) + c);
+  assert.ok(d.has(`reviews/${c}/entries/${own}`));
+  assert.ok(!d.has(`reviews/${c}/entries/${sha(P.student.uid + c)}`));
+  assert.ok(d.has(`reviews/${c}/entries/${own}/votes/${sha(fakeUid(r, P.cr.uid) + own)}`));
+  assert.ok(d.has(`reviews/${c}/entries/${own}/reports/${sha(fakeUid(r, P.plus.uid) + own)}`));
+  assert.ok(d.has(`resourceReports/r1/entries/${sha(fakeUid(r, P.student.uid) + 'r1')}`));
+  // the mirror copy keys by the new id too
+  assert.ok(own in d.get('reviews/EEE F311/campus/hyderabad').r);
+  // an account with no users doc still gets a stable, different id
+  const orphan = [...d.keys()].filter((k) => k.includes(`${own}/votes/`));
+  assert.equal(orphan.length, 2);
+  // fixture sanity: users/{uid} re-keyed
+  assert.ok(d.has(`users/${fakeUid(r, P.student.uid)}`));
+  assert.equal(d.get(`users/${fakeUid(r, P.student.uid)}`).uid, fakeUid(r, P.student.uid));
+});
+
+test('users/{uid} grades and marks are randomised but keep shape and valid values', () => {
+  const r = run();
+  const before = JSON.parse(r.in.docs.find((x) => x.path === `users/${P.student.uid}`).data.data);
+  const after = JSON.parse(byPath(r).get(`users/${fakeUid(r, P.student.uid)}`).data);
+  assert.deepEqual(Object.keys(after), Object.keys(before));
+  assert.equal(after.coursesBox.length, before.coursesBox.length);
+  const valid = new Set([8, 9, 10, 7, 6]);
+  const c = after.coursesBox.map(([, x]) => x);
+  assert.equal(c[1].grade1, -2); // "not graded" stays
+  assert.equal(c[1].id, 'MATH F211');
+  for (const x of c) for (const g of [x.grade1, x.grade2, ...Object.values(x.more ?? {})]) assert.ok(g <= 0 || valid.has(g), g);
+  const part = after.marksBox[0][1].p[0];
+  assert.ok(part.m >= 0 && part.m <= part.o);
+  assert.equal(after.settingsBox.find(([k]) => k === 'profile1n')[1], 'Actual');
+  assert.equal(after.settingsBox.find(([k]) => k === 'profile3n')[1], 'Profile 3'); // had a name in it
+  assert.equal(after.settingsBox.find(([k]) => k === 'campus')[1], 'hyderabad');
+});
+
+test('structure is untouched: ids of courses, counts, markers, timestamps', () => {
+  const r = run();
+  assert.equal(r.docs.length, r.in.docs.length);
+  const d = byPath(r);
+  assert.deepEqual(d.get('heads/goa'), r.in.docs.find((x) => x.path === 'heads/goa').data);
+  assert.deepEqual(d.get('reviewIndex/goa'), r.in.docs.find((x) => x.path === 'reviewIndex/goa').data);
+  assert.deepEqual(d.get('timetable/goa|current'), { sem: '2026-1', marker: 2 });
+  const g = [...d.entries()].find(([k]) => k.startsWith('grants/dept|goa|ELEC|'))[1];
+  assert.deepEqual(g.expiresAt, { __t: 'ts', s: 1_760_000_000 + 86400 * 90, n: 0 });
+  assert.equal(g.secretary ?? false, g.email === fakeEmail(r, P.secretary.email));
+  // professors: merge structure and recomputed tokens
+  const p2 = d.get('professors/prof2'), p3 = d.get('professors/prof3');
+  assert.equal(p3.mergedInto, 'prof2');
+  assert.notEqual(p2.name, 'Dr. K. Rao');
+  assert.match(p2.name, /^Dr\. /);
+  assert.equal(p3.name.replace(/^Prof\./, 'Dr.'), p2.name);
+  assert.ok(p2.nameTokens.includes(p2.name.split(' ').at(-1).toLowerCase()));
+  assert.ok(!p2.nameTokens.includes('rao') && !byPath(r).get('professors/prof1').nameTokens.includes('menon'));
+  // free text replaced; enum reasons kept; url host kept
+  assert.equal(d.get(`resourceReports/r1/entries/${sha(fakeUid(r, P.student.uid) + 'r1')}`).reason, 'broken');
+  assert.equal(d.get('resources/r1').host, 'drive.google.com');
+  assert.match(d.get('resources/r1').url, /^https:\/\/drive\.google\.com\/x[0-9a-f]{10}$/);
+  const lb = d.get('leaderboard/hyderabad');
+  assert.match(Object.keys(lb.p)[0], /^u_[0-9a-f]{7}$/);
+  assert.deepEqual(Object.keys(lb.p), Object.keys(lb.tags));
+  assert.equal(lb.k, Object.keys(lb.p)[0]);
+  assert.ok(d.has(`usernames/hyderabad|${Object.keys(lb.p)[0]}`));
+});
+
+test('the shift moves timestamps and nothing else', () => {
+  const { docs, auth } = buildFixture();
+  const r = anonymise(structuredClone(docs), auth, { salt: SALT, shiftDays: 10 });
+  const g = [...new Map(r.docs.map((x) => [x.path, x.data])).entries()].find(([k]) => k.startsWith('grants/dept|goa|ELEC|'))[1];
+  assert.equal(g.expiresAt.s, 1_760_000_000 + 86400 * 100);
+});
+
+test('the leak check catches planted leaks', () => {
+  const r = run();
+  const plant = (mut) => {
+    const docs = structuredClone(r.docs);
+    mut(docs);
+    return summarise(leakCheck(docs, r.auth, r.registry, r.fakes));
+  };
+  assert.ok(plant((d) => { d[0].data.note = `mail ${P.student.email}`; }).email);
+  assert.ok(plant((d) => { d[0].data.note = 'mail somebody.else@gmail.com'; })['unknown-email']);
+  assert.ok(plant((d) => { d[0].data.note = 'call 9876543210 now'; }).phone);
+  assert.ok(plant((d) => { d[0].data.note = 'call 9111122223'; })['unknown-phone']);
+  assert.ok(plant((d) => { d[0].data.note = 'Tanvi Shetty was kind'; }).name);
+  assert.ok(plant((d) => { d[0].path += `/${P.cr.uid}`; })['uid-or-hash']);
+  assert.ok(plant((d) => { d[0].data.k = { [P.cr.uid]: 1 }; })['uid-or-hash']);
+  assert.ok(plant((d) => { d[0].data.u = 'nisharao_cs'; }).username);
+  assert.ok(plant((d) => { d[0].data.h = sha(P.student.uid + 'EEE F311'); })['uid-or-hash']);
+});
+
+test('shift-to-now makes the newest past timestamp today and keeps expiry order', () => {
+  const { docs, auth } = buildFixture();
+  const now = 1_800_000_000;
+  const sec = shiftToNowSeconds(docs, now);
+  const r = anonymise(structuredClone(docs), auth, { salt: SALT, shiftSeconds: sec });
+  const ts = r.docs.flatMap((d) => JSON.stringify(d.data).match(/"__t":"ts","s":(\d+)/g) ?? []).map((m) => Number(m.split(':').pop()));
+  assert.ok(ts.filter((s) => s <= now).reduce((a, b) => Math.max(a, b)) === now);
+  const g = r.docs.filter((d) => d.path.startsWith('grants/')).map((d) => d.data);
+  assert.ok(g.some((x) => x.expiresAt.s > now) && g.some((x) => x.expiresAt.s < now)); // live and expired both remain
+});
+
+// Audit docs as production writes them: names inside before/after snapshots with no
+// email beside them, names inside the action text, and numbers that are not phones.
+const auditDocs = () => {
+  const ts = (s) => ({ __t: 'ts', s, n: 0 });
+  const sec = P.secretary;
+  return [
+    { path: 'audit/a1', data: { actor: { email: P.president.email, name: P.president.name, role: 'dept' }, action: `Removed ${sec.name} as secretary`, summary: `${P.president.name} removed ${sec.name}`,
+      path: `staff/${sec.email}`, campus: 'goa', before: { name: sec.name, presidentOf: ['ELEC'], list: [{ name: sec.name, who: `${sec.name} (${sec.email})` }] },
+      after: { grants: [{ name: sec.name, active: false }], by: P.president.name }, at: ts(1_760_000_000) } },
+    { path: 'audit/a2', data: { actor: { email: P.owner.email, name: P.owner.name, role: 'owner' }, action: 'merge professor', summary: 'merge professor', path: 'professors/prof1', before: { name: 'Dr. R. Menon' }, after: { aliases: ['Dr. R. Menon'] }, at: ts(1_760_000_000) } },
+    { path: 'audit/a3', data: { actor: { email: P.owner.email, name: P.owner.name, role: 'owner' }, action: 'save', summary: 'save', path: 'config/public', campus: 'all',
+      after: { since: '1730000000000', stamp: '1730000000', micro: '1759821234567890', version: '20260101', label: 'Profile 1', who: 'Admin' }, at: ts(1_760_000_000) } },
+    { path: 'people/zz@example.com', data: { name: 'Admin', campus: 'goa', firstSignIn: 1 } },
+  ];
+};
+
+test('audit snapshots: nested names and names in action text are rewritten; epochs, ids and common words are left alone', () => {
+  const f = buildFixture();
+  const r = anonymise([...f.docs, ...auditDocs()], f.auth, { salt: SALT });
+  assert.deepEqual(leakCheck(r.docs, r.auth, r.registry, r.fakes), []);
+  const text = JSON.stringify(r.docs);
+  for (const w of ['Tanvi', 'Shetty', 'Rohan', 'Menon']) assert.ok(!text.includes(w), w);
+  const a1 = r.docs.find((d) => d.path === 'audit/a1').data;
+  assert.ok(a1.before.name !== P.secretary.name && a1.before.name === a1.before.list[0].name && a1.before.name === a1.after.grants[0].name);
+  assert.ok(a1.action.includes(a1.before.name) && !a1.action.includes('Tanvi'));
+  assert.match(a1.before.list[0].who, new RegExp(`^${a1.before.name} \\(.+@goa\\.bits-pilani\\.ac\\.in\\)$`));
+  const a3 = r.docs.find((d) => d.path === 'audit/a3').data.after;
+  assert.deepEqual(a3, { since: '1730000000000', stamp: '1730000000', micro: '1759821234567890', version: '20260101', label: 'Profile 1', who: 'Admin' });
+});
+
+test('the leak report names kind, collection, where and field, never the value', () => {
+  const r = run();
+  const docs = structuredClone(r.docs);
+  const aud = docs.find((d) => d.path.startsWith('audit/'));
+  aud.data.after = { grants: [{ name: 'Tanvi Shetty' }, { note: `ping ${P.student.email}` }] };
+  docs.find((d) => d.path.startsWith('grants/')).data[P.student.uid] = 1;
+  const problems = leakCheck(docs, r.auth, r.registry, r.fakes);
+  const nameHit = problems.find((x) => x.kind === 'name');
+  assert.deepEqual([nameHit.collection, nameHit.where, nameHit.field, nameHit.window, nameHit.common], ['audit', 'value', 'after.grants[0].name', 1, false]);
+  assert.ok(problems.some((x) => x.kind === 'email' && x.field === 'after.grants[1].note'));
+  assert.ok(problems.some((x) => x.kind === 'uid-or-hash' && x.where === 'key' && x.field.endsWith('<key>')));
+  const dump = JSON.stringify(problems) + JSON.stringify(leakTable(problems));
+  for (const secret of ['Tanvi', 'Shetty', P.student.email, P.student.uid]) assert.ok(!dump.includes(secret), secret);
+  assert.ok(leakTable(problems).some(([k, n]) => k === 'name | audit | value | after.grants[].name' && n === 1));
+});
+
+test('votes under imported reviews with unknown voters, person names in component labels, and a first name alone', () => {
+  const f = buildFixture();
+  const voter = sha('someone-with-no-account' + 'imp_abc');
+  const extra = [
+    { path: 'reviews/EEE F311/entries/imp_abc', data: { courseId: 'EEE F311', stars: 4, campus: 'goa', hidden: false, helpful: 1, reports: 1 } },
+    { path: `reviews/EEE F311/entries/imp_abc/votes/${voter}`, data: { createdAt: { __t: 'ts', s: 1, n: 0 } } },
+    { path: `reviews/EEE F311/entries/imp_abc/reports/${sha('another' + 'imp_abc')}`, data: { createdAt: { __t: 'ts', s: 1, n: 0 } } },
+    { path: 'courses/CS F372/offerings/goa_2026-27-1', data: { courseId: 'CS F372', components: [{ id: 'q', name: 'Quiz 1 (Dr. R. Menon, Kabir Singh)', weight: 10 }, { id: 'm', name: 'Midsem', weight: 30 }] } },
+    { path: 'audit/rem', data: { actor: { email: P.owner.email, name: P.owner.name, role: 'owner' }, action: 'x', summary: 'x', path: 'config/public', after: { remark: 'Thanks Aman, and thanks Kabir!' } } },
+  ];
+  const r = anonymise([...f.docs, ...extra], f.auth, { salt: SALT });
+  assert.deepEqual(leakCheck(r.docs, r.auth, r.registry, r.fakes), []);
+  const paths = r.docs.map((d) => d.path);
+  assert.ok(!paths.some((p) => p.includes(voter)) && paths.some((p) => /^reviews\/EEE F311\/entries\/imp_abc\/votes\/[0-9a-f]{64}$/.test(p)));
+  assert.ok(paths.some((p) => /^reviews\/EEE F311\/entries\/imp_abc\/reports\/[0-9a-f]{64}$/.test(p)));
+  const comp = r.docs.find((d) => d.path.startsWith('courses/CS F372')).data.components;
+  assert.match(comp[0].name, /^Quiz 1 \(.+\)$/);
+  assert.ok(!/Menon|Kabir|Singh/.test(comp[0].name));
+  assert.equal(comp[1].name, 'Midsem');
+  const remark = r.docs.find((d) => d.path === 'audit/rem').data.after.remark;
+  assert.ok(!/Aman|Kabir/.test(remark) && /^Thanks \w+, and thanks \w+!$/.test(remark), remark);
+  // the same first name maps to the same fake first name everywhere
+  const fakeFirst = r.maps.emailName.get(P.cr.email.toLowerCase()).split(' ')[0];
+  assert.ok(remark.endsWith(`thanks ${fakeFirst}!`), remark);
+  // and a first name alone left in the output is caught
+  const planted = structuredClone(r.docs);
+  planted.find((d) => d.path === 'audit/rem').data.after.remark = 'Thanks Aman';
+  assert.ok(summarise(leakCheck(planted, r.auth, r.registry, r.fakes)).name);
+});
+
+test('fac_ professor ids are rebuilt from the fake name, stay one-to-one, and every reference follows', () => {
+  const f = buildFixture();
+  const ts = { __t: 'ts', s: 1, n: 0 };
+  const names = ['Deepa Sethi', 'Deepa Sethi', 'Pooja Sethi', 'Charu Lal'];
+  const ids = ['fac_Deepa Sethi-a', 'fac_Deepa Sethi-b', 'fac_Pooja Sethi-krushnachandra-thakur', 'fac_Charu Lal'];
+  const profs = ids.map((id, i) => ({ path: `professors/${id}`, data: { name: names[i], campus: 'goa', department: 'ELEC', aliases: [], nameTokens: ['d', 'de', 'dee', 'deep', 'deepa', 's', 'se', 'set', 'seth', 'sethi'], mergedIds: i === 1 ? [ids[0]] : [], active: true, updatedAt: ts } }));
+  profs[0].data.mergedInto = ids[1];
+  const refs = [
+    { path: 'courses/CS F372/offerings/goa_2026-27-1', data: { courseId: 'CS F372', professors: [ids[2], ids[3]] } },
+    { path: `courses/CS F372/stats/goa_${ids[2]}`, data: { count: 1, starSum: 4, recommendCount: 1, campus: 'goa', courseId: 'CS F372', scope: 'professor', professorId: ids[2] } },
+    { path: 'audit/pm', data: { actor: { email: P.owner.email, name: P.owner.name, role: 'owner' }, action: 'merge professor', summary: 'm', path: `professors/${ids[1]}`, after: {} } },
+  ];
+  const r = anonymise([...f.docs, ...profs, ...refs], f.auth, { salt: SALT });
+  assert.deepEqual(leakCheck(r.docs, r.auth, r.registry, r.fakes), []);
+  const out = r.docs.filter((d) => d.path.startsWith('professors/fac_') || /^professors\/[^/]*-[0-9a-f]+$/.test(d.path));
+  const newIds = out.map((d) => d.path.slice(11));
+  assert.equal(newIds.length, 4);
+  assert.equal(new Set(newIds).size, 4); // one-to-one: two professors that share a fake name still keep their own doc
+  assert.ok(newIds.every((id) => id.startsWith('fac_') && !/Sethi|Thakur|krushna|Lal|Deepa|Pooja|Charu/i.test(id)), newIds.join());
+  const map = Object.fromEntries(ids.map((id, i) => [id, newIds[i]]));
+  const byOld = (id) => r.docs.find((d) => d.path === `professors/${map[id]}`).data;
+  assert.equal(byOld(ids[0]).mergedInto, map[ids[1]]);
+  assert.deepEqual(byOld(ids[1]).mergedIds, [map[ids[0]]]);
+  assert.deepEqual(r.docs.find((d) => d.path.startsWith('courses/CS F372/offerings')).data.professors, [map[ids[2]], map[ids[3]]]);
+  const st = r.docs.find((d) => d.path.startsWith('courses/CS F372/stats'));
+  assert.equal(st.path, `courses/CS F372/stats/goa_${map[ids[2]]}`);
+  assert.equal(st.data.professorId, map[ids[2]]);
+  assert.equal(r.docs.find((d) => d.path === 'audit/pm').data.path, `professors/${map[ids[1]]}`);
+  // nameTokens are exactly the app's prefixes of the fake name
+  const t = byOld(ids[0]);
+  assert.ok(t.nameTokens.includes(t.name.split(' ').at(-1).toLowerCase()) && !t.nameTokens.includes('sethi') && !t.nameTokens.includes('deepa'));
+  // the leak check also reads ids, and notices tokens that were not rebuilt
+  const bad = structuredClone(r.docs);
+  bad.find((d) => d.path === `professors/${map[ids[3]]}`).data.nameTokens = ['l', 'la', 'lal'];
+  assert.ok(summarise(leakCheck(bad, r.auth, r.registry, r.fakes)).name);
+  const bad2 = structuredClone(r.docs);
+  bad2.find((d) => d.path === `professors/${map[ids[3]]}`).path = 'professors/fac_x-krushnachandra-thakur';
+  assert.ok(leakCheck(bad2, r.auth, r.registry, r.fakes).some((x) => x.where === 'id'));
+});
