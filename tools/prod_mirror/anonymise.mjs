@@ -33,6 +33,21 @@ const FIRST = 'Aarav Aditi Akash Ananya Arjun Bhavya Chirag Deepa Dev Diya Esha 
 const LAST = 'Agarwal Bansal Bhatt Chopra Das Desai Dutta Gill Goyal Gupta Iyer Jain Joshi Kapoor Khan Kohli Kulkarni Mehta Menon Mishra Nair Pandey Patel Pillai Rao Reddy Saxena Sethi Shah Sharma Shetty Singh Sinha Soni Tiwari Trivedi Varma Verma Yadav Zaveri Arora Banerjee Bose Chandra Dixit Ghosh Hegde Kamat Lal Malhotra Naidu Oberoi Prasad Rastogi Sen Thakur Upadhyay Venkat Wagle Xavier Yogi Zutshi'.split(' ');
 const WORDS = 'the course was really helpful and clear with good notes tutorials quiz paper exam lecture lab project grading fair easy hard heavy light interesting practical theory examples slides doubts doubt office hours attendance marks scheme midsem compre average relative topics syllabus covered pace slow fast engaging boring recommended avoid notes drive folder resource link sheet solved previous year papers problems concepts basics advanced'.split(' ');
 
+// Words that are ordinary language or course vocabulary: a one-word "name" made of them is not a person.
+const COMMON = new Set([...WORDS, ...'profile admin owner test tester user student students teacher staff faculty president secretary actual expected third fourth fifth quiz assignment assignments lab labs midsem compre project tutorial lecture course courses new old none all null true false the and for with from this that department dept campus goa pilani hyderabad dubai role custom support pointer team sir madam mr ms mrs dr prof'.split(' '),
+  ...(() => { try { return readFileSync(path.join(root, 'assets', 'catalog.json'), 'utf8').match(/[A-Za-z]{3,}/g).map((w) => w.toLowerCase()); } catch { return []; } })()]);
+/** A normalised name that is worth hunting for in free text: not made only of common words; one word needs 4+ letters. */
+const eligible = (base) => {
+  const t = base.split(' ');
+  return t.length === 1 ? t[0].length >= 4 && !COMMON.has(t[0]) : t.some((x) => !COMMON.has(x));
+};
+/** Digits of a phone-like match, or null when it is an epoch, a long id or too short/long to be a phone. */
+const phoneDigits = (m) => {
+  const d = m.replace(/\D/g, '');
+  if (d.length < 10 || d.length > 13) return null;
+  if (/^\d+$/.test(m) && d[0] === '1' && (d.length === 10 || d.length === 13)) return null; // epoch seconds / ms; Indian mobiles start 6-9
+  return d;
+};
 const hm = (salt, s) => createHmac('sha256', salt).update(s).digest('hex');
 const normName = (s) => s.toLowerCase().replace(TITLE, '').replace(/[^a-z0-9]+/g, ' ').trim();
 const windows = (words, max = 5) => {
@@ -127,6 +142,26 @@ export function anonymise(docs, auth, { salt, shiftDays = 0, shiftSeconds }) {
     return out.charAt(0).toUpperCase() + out.slice(1);
   };
 
+  /** Names of known people inside free text (audit actions, snapshots): the longest window first. */
+  const scrubNames = (str) => {
+    const toks = [...str.matchAll(/[A-Za-z0-9]+/g)];
+    let out = '', at = 0;
+    for (let i = 0; i < toks.length; i++) {
+      for (let n = Math.min(5, toks.length - i); n >= 1; n--) {
+        const key = toks.slice(i, i + n).map((t) => t[0].toLowerCase()).join(' ');
+        const fake = M.name.get(key);
+        if (fake && eligible(key)) {
+          const last = toks[i + n - 1];
+          out += str.slice(at, toks[i].index) + fake;
+          at = last.index + last[0].length;
+          i += n - 1;
+          break;
+        }
+      }
+    }
+    return at ? out + str.slice(at) : str;
+  };
+
   /** Every personal pattern inside a free string: emails, uids/hashes, phones. */
   const scrub = (s) => {
     if (s.length < 5) return s;
@@ -140,11 +175,12 @@ export function anonymise(docs, auth, { salt, shiftDays = 0, shiftSeconds }) {
     }
     if (/\d{7}/.test(r.replace(/\d{4}-\d{2}-\d{2}/g, ''))) {
       r = r.replace(PHONE, (p) => {
-        const digits = p.replace(/\D/g, '');
-        if (digits.length < 10 || /^\d{4}-\d{2}-\d{2}/.test(p) || fakePhones.has(digits)) return p;
+        const digits = phoneDigits(p);
+        if (!digits || /^\d{4}-\d{2}-\d{2}/.test(p) || fakePhones.has(digits)) return p;
         return mapPhone(p);
       });
     }
+    if (!collecting && /[A-Za-z]{4}/.test(r)) r = scrubNames(r);
     return r;
   };
 
@@ -231,6 +267,7 @@ export function anonymise(docs, auth, { salt, shiftDays = 0, shiftSeconds }) {
     : s.split(' ').map((w) => (w.length > 1 && !/\d/.test(w) ? lorem[parseInt(hm(salt, 'hint:' + w).slice(0, 6), 16) % lorem.length] : w)).join(' '));
 
   const txString = (s, key, c, parent) => {
+    if (collecting && NAME_KEYS.has(key) && s) R.names.add(normName(s));
     if (c.coll === 'users' && key === 'data' && c.keys.length === 1) return txUsersData(s, c.selfUid);
     if (c.coll === 'users' && key === 'v1' && c.keys.length === 1) return txUsersData(s, c.selfUid);
     if (c.coll === 'searchHints' && (key === 'k' || key === 't')) return hintWords(s);
@@ -270,7 +307,7 @@ export function anonymise(docs, auth, { salt, shiftDays = 0, shiftSeconds }) {
 
   const run = () => docs.map((d) => {
     const coll = d.path.split('/')[0];
-    const ctx = { coll, keys: [], selfEmail: emailInPath(d.path), selfUid: coll === 'users' ? d.path.split('/')[1] : '' };
+    const ctx = { coll, keys: [], selfEmail: emailInPath(d.path) ?? (coll === 'audit' && typeof d.data?.path === 'string' && /^(grants|staff|people|directory|owners|staffContacts|contributors|contributorRequests|volunteers)\//.test(d.data.path) ? emailInPath(d.data.path) : undefined), selfUid: coll === 'users' ? d.path.split('/')[1] : '' };
     return { path: txPath(d.path, coll), data: tx(d.data, '', ctx, null) };
   });
 
@@ -426,50 +463,83 @@ function resolveHashes(docs, R, M, salt) {
 
 // ---- the leak check -------------------------------------------------------
 
-function* stringsOf(v, key) {
-  if (typeof v === 'string') { yield v; return; }
-  if (Array.isArray(v)) { for (const x of v) yield* stringsOf(x); return; }
-  if (v && typeof v === 'object' && !v.__t) {
-    for (const [k, x] of Object.entries(v)) { yield k; yield* stringsOf(x); }
+const plainKey = (k) => /^[A-Za-z_][A-Za-z0-9_]{0,23}$/.test(k);
+
+/** Every string of a doc with where it sits: an id segment, a map key or a value, and its field path. */
+function* itemsOf(doc) {
+  const segs = doc.path.split('/');
+  for (let i = 0; i < segs.length; i++) yield { where: 'id', field: `id[${i}]`, s: segs[i] };
+  function* walk(v, field) {
+    if (typeof v === 'string') { yield { where: 'value', field, s: v }; return; }
+    if (Array.isArray(v)) { for (let i = 0; i < v.length; i++) yield* walk(v[i], `${field}[${i}]`); return; }
+    if (v && typeof v === 'object' && !v.__t) {
+      for (const [k, x] of Object.entries(v)) {
+        const f = `${field ? field + '.' : ''}${plainKey(k) ? k : '<key>'}`;
+        yield { where: 'key', field: f, s: k };
+        yield* walk(x, f);
+      }
+    }
   }
+  yield* walk(doc.data, '');
 }
 
-/** Fails on any original email/name/phone/uid/username, and on any email-like or phone-like string that is not a fake. */
+/**
+ * Fails on any original email/name/phone/uid/username, and on any email-like or
+ * phone-like string that is not a fake. Each finding says what, in which
+ * collection and field, and whether in an id, a key or a value: never the text.
+ */
 export function leakCheck(outDocs, outAuth, R, fakes) {
   const problems = [];
-  const add = (p, kind) => problems.push({ path: p, kind });
   const phones10 = new Set([...R.phones].map((d) => d.slice(-10)));
-  const check = (p, strs) => {
-    for (const s0 of strs) {
-      if (s0.length < 4) continue;
-      const s = s0;
+  const one = (p, it, kind, extra = {}) => problems.push({ path: p, kind, collection: p.split('/')[0], field: it.field, where: it.where, ...extra });
+  const check = (p, items) => {
+    for (const it of items) {
+      const s = it.s;
+      if (s.length < 4) continue;
       if (s.includes('@')) {
         for (const m of s.matchAll(EMAIL)) {
           const e = m[0].toLowerCase();
-          if (R.emails.has(e)) add(p, 'email');
-          else if (!fakes.emails.has(e)) add(p, 'unknown-email');
+          if (R.emails.has(e)) one(p, it, 'email');
+          else if (!fakes.emails.has(e)) one(p, it, 'unknown-email');
         }
       }
-      if (s.length >= 20) for (const t of s.matchAll(TOKEN)) if (R.uids.has(t[0]) || R.hashes.has(t[0])) add(p, 'uid-or-hash');
+      if (s.length >= 20) for (const t of s.matchAll(TOKEN)) if (R.uids.has(t[0]) || R.hashes.has(t[0])) one(p, it, 'uid-or-hash', { tokenLength: t[0].length, isUid: R.uids.has(t[0]) });
       const stripped = s.replace(EMAIL, ' ').replace(/[0-9a-fA-F]{32,}/g, ' ').replace(/\d{4}-\d{2}-\d{2}/g, ' ');
       if (/\d{9}/.test(stripped)) {
         for (const m of stripped.matchAll(PHONE)) {
-          const d = m[0].replace(/\D/g, '');
-          if (d.length < 10) continue;
-          if (phones10.has(d.slice(-10))) add(p, 'phone');
-          else if (!fakes.phones.has(d)) add(p, 'unknown-phone');
+          const d = phoneDigits(m[0]);
+          if (!d) continue;
+          if (phones10.has(d.slice(-10))) one(p, it, 'phone');
+          else if (!fakes.phones.has(d)) one(p, it, 'unknown-phone', { digits: d.length, separators: /\D/.test(m[0]) });
         }
       }
-      if (R.usernames.has(s) || s.split('|').some((x) => R.usernames.has(x))) add(p, 'username');
+      if (R.usernames.has(s) || s.split('|').some((x) => R.usernames.has(x))) one(p, it, 'username');
       const words = normName(s).split(' ');
       if (words.length && words.length < 400) {
-        for (const w of windows(words)) if (w.length >= 4 && R.names.has(w)) { add(p, 'name'); break; }
+        for (let i = 0; i < words.length; i++) {
+          let hit = false;
+          for (let n = 1; n <= 5 && i + n <= words.length && !hit; n++) {
+            const w = words.slice(i, i + n).join(' ');
+            if (w.length >= 4 && R.names.has(w) && eligible(w)) { one(p, it, 'name', { window: n, common: w.split(' ').every((x) => COMMON.has(x)) }); hit = true; }
+          }
+          if (hit) break;
+        }
       }
     }
   };
-  for (const d of outDocs) check(d.path, [d.path, ...stringsOf(d.data)]);
-  for (const u of outAuth) check(`auth:${u.uid}`, [u.uid, u.email ?? '', u.displayName ?? '']);
+  for (const d of outDocs) check(d.path, itemsOf(d));
+  for (const u of outAuth) check(`auth:${u.uid}`, [u.uid, u.email ?? '', u.displayName ?? ''].map((s, i) => ({ where: 'value', field: ['uid', 'email', 'displayName'][i], s })));
   return problems;
+}
+
+/** kind x collection x field (indexes folded) -> count, most frequent first. */
+export function leakTable(problems) {
+  const t = new Map();
+  for (const p of problems) {
+    const k = [p.kind, p.collection, p.where, p.field.replace(/\[\d+\]/g, '[]')].join(' | ');
+    t.set(k, (t.get(k) ?? 0) + 1);
+  }
+  return [...t].sort((a, b) => b[1] - a[1]);
 }
 
 export function summarise(problems) {
@@ -481,7 +551,7 @@ export function summarise(problems) {
 function main() {
   const a = parseArgs(process.argv.slice(2), ['shift-to-now']);
   if (!a.in || !a.out || !a['salt-file']) {
-    console.error('usage: anonymise.mjs --in <export> --out <dir> --salt-file <path> [--shift-to-now | --shift-days N] [--accept-unknown unknown-phone]');
+    console.error('usage: anonymise.mjs --in <export> --out <dir> --salt-file <path> [--shift-to-now | --shift-days N] [--accept-unknown unknown-phone] [--leak-report <file>]');
     process.exit(2);
   }
   assertSafeDir(a['salt-file'], 'The salt file');
@@ -496,6 +566,16 @@ function main() {
   const soft = new Set((a['accept-unknown'] ?? '').split(',').filter((k) => ['unknown-phone', 'unknown-email'].includes(k)));
   const problems = all.filter((p) => !soft.has(p.kind));
   if (all.length > problems.length) console.warn(`Accepted ${all.length - problems.length} ${[...soft].join('/')} findings (--accept-unknown). Look at them yourself.`);
+  if (a['leak-report']) {
+    // No values, no matched text: kind, collection, where (id/key/value), field path, window size.
+    writeFileSync(a['leak-report'], JSON.stringify({ total: all.length, table: leakTable(all).map(([k, n]) => ({ at: k, count: n })),
+      findings: all.map(({ path: _p, ...rest }) => rest) }, null, 1));
+    console.error(`Leak report: ${a['leak-report']}`);
+  }
+  if (all.length) {
+    console.error('kind | collection | where | field -> count');
+    for (const [k, n] of leakTable(all).slice(0, 40)) console.error(`  ${String(n).padStart(5)}  ${k}`);
+  }
   if (problems.length) {
     console.error(`LEAK CHECK FAILED: ${problems.length} findings ${JSON.stringify(summarise(problems))}. Nothing written. First paths:`);
     for (const p of problems.slice(0, 20)) console.error(`  ${p.kind}: ${p.path}`);

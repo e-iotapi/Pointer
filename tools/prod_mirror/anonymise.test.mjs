@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { createHash } from 'node:crypto';
 import { test } from 'node:test';
-import { anonymise, leakCheck, shiftToNowSeconds, summarise } from './anonymise.mjs';
+import { anonymise, leakCheck, leakTable, shiftToNowSeconds, summarise } from './anonymise.mjs';
 import { PEOPLE, buildFixture } from './fixtures/build.mjs';
 
 const SALT = 'unit-test-salt-0123456789';
@@ -181,4 +181,50 @@ test('shift-to-now makes the newest past timestamp today and keeps expiry order'
   assert.ok(ts.filter((s) => s <= now).reduce((a, b) => Math.max(a, b)) === now);
   const g = r.docs.filter((d) => d.path.startsWith('grants/')).map((d) => d.data);
   assert.ok(g.some((x) => x.expiresAt.s > now) && g.some((x) => x.expiresAt.s < now)); // live and expired both remain
+});
+
+// Audit docs as production writes them: names inside before/after snapshots with no
+// email beside them, names inside the action text, and numbers that are not phones.
+const auditDocs = () => {
+  const ts = (s) => ({ __t: 'ts', s, n: 0 });
+  const sec = P.secretary;
+  return [
+    { path: 'audit/a1', data: { actor: { email: P.president.email, name: P.president.name, role: 'dept' }, action: `Removed ${sec.name} as secretary`, summary: `${P.president.name} removed ${sec.name}`,
+      path: `staff/${sec.email}`, campus: 'goa', before: { name: sec.name, presidentOf: ['ELEC'], list: [{ name: sec.name, who: `${sec.name} (${sec.email})` }] },
+      after: { grants: [{ name: sec.name, active: false }], by: P.president.name }, at: ts(1_760_000_000) } },
+    { path: 'audit/a2', data: { actor: { email: P.owner.email, name: P.owner.name, role: 'owner' }, action: 'merge professor', summary: 'merge professor', path: 'professors/prof1', before: { name: 'Dr. R. Menon' }, after: { aliases: ['Dr. R. Menon'] }, at: ts(1_760_000_000) } },
+    { path: 'audit/a3', data: { actor: { email: P.owner.email, name: P.owner.name, role: 'owner' }, action: 'save', summary: 'save', path: 'config/public', campus: 'all',
+      after: { since: '1730000000000', stamp: '1730000000', micro: '1759821234567890', version: '20260101', label: 'Profile 1', who: 'Admin' }, at: ts(1_760_000_000) } },
+    { path: 'people/zz@example.com', data: { name: 'Admin', campus: 'goa', firstSignIn: 1 } },
+  ];
+};
+
+test('audit snapshots: nested names and names in action text are rewritten; epochs, ids and common words are left alone', () => {
+  const f = buildFixture();
+  const r = anonymise([...f.docs, ...auditDocs()], f.auth, { salt: SALT });
+  assert.deepEqual(leakCheck(r.docs, r.auth, r.registry, r.fakes), []);
+  const text = JSON.stringify(r.docs);
+  for (const w of ['Tanvi', 'Shetty', 'Rohan', 'Menon']) assert.ok(!text.includes(w), w);
+  const a1 = r.docs.find((d) => d.path === 'audit/a1').data;
+  assert.ok(a1.before.name !== P.secretary.name && a1.before.name === a1.before.list[0].name && a1.before.name === a1.after.grants[0].name);
+  assert.ok(a1.action.includes(a1.before.name) && !a1.action.includes('Tanvi'));
+  assert.match(a1.before.list[0].who, new RegExp(`^${a1.before.name} \\(.+@goa\\.bits-pilani\\.ac\\.in\\)$`));
+  const a3 = r.docs.find((d) => d.path === 'audit/a3').data.after;
+  assert.deepEqual(a3, { since: '1730000000000', stamp: '1730000000', micro: '1759821234567890', version: '20260101', label: 'Profile 1', who: 'Admin' });
+});
+
+test('the leak report names kind, collection, where and field, never the value', () => {
+  const r = run();
+  const docs = structuredClone(r.docs);
+  const aud = docs.find((d) => d.path.startsWith('audit/'));
+  aud.data.after = { grants: [{ name: 'Tanvi Shetty' }, { note: `ping ${P.student.email}` }] };
+  docs.find((d) => d.path.startsWith('grants/')).data[P.student.uid] = 1;
+  const problems = leakCheck(docs, r.auth, r.registry, r.fakes);
+  const nameHit = problems.find((x) => x.kind === 'name');
+  assert.deepEqual([nameHit.collection, nameHit.where, nameHit.field, nameHit.window, nameHit.common], ['audit', 'value', 'after.grants[0].name', 2, false]);
+  assert.ok(problems.some((x) => x.kind === 'email' && x.field === 'after.grants[1].note'));
+  assert.ok(problems.some((x) => x.kind === 'uid-or-hash' && x.where === 'key' && x.field.endsWith('<key>')));
+  const dump = JSON.stringify(problems) + JSON.stringify(leakTable(problems));
+  for (const secret of ['Tanvi', 'Shetty', P.student.email, P.student.uid]) assert.ok(!dump.includes(secret), secret);
+  assert.ok(leakTable(problems).some(([k, n]) => k === 'name | audit | value | after.grants[].name' && n === 1));
 });
