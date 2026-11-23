@@ -1,8 +1,10 @@
 # Pointer — proposed features
 
-Planning document. **Nothing here is built.** Listed 2026-09-30 by the owner. The server side of
-each feature (data, rules, Cloudflare) is in `DATA_SYNC_PLAN.md` Stage 5; this file is the
-features as the user sees them. Build nothing before the owner has settled the open questions.
+Record of the owner's feature list (2026-09-30). **Status 2026-11-23: sections 1-8 and 10-16 are built
+and on staging; section 9 is a data-import process, not an app feature; the timetable generator in
+section 16 is deferred.** The server side of each feature is in `deprecated/DATA_SYNC_PLAN.md` Stage 5
+(a finished plan); this file is the features as the user sees them. The open questions at the end are
+answered.
 
 **Staging is the spec for everything not listed here** (owner, 2026-10-03). These screens get no
 UI change and stay out of every build list; they already work and are tested: SignIn,
@@ -21,11 +23,15 @@ staging today; a new control goes where its section (and the UI map) says.
 
 ## 1. Star ratings while adding courses
 
+*Status: built.*
+
 The add-course picker shows each course's average stars and review count, so students choose
 with the ratings in front of them. Data: one rating summary per course per campus
-(`DATA_SYNC_PLAN.md` Stage 4).
+(`deprecated/DATA_SYNC_PLAN.md` Stage 4).
 
 ## 2. Forced reviews
+
+*Status: built.*
 
 - Owners/admins/presidents/secretaries switch it on (e.g. around timetable release).
 - A student must post **min(electives they have taken, 5)** reviews before reviews unlock; a
@@ -39,9 +45,11 @@ with the ratings in front of them. Data: one rating summary per course per campu
 - A forced review can be stars only (see open questions).
 - Imported historical reviews never count toward anyone's 5.
 
-Server: `DATA_SYNC_PLAN.md` §5.1.
+Server: `deprecated/DATA_SYNC_PLAN.md` §5.1.
 
 ## 3. Contributor role
+
+*Status: built, with the leaderboard.*
 
 1. **Apply:** any student can ask to become a contributor from Settings, and from a prompt when
    they open a resources page. (shown at most once per session or with "Not Now", "Apply Now";). After applying, they see the president's contact to talk about approval.
@@ -65,28 +73,38 @@ Server: `DATA_SYNC_PLAN.md` §5.1.
 7. **Everyone can be a contributor:** admins, presidents and CRs are contributors by default
    (their links publish directly and earn points). All contributors can be seen by all branches within a campus, Tag (Admins, Presidents and Secretaries by their Branch Codes).
 
-Server: `DATA_SYNC_PLAN.md` §5.2.
+Server: `deprecated/DATA_SYNC_PLAN.md` §5.2.
 
 ## 4. Resources by course
+
+*Status: built.*
 
 Add a resource to a specific course (not only department-wide). The rules already allow
 course-scoped links; only the screen is missing.
 
 ## 5. Professors
 
+*Status: built (soft delete).*
+
 - **Delete a professor** (soft delete, audited, by the department's president; server §5.3).
 - **BUG: Add professor** shows greyed out, Have to click the search button and search, for them to be able to add; Check if duplicates exist and warn for potential matches.
 
 ## 6. Course delete moves to the evaluation screen
 
+*Status: built.*
+
 Move a course's delete button out of Edit into the evaluation screen, next to the edit button, with a confirmation.
 
 ## 7. Offshoot tab optional
+
+*Status: built.*
 
 A Settings option to remove the Offshoot tab; More takes its place. Saved in the user's own
 data (synced like other preferences), Ships by default with the offshoot tab.
 
 ## 8. Calendar integration
+
+*Status: built (Worker serves `/calendar/<campus>.ics`).*
 
 A subscribable campus academic calendar feed served by the Worker (server §5.4); students add it
 to Google Calendar (or any calendar) once. No automatic Google Calendar writes: that needs a
@@ -94,9 +112,11 @@ Google "sensitive" OAuth scope and app verification.
 
 ## 9. Initial data import (not an app feature)
 
+*Status: not an app feature; owner-run `tools/import`.*
+
 Presidents compile their department's links, professors and historical reviews with a fixed AI
 prompt into a JSON file and hand it to the owner, who imports it with an owner-run script. No
-screen. Details: `DATA_SYNC_PLAN.md` §5.5.
+screen. Details: `deprecated/DATA_SYNC_PLAN.md` §5.5.
 
 **First batch in hand:** `tools/course_reviews_out/` (gitignored): 614 reviews (mostly HSS/GS
 electives, 2023-24 to 2025-26), 88 courses with 50 handout links, 1 project review. Field-by-field
@@ -107,6 +127,8 @@ LLM, stored and labelled as estimates, low-confidence left unrated, owner spot-c
 
 
 ## 10.Course Reviews Page Changes
+
+*Status: built.*
 The Stats on top (The Star Rating and Would Take): These should Change, based on the filter applied, for e.g. A Professor filter should only show these stats for the professor.
 Filters: 
 1. Professors (Make it a dropdown of the professor who took the course), Keep the search Option, Empty is a valid option.
@@ -122,13 +144,19 @@ Filters:
 
 
 ## 11. Your Reviews Page Changes
+
+*Status: built.*
 1. Add a filter (All) and make it the default.
 
 ## 12. Resources Tab Changes
+
+*Status: built.*
 1. Give them a new screen to choose which Degree resources to view, Course resources button to view resources by all courses (Filter: This semester remains default, All; No degree barrier; Let them search), Build the UI from the More Tab screen, should look similar, Resuse code where possible.
 3. No Resources page remains the same.
 
 ## 13. Elective Contributor role (the GEN department)
+
+*Status: built.*
 
 278 of the 1,111 catalogue courses have a code prefix no department owns (BITS 111, HSS 85,
 GS 36, IS 21, MST 13, MGTS 6, AN 5, MSE 1), so no president can manage them; BITS, HSS and
@@ -150,9 +178,11 @@ MGTS include CDCs of many programmes.
   time.
 - Shown as "Electives" where other roles show a branch code (A3, A7).
 
-Server: `DATA_SYNC_PLAN.md` §5.6.
+Server: `deprecated/DATA_SYNC_PLAN.md` §5.6.
 
 ## 14. Guided tour for students
+
+*Status: built.*
 
 On a student's **first sign-in** (after setup), a short guided tour walks through each feature
 where it lives: Actual / Expected / Compare / Offshoot / Minor, adding courses and grades,
@@ -173,6 +203,8 @@ Calendar, Stats, Resources, Reviews, Representatives, More and Settings.
 
 ## 15. Last updated
 
+*Status: built.*
+
 Students see how current a representative's work is, so the branch can hold them to account.
 
 - Counted in **semesters, not days** ("Last updated: Aug 2026", "2 semesters ago"); neutral
@@ -184,7 +216,9 @@ Students see how current a representative's work is, so the branch can hold them
 - Server: a `lastUpdated` timestamp on the course/department, set in the same batch as each
   meaningful edit (rules require `request.time`).
 
-## 16. Weekly calendar and timetable (planned; generator deferred)
+## 16. Weekly calendar and timetable (built; generator deferred)
+
+*Status: Month/Week views, class sheet and per-student time changes are built; the timetable generator is deferred.*
 
 - Calendar gets Month / Week tabs. Week view has a time axis; each class shows its course code,
   name, room and start/end time, from a published semester timetable.

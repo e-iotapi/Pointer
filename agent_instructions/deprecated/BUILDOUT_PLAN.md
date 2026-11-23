@@ -1,3 +1,5 @@
+> **Deprecated (2026-11-23, stale):** built; but it still says no Stage 5 backend exists and names `pointer-rebuild`. Kept for history. Current source of truth: `PROPOSED_FEATURES.md` (status of each feature) and `ARCHITECTURE.md` §4 (collections added by the build-out).
+
 # Pointer: new-feature build-out (backend + UI), Builder and Builder 2
 
 ## Context

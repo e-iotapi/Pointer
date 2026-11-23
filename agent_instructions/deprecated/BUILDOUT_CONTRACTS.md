@@ -1,3 +1,5 @@
+> **Deprecated (2026-11-23, stale):** the store signatures sampled still match `lib/core`, but its write rules predate custom roles and campus separation (e.g. `reviewGate`: "owner/admin any campus"; now admins act on their own campus and a president only if an owner ticks the row, via `mayCampus`). Kept for history. Current source of truth: the code in `lib/core` (stores), `firestore.rules`, `docs/ARCHITECTURE.md` §6 (markers) and `ARCHITECTURE.md` §4 (collections).
+
 # Build-out contracts (backend lane <-> UI lane)
 
 Binding. Source plan: `BUILDOUT_PLAN.md`; server design `DATA_SYNC_PLAN.md` §5; product `PROPOSED_FEATURES.md`. If code must differ, the lane that needs it states the change to the other lane's controller first. UI builds against these signatures with `FakeFirebaseFirestore`; the backend matches them exactly. Rulings R-A..R-D apply.

@@ -16,17 +16,25 @@ artifact**, and the plan's UI tasks cite that page. Owner rule, 2026-11-16.
 | File | What it is |
 |---|---|
 | `ARCHITECTURE.md` | The design of record: data, roles, routes, rules. `test/core/capabilities_test.dart` reads its §4 table. `docs/ARCHITECTURE.md` is the contributor overview. |
-| `CUSTOM_ROLES_DESIGN.md` | Modular and custom roles: owner decisions, data, rules, M1–M10, test matrix. |
-| `CUSTOM_ROLES_PLAN.md` | **Next to build:** Phase A (admin course tools, Controls tiles), Phase B (roles as data, `may()`, custom roles), task by task. |
-| `LOADING_SERVER_PLAN.md` | **Next to build:** on-device store caches, level-by-level prefetch, per-path version markers, the Cloudflare Worker and Durable Object push (task by task). |
-| `DATA_SYNC_PLAN.md` | The server design that plan implements: version markers, Worker, Durable Object, reviews on the edge cache, and the server parts of the proposed features (Stage 5). |
-| `PROPOSED_FEATURES.md` | Features listed by the owner, not built: star ratings in the course picker, forced reviews, contributor role and leaderboard, resources by course, professor delete, calendar, initial data import. |
+| `CUSTOM_ROLES_DESIGN.md` | Modular and custom roles: owner decisions, data, rules, M1-M10, test matrix. Built (Phase A and B, on staging); the stable app crashes on custom grants, so create none in production. |
+| `PROD_DEPLOY.md` | The owner's production deploy order: Worker, indexes, rules, site, data, rollback. |
+| `PROPOSED_FEATURES.md` | The owner's 16 features as users see them. Built, except the timetable generator (deferred). |
 | `QUOTA.md` | Firestore reads and writes per user against Spark's caps; `tools/e2e/specs/quota.spec.mjs` writes it. |
 | `DISCIPLINES_GOA_HYD.md` | Reference data: programmes per campus (`lib/core/models/programmes.dart` is built from it). |
+| `TEST_ARCHITECTURE_PLAN.md` | Tiers T0-T4 and `tools/qa/run.sh`: being built. |
 
 ## Deprecated
 
-`deprecated/` holds finished or replaced plans, each with a banner saying
-why. Read them for history only. Code comments still cite some of them by
-section (`PERF_TEST_PLAN.md §A.1`, `UI_REBUILD_HANDOFF.md §3.9`);
-`python3 agent_toolchains/plan/plan.py get <id>` reads PERF_TEST_PLAN's by id.
+`deprecated/` holds only plans that no longer match the code, each with a
+banner naming its current source of truth. Read them for history only. Code
+comments still cite some of them by name and section (`PERF_TEST_PLAN.md §A.1`,
+`UI_REBUILD_HANDOFF.md §3.9`, `BUILDOUT_CONTRACTS.md`, `DATA_SYNC_PLAN.md`,
+`LOADING_SERVER_PLAN.md`); `python3 agent_toolchains/plan/plan.py get <id>`
+reads PERF_TEST_PLAN's by id.
+
+Newly deprecated (2026-11-23; all eight built but now stale in places):
+`BUILDOUT_PLAN`, `BUILDOUT_CONTRACTS`, `UI_IMPLEMENTATION_GUIDE`,
+`UI_CHANGES_BRIEF`, `UI_MAP`, `LOADING_SERVER_PLAN`, `CUSTOM_ROLES_PLAN`,
+`DATA_SYNC_PLAN`. Older: `PLAN`, `UI`, `UI_HANDOFF`, `UI_REBUILD_HANDOFF`,
+`UI_OPT`, `UI_PERF_BASELINE`, `PERF_BASELINE`, `PERF_TEST_PLAN`,
+`PREREGISTERED_10_11`, `MANUAL_QA`, `COURSE_GAPS`.

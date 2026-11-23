@@ -1,6 +1,6 @@
 # Pointer — architecture for shared data, roles and routes
 
-Design record (built on `pointer-rebuild`). This covers five changes that are really one
+Design record (built on `pointer-dev`). This covers five changes that are really one
 change: named routes, a maintainer/admin surface, a resources section, moving the course
 catalogue out of the app bundle and out of every user's document, and the rule for what
 happens when a user edits data that someone else maintains.
@@ -417,6 +417,38 @@ config/public, config/grantTerms           -> owner, admin (the admin length: ow
 
 Counters live in their own documents because CRs write offerings under last-write-wins, and a
 CR's `set()` must never be able to wipe a course's rating.
+
+**Collections added by the build-out** (2026-11; each is in `firestore.rules`, the rules win):
+
+```
+roles/builtin, roles/{id}                  admin/president/CR rows and terms; custom role defs (§4, M1-M10)
+grants/custom|{email}                      a custom role's grant, with its reach
+heads/{campus}                             version markers (below); the public contact
+contributorRequests/{campus|dept|email}    an application to contribute; approved by may('approveContributors')
+pending/{id}                               a contributor's link awaiting approval (15 days, then hidden)
+contributors/{email}                       username, campus, points (+4 per approved link, +2 per own review)
+usernames/{campus|name}                    unique usernames, claimed beside the contributors doc
+leaderboard/{campus}                       {p: {username: points}, tags: {username: branch}}, usernames only
+reviewGate/{campus}                        the forced-review switch (the unlock count is checked in the app)
+activity/{campus}                          when staff last made a meaningful edit, for Last updated
+timetable/{campus|sem}, ...|{n}, ...|current   the broadcast timetable, chunked; written by the owner-run script
+searchHints/{campus}                       course-search votes, one +1/-1 per write
+users/{uid}.prefs                          offshootHidden, tourSeen (synced preferences)
+professors/{id}.removed                    soft delete, audited, by the department's president
+```
+
+**Markers and live updates.** Every shared path has a counter in `heads/{campus}.v`
+(`lib/core/heads/paths.dart`); a write bumps it in the same batch and the rules refuse one
+that does not. A Cloudflare Worker serves the heads and one Durable Object per campus
+pushes them over a WebSocket: `poke {path, campuses?}` (fan-out to the campuses a write
+moved), `pokeUser {email}` (a person's roles changed; they re-read), `pokeMe` (another
+device pushed), and a `#contact` hash for the public contact. The design, costs and frames
+are in `docs/ARCHITECTURE.md` §6 and §13 and `server/README.md`; this document does not
+repeat them.
+
+**Campus separation.** Everything a student, president, CR or admin touches is checked
+against their own campus; only owners cross campuses (Decision 11,
+`CUSTOM_ROLES_DESIGN.md`).
 
 ---
 

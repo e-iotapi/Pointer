@@ -44,9 +44,13 @@ Not parity, by design: the `staging-wasm` and `staging-profile` preview builds s
 
 Check the staging secret exists with `npx wrangler secret list --env staging` (names only). No workflow deploys the Worker; both environments are deployed by hand.
 
+## HTTP routes
+
+`GET /heads/<campus>` (markers, 60 s per instance), `/timetable/<campus>.json` and `/calendar/<campus>.ics` (the academic calendar feed), all built from Firestore. `src/index.ts` has the full list.
+
 ## Live socket frames
 
-`wss://<worker>/live/<campus>`, token in `Sec-WebSocket-Protocol: pointer, <idToken>`. Server to client: `hello {head, me, roles}`, `head {v}`, `me {v}`, `roles {v}`. Client to server:
+`wss://<worker>/live/<campus>`, token in `Sec-WebSocket-Protocol: pointer, <idToken>`. Server to client: `hello {head, me, roles}`, `head {v}`, `me {v}`, `roles {v}`. `head.v` and `hello.head` map each marker path to a number: the head doc's `v` map, the scheme versions as `o:<course|term>`, and a hash of the public contact as `#contact` (so a contact edit moves a marker; nothing else of the head leaves). Client to server:
 
 - `poke {path, campuses?}`: a marker moved on those campuses' heads (default: this socket's own). Each named hub arms its own head read (at most one per 20 s per hub), so a write on another campus, or on every campus, reaches those clients. At most one fan-out a second per socket.
 - `pokeUser {email}`: that person's roles changed. Every hub bumps a counter for the address and sends `roles {v}` to the person's sockets (tagged by the token's verified email); `hello.roles` carries the counter for devices that were closed. 4 a second per socket, 30 an hour per sender; no data travels.

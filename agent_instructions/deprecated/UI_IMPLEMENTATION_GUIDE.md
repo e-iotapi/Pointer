@@ -1,3 +1,5 @@
+> **Deprecated (2026-11-23, stale):** U1-U15 are built; it still waits for a contracts file and for `UI_MAP.md` tags. Kept for history. Current source of truth: `docs/ARCHITECTURE.md` §12, the UI rule in `CLAUDE.md`, and `ARCHITECTURE.md` §16 (boards, routes).
+
 # UI implementation guide (Builder 2 and its subagents)
 
 Scope: U1–U15 of `BUILDOUT_PLAN.md`. Read with `UI_CHANGES_BRIEF.md` (owner specifics), `UI_MAP.md` (tags), `PROPOSED_FEATURES.md`. Store signatures come from `BUILDOUT_CONTRACTS.md`, which did not exist when this was written: every store call below is marked "per contracts" and names the plan's B item. Build against `FakeFirebaseFirestore`; the backend must match the contract exactly.

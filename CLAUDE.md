@@ -25,6 +25,9 @@ python3 agent_toolchains/code/verify.py         # format + analyzer baseline + f
 python3 agent_toolchains/ui_check/ui_check.py run --card <screen>   # render screens light/dark, report UI issues
 tools/test_env/up.sh                            # emulators + seed + serve app; open with ?as=student_full|president|owner
 cd tools/e2e && npm test                        # Playwright e2e / perf / quota specs vs. seeded emulator
+cd tools/e2e && npm run live                   # live-update specs: the real Worker (wrangler dev) vs. the emulators
+node tools/backtest/rules/run.mjs               # replay old suites + the stable app against the new rules (tools/backtest/app/run.sh: old caches, damaged data)
+tools/prod_mirror/README.md                     # export prod, anonymise, load into staging (mirror people get ?as= keys)
 ```
 
 - Backend is chosen at compile time: `--dart-define=POINTER_ENV=prod|staging|emulator` (default `prod`; `?as=` test sign-in is compiled out of prod builds, and CI guards that).
@@ -53,5 +56,5 @@ cd tools/e2e && npm test                        # Playwright e2e / perf / quota 
 ## Branches and repo hygiene
 
 - `pointer-dev` → `pointer-beta` (/beta/) → `master` (/calculator/) only via the `release.yml` workflow (one-commit PRs that drop the `DEV_ONLY` paths; the owner merges). Never PR `pointer-dev` straight into `master`/`pointer-beta`. New dev-only paths go in `DEV_ONLY`. Beta and stable share production data, so changes must be additive and readable by the stable app.
-- Never commit `bugs/`, `bug_*.md`, `tools/perf_out/`, `tools/course_reviews_out/`, `sensitive_data_NO_COMMIT/` or any service-account key. Deploys of rules, indexes, the Worker and production are the owner's.
+- Never commit `bugs/`, `bug_*.md`, `tools/perf_out/`, `tools/course_reviews_out/`, `sensitive_data_NO_COMMIT/` or any service-account key. Deploys of rules, indexes, the Worker and production are the owner's. The stable app crashes on custom role grants: create no custom roles in production (`agent_instructions/CUSTOM_ROLES_DESIGN.md`).
 - No Claude/AI co-author or "Generated with" lines in commits or PRs.

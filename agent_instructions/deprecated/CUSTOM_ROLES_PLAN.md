@@ -1,3 +1,5 @@
+> **Deprecated (2026-11-23, stale):** built; but it expects an admin to edit course structures on any campus, and campus separation (only owners cross campuses) came after it. Kept for history. Current source of truth: `CUSTOM_ROLES_DESIGN.md`, `ARCHITECTURE.md` §4 (M1-M10) and `docs/ARCHITECTURE.md` §8.
+
 # Modular roles and custom roles — Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

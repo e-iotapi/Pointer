@@ -1,3 +1,5 @@
+> **Deprecated (2026-11-23, stale):** Stages 1-3 and Stage 5 are built, but its status lines still say 5.5 and 5.6 (GEN) are not, and it cites `pointer-rebuild`. Kept for history. Current source of truth: `docs/ARCHITECTURE.md` §6 and §13 (markers, Worker, push), `server/README.md` (routes and frames) and `ARCHITECTURE.md` §4 (collections).
+
 # Pointer — server structure for version markers and sync (plan)
 
 **Status (2026-10-02): Stages 1–3 built on `pointer-rebuild`** (plan: `LOADING_SERVER_PLAN.md`; design: `ARCHITECTURE.md` §6, §13). Stage 3 differs here: no subscriptions, the hub broadcasts only the `v` map and clients read data from Firestore; pokes coalesce ~1.5 s, one head read per 20 s at most. Staging Worker + DO deployed and verified 2026-10-02; production awaits the owner's deploy (`server/README.md`).

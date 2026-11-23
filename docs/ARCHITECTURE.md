@@ -21,6 +21,7 @@ is in [`docs/DEVELOPMENT.md`](https://github.com/e-iotapi/Pointer/blob/pointer-d
 - [11. Branches, environments and releases](#11-branches-environments-and-releases)
 - [12. Things that will surprise you](#12-things-that-will-surprise-you)
 - [13. Performance and loading](#13-performance-and-loading)
+- [14. Testing](#14-testing)
 
 ## 1. The shape of the system
 
@@ -43,7 +44,7 @@ flowchart LR
 
   CF["Cloudflare Pages<br/>landing page at /, app at /calculator/,<br/>beta at /beta/"]
   FH["Firebase Hosting<br/>staging only"]
-  W["Cloudflare Worker + Durable Objects<br/>version markers, live push<br/>(read-only on Firestore)"]
+  W["Cloudflare Worker + Durable Objects<br/>version markers, live push, calendar feed<br/>(read-only on Firestore)"]
 
   CF -- "serves the build" --> App
   FH -. "staging build" .-> App
@@ -112,8 +113,12 @@ flowchart TD
 | `lib/core/models` | Programmes, disciplines, charts, campuses |
 | `lib/core/catalog` | The course catalogue: loading, caching, publishing |
 | `lib/core/heads` | The per-campus head document (§6) |
-| `lib/core/roles` | Grants, the directory, contacts, sessions and capabilities |
+| `lib/core/roles` | Grants, role definitions, the directory, contacts, sessions and capabilities |
 | `lib/core/reviews`, `resources`, `professors` | The stores behind those screens |
+| `lib/core/cache`, `prefetch` | `cacheFirst` saved copies; level-by-level loading ahead (§13) |
+| `lib/core/live` | The WebSocket to the campus hub and the head it pushes |
+| `lib/core/timetable`, `contrib` | The calendar and timetable; contributors and the leaderboard |
+| `lib/core/timings.dart` | Every cache age, throttle and sync timing, with its cost |
 | `lib/core/storage` | Hive helpers, overrides, seeding a new user's courses |
 | `lib/core/platform` | Browser-only code behind a conditional import |
 | `lib/core/env` | Which environment this build talks to (§11) |
@@ -248,9 +253,11 @@ its path's counter stays current until the counter moves, so the app fetches
 only what moved. Counters are compared for equality, never order: anyone on a
 campus may move markers (the rules can't check each key's step), so a
 lowered counter costs a re-read, never a freeze. The rules refuse removing a
-marker, cap the map at 3000 keys, and a non-number marker (written by hand)
+marker, cap the map at 3000 keys and a write at 4 changed markers, and a non-number marker (written by hand)
 counts as 0, so the next real write repairs it. A reseed moves every marker
-once (`tools/test_env/seed.mjs`), so phones re-read the new data.
+once (`tools/test_env/seed.mjs`), so phones re-read the new data. The Worker
+also sends a hash of the public contact as the marker `#contact`, so a change
+to the contact reaches open apps.
 
 ```mermaid
 flowchart LR
@@ -325,7 +332,9 @@ flowchart TD
 
   subgraph Roles["Roles"]
     owners["owners/{email}"]
-    grants["grants/{role|campus|scope|email}"]
+    builtin["roles/builtin<br/>admin, president, CR rows and terms"]
+    customDefs["roles/{id}<br/>custom role definitions"]
+    grants["grants/{role|campus|scope|email}<br/>custom grants: custom|{email}"]
     staff["staff/{email}"]
     directory["directory/{email}"]
     repIndex["repIndex/{campus}"]
@@ -359,8 +368,8 @@ flowchart TD
     survivor lists it (`mergedIds`). Reviews keep their original professor id
     and count as the survivor's children everywhere: its stats, its filter
     (`allIds`) and its page. Nothing is rewritten.
-  - *Delete* (planned, DATA_SYNC_PLAN §5.3): a soft delete (`removed: true`,
-    audited). The professor drops out of pickers and search, but its reviews
+  - *Delete*: a soft delete (`removed: true`, audited, by the department's
+    president). The professor drops out of pickers and search, but its reviews
     stay, under its name, and filter and count as before.
   - A review naming an id with no document at all (only possible from a
     reseed) is skipped by every screen, live and from the saved copy alike.
@@ -387,12 +396,29 @@ flowchart TD
 | Student | Own grades; read their campus's shared data; review courses they took; report links; volunteer as CR |
 | CR | A course's evaluation scheme, class averages and professors, for their campus |
 | President (and secretary) | Their department: courses, professors, resource links, review moderation, CRs, handover |
-| Admin | Appoint presidents and CRs on their campus; grant terms |
-| Owner | Everything: owners, the catalogue, the public contact, site analytics |
+| Admin | Appoint presidents and CRs on their campus; course tools and review moderation on their campus |
+| Custom role | Whatever rows an owner or admin ticked, for one department, one campus or every campus |
+| Owner | Everything: owners, the catalogue, the public contact, site analytics, role definitions |
 
 - **Only student addresses get in.** The rules and the app both accept
   `f`, `h` or `p` followed by digits at a BITS campus domain, plus listed
   owners. Faculty and staff addresses are refused.
+- **Roles are editable data.** `roles/builtin` holds the rows and term
+  lengths of admin, president and CR (until it exists, the rules and the app
+  use the same defaults inline). Owners and admins build **custom roles**
+  (`roles/{id}`) from the rows in `capabilities.dart`, with the scope on the
+  role, and give one per person as a grant `custom|{email}`. The rules ask
+  one function, `may(cap, campus, dept, course)`; the app asks
+  `MyRoles.may` and `MyRoles.reach`. A role can hold only rows its author
+  holds (no escalation), and `MyRoles` honours only the grants the rules do:
+  a built-in role needs a student address, and a department or CR grant must
+  be on the address's own campus. **Only owners cross campuses**; an admin's
+  tools stop at their own campus.
+- **Role changes arrive live.** When someone appoints or revokes, the app
+  sends `pokeUser` and the grantee's open apps re-read their roles (§13).
+- **The stable app cannot read custom grants.** It crashes on one. Create no
+  custom roles in production until a stable release tolerates them; see
+  `agent_instructions/CUSTOM_ROLES_DESIGN.md`.
 - **Every grant expires.** A grant carries `expiresAt`; the rules ignore an
   expired one, so nobody keeps access after their term.
 - **The rules are the enforcement.** The app hides what a user can't do, but
@@ -431,17 +457,20 @@ admin code as a deferred library.
 ```mermaid
 flowchart LR
   Home["/ (Home: semesters)"] --> Course["/course/:id (marks)"]
-  Home --> Stats["/stats"] & Cal["/calendar"] & More["/more"] & Settings["/settings"]
+  Home --> Stats["/stats"] & Cal["/calendar (month, week)"] & More["/more"] & Settings["/settings"]
+  More --> Contribute["/contribute, /leaderboard"]
   More --> Reviews["/reviews → /reviews/:courseId,<br/>/reviews/professor/:id"]
   More --> Resources["/resources"]
   More --> Reps["/representatives"]
   Settings --> Roles["/roles"]
-  Roles --> Admin["/admin/… (owners, admins)"]
+  Roles --> Admin["/admin/… (owners, admins: roles,<br/>course and review tools, open-as)"]
   Roles --> Maintain["/maintain/:campus/:dept/…<br/>/maintain/:campus/course/:id"]
   Owner["/campus (owner's preview campus)"]
 ```
 
-Route guards redirect anyone without the right grant back to `/`.
+Route guards redirect anyone without the right grant back to `/`. A new
+appointee is sent to `/welcome` to set a contact first. The full route table
+is §16.1 of the design record.
 
 ## 11. Branches, environments and releases
 
@@ -501,9 +530,19 @@ default, and both public channels are production builds. Test sign-in
 `const`, so the compiler removes that code from a production build entirely,
 and both `check.yml` and `deploy.yml` fail a build that still contains it.
 
+### Checks before a release
+
+Beta and stable run against production data and rules, so a change is
+checked against the old apps first. `tools/backtest/rules` replays the old
+suites and the stable app's writes against the new rules;
+`tools/backtest/app` runs old device caches and damaged data on the new app.
+`tools/prod_mirror` exports production, anonymises it, adds synthetic people
+and loads it into staging (`?as=` keys exist for the mirrored people).
+
 ### What stays manual
 
-The owner deploys these by hand: Firestore rules and indexes
+Production deploys are the owner's, and none of the work above is live in
+production yet (`agent_instructions/PROD_DEPLOY.md` has the order). By hand: Firestore rules and indexes
 (`firebase deploy --only firestore:rules,firestore:indexes --project default`),
 and the Worker (`cd server && npx wrangler deploy`; `--env staging` for
 staging). Tests, emulators and the data tools are described in
@@ -574,7 +613,7 @@ prints every startup step in staging and test builds.
 
 Goal: no screen waits on the network, including the first open after a
 relaunch. It is the client half of the server plan in
-[`agent_instructions/DATA_SYNC_PLAN.md`](https://github.com/e-iotapi/Pointer/blob/pointer-dev/agent_instructions/DATA_SYNC_PLAN.md).
+[`agent_instructions/deprecated/DATA_SYNC_PLAN.md`](https://github.com/e-iotapi/Pointer/blob/pointer-dev/agent_instructions/deprecated/DATA_SYNC_PLAN.md).
 
 **Every data store keeps its data on the phone.** Each store read
 (resources, reviews, representatives, professors, roles, offerings, admin
@@ -611,10 +650,10 @@ starts when the previous one finishes; anything whose version hasn't moved is
 skipped; prefetch pauses offline and runs once per session; a screen opened
 early jumps the queue.
 
-**Built and in production:** the on-phone caches and `peek` on every
+**Built and on staging:** the on-phone caches and `peek` on every
 screen, level prefetch, Stage 1 markers with rules, and the Stage 2 Worker
-and Stage 3 Durable Object in `server/`. Production runs `pointer-heads`;
-staging runs its own Worker (`pointer-heads-staging`,
+and Stage 3 Durable Object in `server/`. Production's Worker
+(`pointer-heads`) is the owner's to deploy; staging runs its own Worker (`pointer-heads-staging`,
 `wrangler deploy --env staging`). Without
 `POINTER_HEADS_URL` and `POINTER_LIVE_URL` the app reads `heads/{campus}`
 from Firestore as before.
@@ -627,7 +666,8 @@ skips the Worker for 3 minutes after their own catalogue or contact change,
 so they see it at once.
 
 **Push (Stage 3):** a writer commits its Firestore batch first, then pokes
-the path. The campus's Durable Object waits ~1.5 s to gather pokes, reads the
+the path, naming the campuses the write moved (so a write on another campus
+reaches that campus's open apps). The campus's Durable Object waits ~1.5 s to gather pokes, reads the
 committed head from Firestore (at most one read every 20 s) and sends the `v`
 map to every socket only if it moved. Client-sent data is never broadcast.
 
@@ -644,8 +684,22 @@ sequenceDiagram
   S->>F: re-read only the moved paths
 ```
 
+Role changes use a third frame: `pokeUser {email}` makes every hub count a
+change for that person and tell their open sockets (`roles {v}`); `hello`
+carries the count for devices that were closed. No data travels in either
+frame. Frames and limits: [`server/README.md`](../server/README.md).
+
 Personal data works the same way without touching Cloudflare's copy of any
 grades: after a sync push the app sends `pokeMe` (~2 s after the last
 write), the Durable Object moves that account's counter and tells only that
 account's other sockets, which pull the user document from Firestore.
 
+
+## 14. Testing
+
+Suites: Dart unit and widget tests (`flutter test`), Firestore rules on the
+emulator (`test/rules`), the Worker (`server`, vitest) and Playwright specs
+(`tools/e2e`, including `npm run live` against the real Worker). The plan to
+group them into tiers T0 to T4 behind one runner is
+[`agent_instructions/TEST_ARCHITECTURE_PLAN.md`](https://github.com/e-iotapi/Pointer/blob/pointer-dev/agent_instructions/TEST_ARCHITECTURE_PLAN.md);
+until it lands, the commands are in `docs/DEVELOPMENT.md`.

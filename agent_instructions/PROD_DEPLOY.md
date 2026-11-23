@@ -1,10 +1,17 @@
-# Production deploy: `pointer-rebuild` → production
+# Production deploy: `pointer-dev` → production
 
 Owner-run, in this order. Each step says how to check it before the next.
 Production: Firebase project `cgpa-calculator-fb90c`, site on Cloudflare
 Pages `pointer-bits-pilani` (landing at `/`, app at `/calculator/`), Worker
 `pointer-heads`. CI deploys the site when `master` moves; everything else
-here is by hand.
+here is by hand. The site reaches production only through `release.yml`
+(`pointer-dev` → `pointer-beta` → `master`, one-commit PRs the owner merges);
+see `docs/ARCHITECTURE.md` §11.
+
+**Custom roles: do not create any in production** until a stable release
+tolerates them. The stable app crashes on a `custom|{email}` grant
+(`agent_instructions/CUSTOM_ROLES_DESIGN.md`). Deploying the rules and the
+app is safe; creating a custom role is not.
 
 ## Why the order matters
 - The new rules require most staff writes and every review write to bump
@@ -19,8 +26,12 @@ here is by hand.
 
 ## 1. Release check (Builder, before you start)
 - [ ] `python3 agent_toolchains/code/verify.py` green; `cd test/rules && npm test`;
-      `cd server && npm test`; the e2e suite (`.github/workflows/e2e.yml` steps,
-      run locally until that workflow is on `master`).
+      `cd server && npm test`; `cd tools/e2e && npm test` and `npm run live`
+      (`.github/workflows/e2e.yml` is manual-only).
+- [ ] Backtest: `node tools/backtest/rules/run.mjs` (the stable app's writes
+      against the new rules; add `--base origin/pointer-beta` for the beta) and
+      `tools/backtest/app/run.sh` (old device caches and damaged data on the
+      new app). Both must pass or list exactly what changes.
 - [ ] Staging retest done on your devices: theme switch, course search, Apply,
       calendar, reviews; the iPhone checks in `bugs/bug_tracker.md` (TM-6, TM-7,
       UT-3).
@@ -40,7 +51,7 @@ here is by hand.
 
 ## 3. Firestore indexes, then rules
 1. `firebase deploy --only firestore:indexes --project default`; wait until all
-   20 show **Enabled** in the console (minutes).
+   22 show **Enabled** in the console (minutes).
 2. `firebase deploy --only firestore:rules --project default`.
 3. Check: the rules tab shows today's version.
 
@@ -55,9 +66,12 @@ yet; without them those screens show empty. Run, with the prod admin key:
    exist in the console.
 
 ## 4. Site
-1. Open a PR `pointer-rebuild` → `master` and merge it yourself.
-2. CI `deploy` runs: tests, rules tests, prod build with the prod guard, then
-   Pages. Check `https://pointer-bits-pilani.pages.dev/calculator/version.json`
+1. Run the `release` workflow (Actions tab) to `pointer-beta`: `check.yml`
+   runs on `pointer-dev` first, then a one-commit PR; merge it. Pages deploys
+   `/beta/`. Try it on your devices, then run `release` again to `master` and
+   merge that PR.
+2. `deploy.yml` runs on the push to `master` or `pointer-beta`: prod build with
+   the prod guard, then Pages (no tests; they ran before the release). Check `https://pointer-bits-pilani.pages.dev/calculator/version.json`
    moved and the app loads signed in.
 
 ## 5. Data

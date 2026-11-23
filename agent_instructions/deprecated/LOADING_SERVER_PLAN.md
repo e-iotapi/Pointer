@@ -1,3 +1,5 @@
+> **Deprecated (2026-11-23, stale):** built; but it says pokes are rate-limited 1 per path per 2 s (the hub has no per-path limit) and predates `pokeUser`, poke fan-out and `#contact`. Kept for history. Current source of truth: `docs/ARCHITECTURE.md` §13 and `server/README.md` (frames and limits).
+
 # Loading + server markers Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.

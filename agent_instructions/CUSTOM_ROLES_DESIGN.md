@@ -1,7 +1,13 @@
 # Custom roles — design
 
-Status: draft for owner approval (2026-11-16). Spec of record stays
-`ARCHITECTURE.md` §4; this document says what changes there and why.
+Status: **built** (Phase A and B on `pointer-dev` and staging, 2026-11-23): `roles/builtin`,
+`roles/{id}`, grants `custom|{email}`, rules `may()`, `MyRoles.may/reach`; only owners cross campuses;
+a live `pokeUser` makes the grantee re-read roles. Not in production. **Stable-app caveat (open,
+owner-only):** the stable app crashes on a custom grant, so create no custom roles in production until
+a stable release tolerates them. A Roles-page warning for this needs a UI Directions design first.
+`MyRoles` honours only the grants the rules do: a built-in role needs a student address, and a
+department or CR grant must be on the address's own campus. Spec of record stays `ARCHITECTURE.md` §4;
+this document says what changed there and why. The build plan is `deprecated/CUSTOM_ROLES_PLAN.md`.
 
 ## Intent
 

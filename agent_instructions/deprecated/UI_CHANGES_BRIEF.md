@@ -1,3 +1,5 @@
+> **Deprecated (2026-11-23, stale):** the changes are built; it still targets `pointer-rebuild`. Kept for history. Current source of truth: `PROPOSED_FEATURES.md` (product, with status), `ARCHITECTURE.md` §16.1 (routes) and the Pointer - UI Directions artifact.
+
 # Pointer UI changes: implementation brief
 
 Self-contained handover for an agent that has none of the earlier conversation. Read this file, then

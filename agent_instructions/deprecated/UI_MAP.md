@@ -1,3 +1,5 @@
+> **Deprecated (2026-11-23, stale):** its NEW/CHANGED/DEFERRED tags describe a build-out that is finished. Kept for history. Current source of truth: `ARCHITECTURE.md` §16.1 (route table), the Pointer - UI Directions artifact, and staging itself.
+
 # Pointer UI map
 
 Legend: solid arrow = navigation, dashed arrow = sheet/dialog, triangle = inheritance. Tags: NEW, CHANGED, REMOVED = build; DEFERRED = do not build; untagged = exists on staging, do not touch.
