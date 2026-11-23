@@ -150,7 +150,7 @@ held.sync = { identical: so.data === sn.data };
 if (!skipRules) {
   log('rules: mixed fleet on the emulator ...');
   const r = sh(heavy[0] ?? 'firebase', [...heavy.slice(1), ...(heavy.length ? ['firebase'] : []), 'emulators:exec', '--only', 'firestore', '--project', 'demo-pointer',
-    'BACKTEST_RUN=1 node --test --test-concurrency=1 test/rules/backtest_app_mixed.test.mjs']);
+    'BACKTEST_RUN=1 node --test --test-reporter=tap --test-concurrency=1 test/rules/backtest_app_mixed.test.mjs']);
   const txt = (r.stdout ?? '') + (r.stderr ?? '');
   for (const m of txt.matchAll(/^\s*not ok \d+ - (BREAK [\w-]+)/gm))
     findings.push({ severity: 'break', id: m[1].replace('BREAK ', ''), source: 'rules emulator', text: `rules test failed: ${m[1]}` });
