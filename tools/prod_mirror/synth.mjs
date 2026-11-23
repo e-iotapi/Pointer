@@ -574,7 +574,8 @@ export function printCoverage(cov, log = console.log) {
 }
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
-  const a = parseArgs(process.argv.slice(2));
+  const a = parseArgs(process.argv.slice(2), ['shared-delta']);
+  if (a['shared-delta']) { (await import('./shared_delta.mjs')).runSharedDelta(a); process.exit(0); }
   if (!a.out) { console.error('usage: synth.mjs --users 2000 --out <dir> [--seed 1] [--like <anonymised export>] [--avoid <dir,dir>] [--now <epoch s>]'); process.exit(2); }
   const like = a.like ? profileFrom(readDocs(path.resolve(a.like))) : null;
   // --avoid <dir,dir>: addresses and uids already taken (anonymised prod, the personas), so combining never collides.

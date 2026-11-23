@@ -237,6 +237,28 @@ cap. With the real mirror (~2.6k) expect about 11.1k, plus the personas (~200).
 If the mirror alone is already loaded, `load.mjs --skip-same-as <anon>` writes
 only the difference (new documents and the merged ones).
 
+### More shared data on top of a loaded set (`synth.mjs --shared-delta`)
+
+```sh
+node tools/prod_mirror/synth.mjs --shared-delta --base <combined> --out <dir> [--seed 9] [--scale 1.8] [--budget 6000]
+node tools/prod_mirror/load.mjs --in <dir> --target staging --skip-same-as <combined> --dry     # the write count
+```
+
+Reads the base and adds, using only its people, courses and professors:
+course links on ~70 courses per campus in every state (live, pinned, flagged
+open and closed, reported, removed, unapproved contributor batches) with their
+reports and flags; contributors at eight point levels with usernames, grants,
+requests and the leaderboard; pending, declined and withdrawn requests;
+offerings with professors and components; a 2026-2 timetable per campus;
+votes and reports on existing reviews; course claims; volunteers; directory
+and staffContacts for holders that lack them; search hints; activity. The
+derived documents (`resourceVersions`, `leaderboard`, `repIndex`, `searchHints`,
+`activity`, `pending`, the review entries and their campus mirrors, `heads`
+markers and offerings map) are rewritten to agree. `--out` is base + delta;
+the load writes only what differs (the count `--dry` prints) and refuses to run
+over `--budget`. On a 11.4k-document base: 2,869 writes at `--scale 1`, 4,905
+at the default 1.8.
+
 ### Sign-in accounts on staging
 
 Existing keys (`student_full`, `president`, `owner`, …) are Auth accounts whose
