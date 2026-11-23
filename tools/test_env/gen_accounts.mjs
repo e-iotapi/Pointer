@@ -25,7 +25,8 @@ const testAccountPassword = '${config.password}';
 }
 
 function main() {
-  const configPath = path.join(root, 'test_env', 'accounts.json');
+  // Optional: another accounts file (the prod mirror writes one). Default as before.
+  const configPath = process.argv[2] ? path.resolve(process.argv[2]) : path.join(root, 'test_env', 'accounts.json');
   const config = JSON.parse(readFileSync(configPath, 'utf8'));
   const outPath = path.join(root, 'lib', 'core', 'env', 'test_accounts.g.dart');
   writeFileSync(outPath, generate(config));
