@@ -63,7 +63,7 @@ export function profileFrom(docs) {
   };
 }
 
-export function synthesise({ users = 2000, seed = 1, like = null, now = Math.floor(Date.UTC(2026, 10, 23) / 1000) } = {}) {
+export function synthesise({ users = 2000, seed = 1, like = null, now = Math.floor(Date.UTC(2026, 10, 23) / 1000), reserved = {} } = {}) {
   const rnd = mulberry32(seed * 2654435761);
   const int = (a, b) => a + Math.floor(rnd() * (b - a + 1));
   const pick = (a) => a[Math.floor(rnd() * a.length)];
@@ -82,10 +82,11 @@ export function synthesise({ users = 2000, seed = 1, like = null, now = Math.flo
   const nowD = new Date(now * 1000);
   const acadStart = nowD.getUTCMonth() >= 6 ? nowD.getUTCFullYear() : nowD.getUTCFullYear() - 1;
   const term = `${acadStart}-${String(acadStart + 1).slice(2)}-${nowD.getUTCMonth() >= 6 ? 1 : 2}`;
-  const emails = new Set();
+  const emails = new Set(reserved.emails ?? []);
+  const usedUids = new Set(reserved.uids ?? []);
   const people = [];
   let uidN = 0;
-  const mkUid = () => sha(`uid${seed}-${uidN++}`).slice(0, 28).replace(/[a-f]/g, (c) => c.toUpperCase());
+  const mkUid = () => { for (;;) { const u = sha(`uid${seed}-${uidN++}`).slice(0, 28).replace(/[a-f]/g, (c) => c.toUpperCase()); if (!usedUids.has(u)) return u; } };
 
   // ---- people --------------------------------------------------------------
   const newPerson = (campus, o = {}) => {
@@ -574,9 +575,21 @@ export function printCoverage(cov, log = console.log) {
 
 if (process.argv[1] === fileURLToPath(import.meta.url)) {
   const a = parseArgs(process.argv.slice(2));
-  if (!a.out) { console.error('usage: synth.mjs --users 2000 --out <dir> [--seed 1] [--like <anonymised export>] [--now <epoch s>]'); process.exit(2); }
+  if (!a.out) { console.error('usage: synth.mjs --users 2000 --out <dir> [--seed 1] [--like <anonymised export>] [--avoid <dir,dir>] [--now <epoch s>]'); process.exit(2); }
   const like = a.like ? profileFrom(readDocs(path.resolve(a.like))) : null;
-  const r = synthesise({ users: Number(a.users ?? 2000), seed: Number(a.seed ?? 1), like, ...(a.now ? { now: Number(a.now) } : {}) });
+  // --avoid <dir,dir>: addresses and uids already taken (anonymised prod, the personas), so combining never collides.
+  const reserved = { emails: new Set(), uids: new Set() };
+  // the seed's ?as= accounts are taken too
+  for (const x of JSON.parse(readFileSync(path.join(root, 'test_env', 'accounts.json'), 'utf8')).accounts) reserved.emails.add(x.email.toLowerCase());
+  for (const d of (a.avoid ?? '').split(',').filter(Boolean)) {
+    const dir = path.resolve(d);
+    for (const u of readAuth(dir)) { if (u.email) reserved.emails.add(u.email.toLowerCase()); reserved.uids.add(u.uid); }
+    for (const x of readDocs(dir)) {
+      for (const e of x.path.match(/[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[a-z]+/g) ?? []) reserved.emails.add(e.toLowerCase());
+      if (x.path.startsWith('users/')) reserved.uids.add(x.path.slice(6));
+    }
+  }
+  const r = synthesise({ users: Number(a.users ?? 2000), seed: Number(a.seed ?? 1), like, reserved, ...(a.now ? { now: Number(a.now) } : {}) });
   const out = path.resolve(a.out);
   mkdirSync(out, { recursive: true });
   writeDocs(out, r.docs, r.auth);

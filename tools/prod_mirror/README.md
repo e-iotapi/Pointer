@@ -165,12 +165,12 @@ The staging build bakes its `?as=` table in at build time, so to use these keys
 build with them:
 
 ```sh
-node tools/test_env/gen_accounts.mjs sensitive_data_NO_COMMIT/mirror/anon/accounts.mirror.json
+node tools/prod_mirror/gen_mirror_accounts.mjs sensitive_data_NO_COMMIT/mirror/anon/accounts.mirror.json
 flutter build web --dart-define=POINTER_ENV=staging --dart-define=POINTER_TEST_PASSWORD=$STAGING_PASSWORD …
 git checkout lib/core/env/test_accounts.g.dart      # the committed table is unchanged
 ```
 
-(`gen_accounts.mjs` without an argument behaves as before.) The usual keys
+(It adds the mirrored keys to the usual ones.) The usual keys
 (`student_full`, `president`, …) keep working when the seed's accounts exist.
 Without `auth.json` in the export, the mirrored people exist only as data:
 export without `--no-auth`.
@@ -207,7 +207,92 @@ markers agree with the grants and entries they describe.
 `tools/prod_mirror/synth_rules.test.mjs` loads a set into the emulator and
 reads it back through the real rules as each kind of person.
 
-## 5. Pointing the backtest at it
+## 5. One dataset from several (`combine.mjs`) and the staging plan
+
+Loading anonymised prod and a synthetic set one after the other makes the
+second overwrite the first's shared documents (`heads`, `repIndex`, review
+index, resource mirror, leaderboard…). Combine them first:
+
+```sh
+node tools/prod_mirror/synth.mjs --users 2000 --like <anon> --avoid <anon>[,<personas>] --out <synth>
+node tools/prod_mirror/combine.mjs --out <combined> <anon> [<personas>] <synth>     # first wins on a clash
+```
+
+`--avoid` keeps synthetic addresses and uids away from the mirror's, the
+personas' and the seed's `?as=` accounts. In `combine`: people and everything
+keyed by them are simply added; **merged** (not replaced) are `heads` (markers
+and offerings take the max), `repIndex`, `reviewIndex` (counters summed),
+review mirrors, review `stats` (summed), `resourceVersions`, `leaderboard`,
+`searchHints`, `activity`, `pending`; the **first set wins** for catalogue,
+config, timetable (a campus that has one), offerings and any other clash. A
+synthetic set's professors are replaced by the earlier sets' professors of the
+same campus and department (its reviews, stats and offerings follow), so it
+reuses real courses and professors. It prints, per set, how many documents were
+added, merged and left out, and the combined write count.
+
+Measured with a 2,874-document stand-in for the mirror and 2,000 synthetic
+users (9,121 documents): 11,373 combined documents, 8,499 + 260 merged from the
+synthetic set and 170 left out: about 11.4k writes, one day under the 18,000
+cap. With the real mirror (~2.6k) expect about 11.1k, plus the personas (~200).
+If the mirror alone is already loaded, `load.mjs --skip-same-as <anon>` writes
+only the difference (new documents and the merged ones).
+
+### Sign-in accounts on staging
+
+Existing keys (`student_full`, `president`, `owner`, …) are Auth accounts whose
+data comes from `tools/test_env/seed.mjs`. A wipe deletes that data, and a
+reseed afterwards would overwrite shared documents (see below), so instead of
+re-running the seed, the **personas** are made a dataset of their own:
+
+```sh
+# 1. the uids staging's Auth already has for the seed's emails (staging key; Auth reads only)
+GOOGLE_APPLICATION_CREDENTIALS=<staging key> node tools/prod_mirror/personas.mjs --lookup --out <dir>
+# 2. seed the emulator with those uids, export it (emulators running, seed snapshots built)
+node tools/prod_mirror/personas.mjs --build --out <dir>          # → <dir>/personas
+# 3. combine it with the mirror and load
+node tools/prod_mirror/combine.mjs --out <combined> <anon> <dir>/personas <synth>
+```
+
+Their `users/{uid}` docs carry staging's uids, so every existing `?as=` key
+lands on a working persona with no rebuild of the app. (a), loading on top
+without a wipe, would let the mirror's `set`s replace the seed's shared
+documents; this way they are merged. `personas.mjs` needs the seed snapshots
+(`POINTER_SEED=1 flutter test tools/test_env/build_snapshots_test.dart`) and
+has not been run end to end here; its parts (`seed.mjs`, `export.mjs`,
+`combine.mjs`) are each tested.
+
+Mirrored people get their own password, not `STAGING_PASSWORD` and not the CI
+secret: `load.mjs … --password-file sensitive_data_NO_COMMIT/mirror/password.txt`
+makes one on first use (0600; refused inside the repo) and writes the
+persona → email table, with that password, to `accounts.mirror.json` in the
+input directory (keep it in the ignored folder). Keys are `mirror_owner`,
+`mirror_admin`, `mirror_president`, `mirror_secretary`, `mirror_cr`,
+`mirror_contributor`, `mirror_custom`, `mirror_expired`, `mirror_student_<campus>`.
+Adding these keys to a staging build needs one rebuild:
+`node tools/prod_mirror/gen_mirror_accounts.mjs <accounts.mirror.json>` (adds them
+to the usual keys; nothing under `tools/test_env` is edited), build, then
+`git checkout lib/core/env/test_accounts.g.dart`.
+
+### Does a staging reseed wipe everything?
+
+No. `deploy-staging.yml` reseeds on a push to `pointer-dev` when `tools/test_env/`
+or `test_env/` changed (or `[reseed]` is in the commit message), and
+`seed.mjs`'s staging wipe deletes only: documents with `seed: true` (or
+`touchedBy: 'seed'`), the seed accounts' `people/` docs, and a fixed list
+(`catalog/*`, `config/public`, `config/grantTerms`, `leaderboard/goa`,
+`activity/goa`, `pending/goa|ELEC`, the seed's own timetable). Mirror and
+synthetic documents carry no `seed` flag, so they stay. What a reseed does
+change: it rewrites those singletons (so the goa leaderboard, goa ELEC pending
+batches, goa activity, config and catalogue become the seed's), `set`s
+`resourceVersions/goa` (the goa resource list shows only the seed's links until
+repaired) and recomputes `repIndex`, `reviewIndex` and the review mirrors from
+all documents (consistent). Merging this branch does **not** trigger it: it
+changes nothing under `tools/test_env` or `test_env` (`gen_accounts.mjs` is
+untouched; `gen_mirror_accounts.mjs` lives here). If a reseed happens anyway,
+repair with
+`load.mjs --in <combined> --target staging --only resourceVersions/goa,leaderboard/goa,pending/goa,activity/goa,config,catalog,heads`.
+
+## 6. Pointing the backtest at it
 
 The backtest toolset reads an export with `--export <dir>`. The anonymised
 output has the same layout (`docs.jsonl`, `auth.json`), so
