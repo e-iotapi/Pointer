@@ -65,9 +65,53 @@ it into `build/demo`.
 
 ## Tests and checks
 
+Every suite runs from one entry point, in tiers:
+
+```sh
+tools/qa/run.sh --tier 0,1     # before a push (CI runs this on every push)
+tools/qa/run.sh --tier 2       # rules or roles changed; before a release
+tools/qa/run.sh --tier 3,4     # before a release (release.yml runs it)
+tools/qa/run.sh --tier all
+```
+
+| Tier | What | Time here (12 cores, ~2 GB free) |
+|---|---|---|
+| T0 fast | analyzer vs `tools/analyze_baseline.txt`, `flutter test`, Worker vitest, tool unit tests (`tools/prod_mirror`, seed markers), fixture and allow-list checks, `ui_check` (local only) | ~4 min |
+| T1 rules | `test/rules`, four files at once, each in its own emulator project (`demo-r-<file>`) | ~2.5 min, beside T0 |
+| T2 compatibility | `tools/backtest/rules` + `tools/backtest/app` against `--base` (default `origin/master`), both also fed the shared fixtures | ~17 min |
+| T3 live system | `tools/e2e/live.sh local`: emulator + `wrangler dev` Worker + browsers, on the shared fixtures with the seed on top | ~9 min with the build |
+| T4 production-like | `tools/qa/t4.sh`: the e2e journeys on the base build and the new build side by side, on fixtures + synthetic people (`tools/prod_mirror`) + seed | ~21 min with both builds |
+
+`run.sh` starts every step at once and prints one pass/fail table; logs are in
+`build/qa/run/<step>.log`. Heavy steps queue in `tools/qa/heavy.sh` (also
+`/tmp/pointer-heavy.sh`): one **emulator lane** (anything binding 8085/9099:
+emulators, e2e, live) and one **compute lane** (Flutter tests, builds), each
+starting a job only with 2 GB free and 20 s after the other lane's last start.
+T3 and T4 both serve `build/web`, so they run one after the other; `--tier all`
+takes ~30 min. Before/after timings and what the tiers found:
+`agent_instructions/deprecated/TEST_ARCHITECTURE_PLAN.md`.
+
+- **Shared fixtures:** `test_env/fixtures/prod_shapes.json` (versioned) is one
+  production-shaped document set: the stable app's own encoders' output
+  (refreshed by every T2 app run), plus the hand-copied stable write shapes and
+  the shapes no encoder writes. `node tools/qa/fixtures.mjs build` regenerates
+  it from those sources, `check` (T0) fails when it is stale, and
+  `out rules|app|jsonl <path>` writes it for the backtests' `--export`, for
+  `prod_mirror/load.mjs` / `combine.mjs` (T3, T4, a staging mirror).
+- **Allow-lists:** an intended difference goes in
+  `tools/backtest/rules/allowlist.json` or `tools/backtest/app/allowlist.json`
+  (kind `e2e` for a T4 journey), one reason per entry; `tools/qa/allowlists.mjs`
+  (T0) refuses an entry without one. Each run then flags only new differences.
+- **Parallel e2e:** `E2E_WORKERS` (default 2) Playwright workers, each on its
+  own emulator project `demo-e2e-<n>` seeded by `tools/e2e/global_setup.mjs`;
+  the emulator build reads it from `window.pointerEmulatorProject`. Auth stays
+  on `demo-pointer`, so every worker signs in as the same accounts.
+
+Single suites, while iterating:
+
 ```sh
 flutter test                               # unit, widget and render tests
-cd test/rules && npm install && npm test   # security rules, on the emulator
+cd test/rules && npm install && npm test   # security rules (RULES_JOBS=4 files at once)
 python3 agent_toolchains/code/verify.py    # analyzer baseline + full suite
 ```
 
@@ -90,9 +134,10 @@ python3 agent_toolchains/code/verify.py    # analyzer baseline + full suite
 - **Analyzer baseline:** CI fails on any analyzer issue not in
   `tools/analyze_baseline.txt`; the legacy files' old issues are listed there.
 
-`check.yml` runs the analyzer baseline, every test, the rules tests and a
-production-build guard (test sign-in must not reach a prod build) on every
-pull request into `pointer-dev`, and again before every release to beta.
+`check.yml` runs T0 + T1 and a production-build guard (test sign-in must not
+reach a prod build) on every push to and pull request into `pointer-dev`, and
+again before every release to beta. `qa.yml` runs T2 on pushes that touch the
+rules or roles, and T3 + T4 when `release.yml` promotes to beta.
 
 ## Releasing
 
@@ -154,6 +199,7 @@ keys are passed by path and never committed.
 | `tools/import/import.mjs` | `faculty`, `reviews` (the old course reviews, handouts and class averages) and `rebuild` (every summary from the source documents) |
 | `tools/export_catalog.dart` | Exports the course catalogue to `assets/catalog.json` |
 | `tools/subset_fonts.sh` | Subsets the bundled fonts to the characters the app uses |
+| `tools/backend_tools/import_sheet.mjs` | Imports a student's ERP performance sheet into their account (`users/{uid}`), as the in-app import would, when it cannot run on their device; backs the doc up to `sensitive_data_NO_COMMIT/backend_backups/` first |
 
 Their outputs (`tools/course_reviews_out/`, `tools/perf_out/`) are
 git-ignored: they hold real student data.

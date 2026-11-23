@@ -25,6 +25,9 @@ done
 [ "$TIERS" = all ] && TIERS=0,1,2,3,4
 OUT=build/qa/run; rm -rf "$OUT"; mkdir -p "$OUT"
 H="$ROOT/tools/qa/heavy.sh"
+# The backtests queue their own emulator steps through /tmp/pointer-heavy.sh when it
+# exists; without it (CI) two emulators would race for 8085.
+[ -e /tmp/pointer-heavy.sh ] || ln -s "$H" /tmp/pointer-heavy.sh
 LIVE_DEFS="--dart-define=POINTER_ENV=emulator --dart-define=POINTER_EMULATOR_HOST=127.0.0.1 --dart-define=POINTER_HEADS_URL=http://127.0.0.1:8793 --dart-define=POINTER_LIVE_URL=ws://127.0.0.1:8793"
 
 # step <name> <lane: emu|compute|self> <command>   ("self": the command queues its own parts)
@@ -38,7 +41,7 @@ if has 0; then
   step t0-worker  compute 'cd server && npm test'
   # Renders differ between machines (agent_toolchains/README.md), so CI leaves ui_check out.
   [ -n "${CI:-}" ] || step t0-ui compute 'python3 agent_toolchains/ui_check/ui_check.py run'
-  step t0-tools   compute 'node tools/qa/fixtures.mjs check && node tools/qa/allowlists.mjs && (cd tools/prod_mirror && { [ -e node_modules ] || ln -s ../test_env/node_modules node_modules; } && npm test)'
+  step t0-tools   compute 'node tools/qa/fixtures.mjs check && node tools/qa/allowlists.mjs && node --test tools/test_env/markers.test.mjs && (cd tools/prod_mirror && { [ -e node_modules ] || ln -s ../test_env/node_modules node_modules; } && npm test)'
 fi
 has 1 && step t1-rules emu 'cd test/rules && npm test'
 if has 2; then

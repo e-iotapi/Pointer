@@ -79,6 +79,7 @@ void main() async {
   registerMarksAdapters();
   await Perf.time('startup.openBoxes', Sync.openBoxes);
   String? message;
+  User? testUser;
   if (takeSignInRedirect()) {
     // Back from Google on a fresh load: the result, or why it failed.
     try {
@@ -92,7 +93,7 @@ void main() async {
     // A refused test sign-in (a stale password) must not stop the app
     // before its first frame: say why and fall through to sign-in.
     try {
-      await Perf.time('startup.testSignIn', testSignIn);
+      testUser = await Perf.time('startup.testSignIn', testSignIn);
     } on FirebaseAuthException catch (e) {
       debugPrint('[Pointer test] ?as= sign-in refused: ${e.code}');
       message = 'Test sign-in refused (${e.code}). Re-run the staging seed.';
@@ -101,7 +102,10 @@ void main() async {
       await FirebaseAuth.instance.signOut();
     }
   }
-  final user = await Perf.time(
+  // A ?as= sign-in already holds its user: waiting for authStateChanges
+  // after it hung some emulator loads for good (the first state never
+  // reached FlutterFire; tools/qa T3/T4, 2026-11-23).
+  final user = testUser ?? await Perf.time(
     'startup.authState',
     () => FirebaseAuth.instance.authStateChanges().first,
   );

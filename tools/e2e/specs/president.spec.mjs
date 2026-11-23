@@ -32,6 +32,6 @@ test.describe('president', () => {
 
   test('/admin/people redirects home (owner/admin only)', async ({ page }) => {
     await goto(page, '/admin/people');
-    await expect(page).toHaveURL(/\/$/);
+    await expect(page).toHaveURL(/\/home(\?.*)?$/);
   });
 });

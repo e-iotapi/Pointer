@@ -130,14 +130,31 @@ const NEW_MARKERS = [
 ];
 
 async function bumpMarkers(db) {
-  const batch = db.batch();
   for (const campus of ['goa', 'pilani', 'hyderabad', 'dubai']) {
     const head = (await db.doc(`heads/${campus}`).get()).data() ?? {};
-    const step = (m, extra = []) =>
-      Object.fromEntries([...Object.keys(m ?? {}), ...extra].map((k) => [k, FieldValue.increment(1)]));
-    batch.set(db.doc(`heads/${campus}`), { v: step(head.v, NEW_MARKERS), offerings: step(head.offerings) }, { merge: true });
+    for (const chunk of markerBumps(head, NEW_MARKERS)) {
+      const inc = (m) => Object.fromEntries(Object.entries(m).map(([k]) => [k, FieldValue.increment(1)]));
+      await db.doc(`heads/${campus}`).set({ v: inc(chunk.v), offerings: inc(chunk.offerings) }, { merge: true });
+    }
   }
-  await batch.commit();
+}
+
+/// The marker keys of [head] (plus [extra] new ones) in writes of at most
+/// [max] keys: Firestore refuses more than 500 field transforms on one
+/// document per write, and a staging head that holds a mirror's offerings
+/// has more than that.
+export function markerBumps(head, extra = [], max = 450) {
+  const keys = [
+    ...[...new Set([...Object.keys(head.v ?? {}), ...extra])].map((k) => ['v', k]),
+    ...Object.keys(head.offerings ?? {}).map((k) => ['offerings', k]),
+  ];
+  const out = [];
+  for (let i = 0; i < keys.length; i += max) {
+    const chunk = { v: {}, offerings: {} };
+    for (const [m, k] of keys.slice(i, i + max)) chunk[m][k] = 1;
+    out.push(chunk);
+  }
+  return out;
 }
 
 // ---- wipe -------------------------------------------------------------
@@ -502,17 +519,20 @@ async function seedRepIndex(db) {
 // ---- staffContacts + directory -----------------------------------------
 
 async function seedContacts(db, byKey) {
-  for (const key of ['president', 'cr']) {
+  // Everyone privileged has a staff contact, or the app opens on "Before you
+  // start" (needsProfile); only a president or CR is also listed.
+  for (const key of ['owner', 'admin', 'president', 'cr']) {
     const a = byKey[key];
-    if (!a?.roles?.length) continue;
+    if (!a) continue;
     const profile = a.profile ?? {};
     const batch = db.batch();
     batch.set(db.doc(`staffContacts/${a.email}`), s({
       name: personName(a),
-      phone: profile.phone ?? '',
+      phone: profile.phone ?? '9000000000',
       email: a.email,
       updatedAt: FieldValue.serverTimestamp(),
     }));
+    if (!a.roles?.some((r) => r.role !== 'admin')) { await batch.commit(); continue; }
     batch.set(db.doc(`directory/${a.email}`), s({
       name: personName(a),
       campus: a.roles[0].campus,
@@ -1118,4 +1138,5 @@ async function seedTimetable(db) {
   await b.commit();
 }
 
-await main();
+// Importable (markers.test.mjs) without seeding anything.
+if (process.argv[1] && path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)) await main();

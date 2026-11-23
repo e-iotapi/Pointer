@@ -1,9 +1,9 @@
 {
   "password": "pointer-test-only",
   "accounts": [
-    {"key": "owner", "email": "owner@pointer.test", "name": "Test Owner", "owner": true},
+    {"key": "owner", "email": "owner@pointer.test", "name": "Test Owner", "owner": true, "dataset": "student_full"},
     {"key": "admin", "email": "f20209991@pilani.bits-pilani.ac.in", "name": "Test Admin",
-     "roles": [{"role": "admin", "campus": "all", "scope": "all"}]},
+     "roles": [{"role": "admin", "campus": "all", "scope": "all"}], "dataset": "student_full"},
     {"key": "president", "email": "f20239992@goa.bits-pilani.ac.in", "name": "Test President",
      "roles": [{"role": "dept", "campus": "goa", "scope": "ELEC", "programme": "A3"}], "dataset": "student_full",
      "profile": {"phone": "9000000001", "showEmail": true, "whatsapp": "9000000001"}},
@@ -15,7 +15,7 @@
     {"key": "student_new", "email": "f20269996@goa.bits-pilani.ac.in", "name": "Test Fresher", "dataset": "first_login"},
     {"key": "student_hyd", "email": "f20249997@hyderabad.bits-pilani.ac.in", "discipline": "--A7", "batch": 24, "dataset": "student_full"},
     {"key": "president_expired", "email": "f20219998@goa.bits-pilani.ac.in",
-     "roles": [{"role": "dept", "campus": "goa", "scope": "CS", "programme": "A7", "expiresInDays": -5}]},
+     "roles": [{"role": "dept", "campus": "goa", "scope": "CS", "programme": "A7", "expiresInDays": -5}], "dataset": "student_full"},
     {"key": "faculty", "email": "testfaculty@goa.bits-pilani.ac.in", "dataset": "first_login"},
     {"key": "contributor", "email": "f20249911@goa.bits-pilani.ac.in", "name": "Test Contributor", "dataset": "student_full",
      "contributor": {"dept": "ELEC", "username": "ctest", "points": 8}},

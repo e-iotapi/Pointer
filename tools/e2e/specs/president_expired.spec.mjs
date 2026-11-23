@@ -7,6 +7,6 @@ import { assertNoErrors, goto, signInRaw } from './helpers.mjs';
 test('an expired president has no maintain access', async ({ page }) => {
   await signInRaw(page, 'president_expired');
   await goto(page, '/maintain/goa/CS');
-  await expect(page).toHaveURL(/\/$/);
+  await expect(page).toHaveURL(/\/home(\?.*)?$/);
   await assertNoErrors(page);
 });

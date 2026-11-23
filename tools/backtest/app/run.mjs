@@ -155,6 +155,8 @@ if (!skipRules) {
   for (const m of txt.matchAll(/^\s*not ok \d+ - (BREAK [\w-]+)/gm))
     findings.push({ severity: 'break', id: m[1].replace('BREAK ', ''), source: 'rules emulator', text: `rules test failed: ${m[1]}` });
   held.rulesMixed = { passed: (txt.match(/^# pass (\d+)/m) ?? [])[1], failed: (txt.match(/^# fail (\d+)/m) ?? [])[1] };
+  // No test summary means the emulator step never ran its tests: that is a finding, not a pass.
+  if (held.rulesMixed.passed == null) findings.push({ severity: 'break', id: 'rules-mixed-not-run', source: 'rules emulator', text: `the emulator step printed no test summary (exit ${r.status}): ${txt.slice(-800)}` });
 }
 
 // 7. Real data hook.

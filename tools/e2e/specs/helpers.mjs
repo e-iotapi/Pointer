@@ -55,6 +55,13 @@ export async function settled(page) {
   );
 }
 
+/// The contributor nudge ("Become a Contributor…") covers the page once per
+/// open; dismiss it if it shows, never fail if it does not.
+async function dismissNudge(page, ms = 1500) {
+  const later = page.getByRole('button', { name: 'Not now' });
+  await later.first().waitFor({ timeout: ms }).then(() => later.first().click()).catch(() => {});
+}
+
 /// Signs in as [key] from test_env/accounts.json via the ?as= test hook
 /// (T1), without waiting for any particular screen — for accounts that
 /// land on degree setup rather than Home (student_new, faculty).
@@ -69,6 +76,7 @@ export async function signInRaw(page, key) {
 export async function signIn(page, key) {
   await signInRaw(page, key);
   await expect(page.getByText('More', { exact: true })).toBeVisible({ timeout: 30_000 });
+  await dismissNudge(page);
 }
 
 const ERROR_STRINGS = ['That did not work', 'Not allowed', 'No connection'];
@@ -89,12 +97,14 @@ export async function goto(page, route) {
   if (page.pointerAs && !/[?&]as=/.test(route)) route += `${route.includes('?') ? '&' : '?'}as=${page.pointerAs}`;
   await page.goto(route);
   await settled(page);
+  await dismissNudge(page);
 }
 
 /// Visits [route] and checks it rendered something real, with no error text.
 export async function visitAndCheck(page, route) {
   await goto(page, route);
   await page.waitForTimeout(500); // Flutter's post-navigate frame settles
+  await dismissNudge(page, 1000); // the nudge can come after the page's own data
   const body = await page.locator('body').innerText();
   expect(body.trim().length, `"${route}" rendered no visible text`).toBeGreaterThan(0);
   // The sign-in screen has text and no errors too: a lost session must not pass.
