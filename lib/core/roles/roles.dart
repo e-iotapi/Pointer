@@ -497,7 +497,8 @@ class MyRoles {
   bool get staff => owner || grants.any((g) => g.role != GrantRole.course);
 
   /// Whether the person may open the admin screens.
-  bool get reachesAdmin => owner || admin || custom != null;
+  bool get reachesAdmin =>
+      owner || admin || (custom?.liveAt(DateTime.now()) ?? false);
 
   /// The live department grants.
   Iterable<Grant> get presidencies =>

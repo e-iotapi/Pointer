@@ -204,18 +204,28 @@ void restoreMyRoles({String? email}) {
                 case final x? when x.liveAt(DateTime.now()))
               x,
         ],
-        defs:
-            m['defs'] == null ? null : RoleStore.decodeDefs(m['defs']),
-        custom:
-            m['custom'] == null
-                ? null
-                : Grant.fromMap(
-                  Map<String, dynamic>.from(m['custom'] as Map),
-                ),
+        // A damaged defs entry falls back to the defaults, and a damaged or
+        // lapsed custom grant is dropped; neither costs the grants (backtest
+        // cached-defs-damaged-drops-grants, lapsed-custom-cache-opens-admin).
+        defs: _tryOrNull(() => RoleStore.decodeDefs(m['defs'])),
+        custom: _tryOrNull<Grant?>(() {
+          final g = Grant.tryFromMap(
+            Map<String, dynamic>.from(m['custom'] as Map),
+          );
+          return g != null && g.liveAt(DateTime.now()) ? g : null;
+        }),
       ),
     );
   } on Object catch (e) {
     debugPrint('[Pointer roles] cached roles unreadable: $e');
+  }
+}
+
+T? _tryOrNull<T>(T Function() f) {
+  try {
+    return f();
+  } on Object {
+    return null;
   }
 }
 
