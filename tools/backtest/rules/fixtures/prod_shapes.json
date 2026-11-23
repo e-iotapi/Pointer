@@ -1,0 +1,578 @@
+{
+ "actors": {
+  "STUDENT": "f20230456@goa.bits-pilani.ac.in",
+  "CR": "f20240010@goa.bits-pilani.ac.in",
+  "PRES": "f20230802@goa.bits-pilani.ac.in",
+  "SEC": "f20230803@goa.bits-pilani.ac.in",
+  "ADMIN_P": "f20200001@pilani.bits-pilani.ac.in",
+  "ADMIN_G": "f20200002@goa.bits-pilani.ac.in",
+  "OWNER": "owner@gmail.com",
+  "CONTRIB": "f20230777@goa.bits-pilani.ac.in",
+  "MULTI": "f20230900@goa.bits-pilani.ac.in",
+  "ADMINPRES": "f20200003@goa.bits-pilani.ac.in",
+  "OTHER": "f20230119@hyderabad.bits-pilani.ac.in",
+  "FACULTY": "rmenon@goa.bits-pilani.ac.in",
+  "TARGET": "f20231111@goa.bits-pilani.ac.in"
+ },
+ "docs": {
+  "people/f20230456@goa.bits-pilani.ac.in": {
+   "name": "Name of f20230456",
+   "campus": "goa",
+   "firstSignIn": 1,
+   "lastSeen": 2
+  },
+  "people/f20240010@goa.bits-pilani.ac.in": {
+   "name": "Name of f20240010",
+   "campus": "goa",
+   "firstSignIn": 1,
+   "lastSeen": 2
+  },
+  "people/f20230802@goa.bits-pilani.ac.in": {
+   "name": "Name of f20230802",
+   "campus": "goa",
+   "firstSignIn": 1,
+   "lastSeen": 2
+  },
+  "people/f20230803@goa.bits-pilani.ac.in": {
+   "name": "Name of f20230803",
+   "campus": "goa",
+   "firstSignIn": 1,
+   "lastSeen": 2
+  },
+  "people/f20200001@pilani.bits-pilani.ac.in": {
+   "name": "Name of f20200001",
+   "campus": "pilani",
+   "firstSignIn": 1,
+   "lastSeen": 2
+  },
+  "people/f20200002@goa.bits-pilani.ac.in": {
+   "name": "Name of f20200002",
+   "campus": "goa",
+   "firstSignIn": 1,
+   "lastSeen": 2
+  },
+  "people/f20230777@goa.bits-pilani.ac.in": {
+   "name": "Name of f20230777",
+   "campus": "goa",
+   "firstSignIn": 1,
+   "lastSeen": 2
+  },
+  "people/f20230900@goa.bits-pilani.ac.in": {
+   "name": "Name of f20230900",
+   "campus": "goa",
+   "firstSignIn": 1,
+   "lastSeen": 2
+  },
+  "people/f20200003@goa.bits-pilani.ac.in": {
+   "name": "Name of f20200003",
+   "campus": "goa",
+   "firstSignIn": 1,
+   "lastSeen": 2
+  },
+  "people/f20230119@hyderabad.bits-pilani.ac.in": {
+   "name": "Name of f20230119",
+   "campus": "hyderabad",
+   "firstSignIn": 1,
+   "lastSeen": 2
+  },
+  "people/f20231111@goa.bits-pilani.ac.in": {
+   "name": "Name of f20231111",
+   "campus": "goa",
+   "firstSignIn": 1,
+   "lastSeen": 2
+  },
+  "people/owner@gmail.com": {
+   "name": "The Owner",
+   "campus": "goa",
+   "firstSignIn": 1
+  },
+  "owners/owner@gmail.com": {
+   "email": "owner@gmail.com",
+   "name": "The Owner",
+   "active": true
+  },
+  "config/grantTerms": {
+   "crDays": 183,
+   "presidentDays": 365,
+   "adminDays": 730
+  },
+  "config/public": {
+   "contactName": "Help",
+   "contactMethod": "email",
+   "contactTarget": "help@x.org",
+   "contactEnabled": true
+  },
+  "grants/admin|all|all|f20200001@pilani.bits-pilani.ac.in": {
+   "role": "admin",
+   "campus": "all",
+   "scope": "all",
+   "email": "f20200001@pilani.bits-pilani.ac.in",
+   "name": "Name of f20200001",
+   "active": true,
+   "expiresAt": {
+    "$ts": 100
+   },
+   "grantedBy": {
+    "email": "owner@gmail.com",
+    "name": "The Owner"
+   },
+   "grantedAt": {
+    "$ts": -30
+   },
+   "auditId": "seed"
+  },
+  "staff/f20200001@pilani.bits-pilani.ac.in": {
+   "email": "f20200001@pilani.bits-pilani.ac.in",
+   "name": "Name of f20200001",
+   "campus": "all",
+   "owner": false,
+   "admin": true,
+   "presidentOf": [],
+   "courses": [],
+   "expiresAt": {
+    "$ts": 100
+   },
+   "lastGrant": "seed"
+  },
+  "grants/admin|all|all|f20200002@goa.bits-pilani.ac.in": {
+   "role": "admin",
+   "campus": "all",
+   "scope": "all",
+   "email": "f20200002@goa.bits-pilani.ac.in",
+   "name": "Name of f20200002",
+   "active": true,
+   "expiresAt": {
+    "$ts": 100
+   },
+   "grantedBy": {
+    "email": "owner@gmail.com",
+    "name": "The Owner"
+   },
+   "grantedAt": {
+    "$ts": -30
+   },
+   "auditId": "seed"
+  },
+  "staff/f20200002@goa.bits-pilani.ac.in": {
+   "email": "f20200002@goa.bits-pilani.ac.in",
+   "name": "Name of f20200002",
+   "campus": "all",
+   "owner": false,
+   "admin": true,
+   "presidentOf": [],
+   "courses": [],
+   "expiresAt": {
+    "$ts": 100
+   },
+   "lastGrant": "seed"
+  },
+  "grants/dept|goa|ELEC|f20230802@goa.bits-pilani.ac.in": {
+   "role": "dept",
+   "campus": "goa",
+   "scope": "ELEC",
+   "email": "f20230802@goa.bits-pilani.ac.in",
+   "name": "Name of f20230802",
+   "active": true,
+   "expiresAt": {
+    "$ts": 100
+   },
+   "grantedBy": {
+    "email": "owner@gmail.com",
+    "name": "The Owner"
+   },
+   "grantedAt": {
+    "$ts": -30
+   },
+   "auditId": "seed",
+   "programme": "A3"
+  },
+  "staff/f20230802@goa.bits-pilani.ac.in": {
+   "email": "f20230802@goa.bits-pilani.ac.in",
+   "name": "Name of f20230802",
+   "campus": "goa",
+   "owner": false,
+   "admin": false,
+   "presidentOf": [
+    "ELEC"
+   ],
+   "courses": [],
+   "expiresAt": {
+    "$ts": 100
+   },
+   "lastGrant": "seed"
+  },
+  "grants/dept|goa|ELEC|f20230803@goa.bits-pilani.ac.in": {
+   "role": "dept",
+   "campus": "goa",
+   "scope": "ELEC",
+   "email": "f20230803@goa.bits-pilani.ac.in",
+   "name": "Name of f20230803",
+   "active": true,
+   "expiresAt": {
+    "$ts": 100
+   },
+   "grantedBy": {
+    "email": "owner@gmail.com",
+    "name": "The Owner"
+   },
+   "grantedAt": {
+    "$ts": -30
+   },
+   "auditId": "seed",
+   "programme": "A3",
+   "secretary": true
+  },
+  "staff/f20230803@goa.bits-pilani.ac.in": {
+   "email": "f20230803@goa.bits-pilani.ac.in",
+   "name": "Name of f20230803",
+   "campus": "goa",
+   "owner": false,
+   "admin": false,
+   "presidentOf": [
+    "ELEC"
+   ],
+   "courses": [],
+   "expiresAt": {
+    "$ts": 100
+   },
+   "lastGrant": "seed"
+  },
+  "grants/course|goa|EEE F211|f20240010@goa.bits-pilani.ac.in": {
+   "role": "course",
+   "campus": "goa",
+   "scope": "EEE F211",
+   "email": "f20240010@goa.bits-pilani.ac.in",
+   "name": "Name of f20240010",
+   "active": true,
+   "expiresAt": {
+    "$ts": 100
+   },
+   "grantedBy": {
+    "email": "owner@gmail.com",
+    "name": "The Owner"
+   },
+   "grantedAt": {
+    "$ts": -30
+   },
+   "auditId": "seed"
+  },
+  "staff/f20240010@goa.bits-pilani.ac.in": {
+   "email": "f20240010@goa.bits-pilani.ac.in",
+   "name": "Name of f20240010",
+   "campus": "goa",
+   "owner": false,
+   "admin": false,
+   "presidentOf": [],
+   "courses": [
+    "EEE F211"
+   ],
+   "expiresAt": {
+    "$ts": 100
+   },
+   "lastGrant": "seed"
+  },
+  "grants/contributor|goa|goa|f20230777@goa.bits-pilani.ac.in": {
+   "role": "contributor",
+   "campus": "goa",
+   "scope": "goa",
+   "email": "f20230777@goa.bits-pilani.ac.in",
+   "name": "Name of f20230777",
+   "active": true,
+   "expiresAt": {
+    "$ts": 100
+   },
+   "grantedBy": {
+    "email": "owner@gmail.com",
+    "name": "The Owner"
+   },
+   "grantedAt": {
+    "$ts": -30
+   },
+   "auditId": "seed"
+  },
+  "grants/dept|goa|CS|f20230900@goa.bits-pilani.ac.in": {
+   "role": "dept",
+   "campus": "goa",
+   "scope": "CS",
+   "email": "f20230900@goa.bits-pilani.ac.in",
+   "name": "Name of f20230900",
+   "active": true,
+   "expiresAt": {
+    "$ts": 100
+   },
+   "grantedBy": {
+    "email": "owner@gmail.com",
+    "name": "The Owner"
+   },
+   "grantedAt": {
+    "$ts": -30
+   },
+   "auditId": "seed",
+   "programme": "A7"
+  },
+  "grants/course|goa|CS F111|f20230900@goa.bits-pilani.ac.in": {
+   "role": "course",
+   "campus": "goa",
+   "scope": "CS F111",
+   "email": "f20230900@goa.bits-pilani.ac.in",
+   "name": "Name of f20230900",
+   "active": true,
+   "expiresAt": {
+    "$ts": 100
+   },
+   "grantedBy": {
+    "email": "owner@gmail.com",
+    "name": "The Owner"
+   },
+   "grantedAt": {
+    "$ts": -30
+   },
+   "auditId": "seed"
+  },
+  "grants/contributor|goa|goa|f20230900@goa.bits-pilani.ac.in": {
+   "role": "contributor",
+   "campus": "goa",
+   "scope": "goa",
+   "email": "f20230900@goa.bits-pilani.ac.in",
+   "name": "Name of f20230900",
+   "active": true,
+   "expiresAt": {
+    "$ts": 100
+   },
+   "grantedBy": {
+    "email": "owner@gmail.com",
+    "name": "The Owner"
+   },
+   "grantedAt": {
+    "$ts": -30
+   },
+   "auditId": "seed"
+  },
+  "staff/f20230900@goa.bits-pilani.ac.in": {
+   "email": "f20230900@goa.bits-pilani.ac.in",
+   "name": "Name of f20230900",
+   "campus": "goa",
+   "owner": false,
+   "admin": false,
+   "presidentOf": [
+    "CS"
+   ],
+   "courses": [
+    "CS F111"
+   ],
+   "expiresAt": {
+    "$ts": 100
+   },
+   "lastGrant": "seed"
+  },
+  "grants/admin|all|all|f20200003@goa.bits-pilani.ac.in": {
+   "role": "admin",
+   "campus": "all",
+   "scope": "all",
+   "email": "f20200003@goa.bits-pilani.ac.in",
+   "name": "Name of f20200003",
+   "active": true,
+   "expiresAt": {
+    "$ts": 100
+   },
+   "grantedBy": {
+    "email": "owner@gmail.com",
+    "name": "The Owner"
+   },
+   "grantedAt": {
+    "$ts": -30
+   },
+   "auditId": "seed"
+  },
+  "grants/dept|goa|ELEC|f20200003@goa.bits-pilani.ac.in": {
+   "role": "dept",
+   "campus": "goa",
+   "scope": "ELEC",
+   "email": "f20200003@goa.bits-pilani.ac.in",
+   "name": "Name of f20200003",
+   "active": true,
+   "expiresAt": {
+    "$ts": 100
+   },
+   "grantedBy": {
+    "email": "owner@gmail.com",
+    "name": "The Owner"
+   },
+   "grantedAt": {
+    "$ts": -30
+   },
+   "auditId": "seed",
+   "programme": "A3"
+  },
+  "staff/f20200003@goa.bits-pilani.ac.in": {
+   "email": "f20200003@goa.bits-pilani.ac.in",
+   "name": "Name of f20200003",
+   "campus": "goa",
+   "owner": false,
+   "admin": true,
+   "presidentOf": [
+    "ELEC"
+   ],
+   "courses": [],
+   "expiresAt": {
+    "$ts": 100
+   },
+   "lastGrant": "seed"
+  },
+  "reviewGate/goa": {
+   "on": true,
+   "by": {
+    "email": "f20230802@goa.bits-pilani.ac.in",
+    "name": "x"
+   },
+   "at": {
+    "$ts": -5
+   },
+   "auditId": "seed",
+   "dept": "ELEC"
+  },
+  "reviewGate/pilani": {
+   "on": false,
+   "by": {
+    "email": "f20200001@pilani.bits-pilani.ac.in",
+    "name": "x"
+   },
+   "at": {
+    "$ts": -5
+   },
+   "auditId": "seed"
+  },
+  "heads/goa": {
+   "v": {
+    "grants": 3,
+    "resources": 2,
+    "professors/ELEC": 1,
+    "terms": 1,
+    "reviewGate": 1,
+    "courseClaims": 1
+   }
+  },
+  "heads/pilani": {
+   "v": {
+    "grants": 1,
+    "terms": 1
+   }
+  },
+  "heads/hyderabad": {
+   "v": {
+    "grants": 1,
+    "terms": 1
+   }
+  },
+  "heads/dubai": {
+   "v": {
+    "grants": 1,
+    "terms": 1
+   }
+  },
+  "courses/EEE F211": {
+   "id": "EEE F211",
+   "title": "Electromagnetic Theory",
+   "credits": 3,
+   "retired": false,
+   "elective": false,
+   "draft": false
+  },
+  "courses/EEE F211/offerings/goa_2025-26-2": {
+   "courseId": "EEE F211",
+   "campus": "goa",
+   "term": "2025-26-2",
+   "components": [],
+   "updatedBy": {
+    "email": "f20230802@goa.bits-pilani.ac.in",
+    "name": "x"
+   },
+   "updatedAt": {
+    "$ts": -3
+   },
+   "auditId": "seed"
+  },
+  "professors/p1": {
+   "name": "Ramesh Menon",
+   "campus": "goa",
+   "department": "ELEC",
+   "aliases": [],
+   "nameTokens": [
+    "ramesh"
+   ],
+   "mergedIds": [],
+   "active": true
+  },
+  "professors/p2": {
+   "name": "Dr. R. Menon",
+   "campus": "goa",
+   "department": "ELEC",
+   "aliases": [],
+   "nameTokens": [],
+   "mergedIds": [],
+   "active": true
+  },
+  "resources/r1": {
+   "title": "Tutorial sheets",
+   "url": "https://drive.google.com/drive/folders/abc",
+   "host": "drive.google.com",
+   "kind": "folder",
+   "campus": "goa",
+   "department": "ELEC",
+   "scope": "department",
+   "courseIds": [],
+   "pinnedToDepartment": false,
+   "removed": false,
+   "actingFor": "",
+   "addedBy": {
+    "email": "f20230802@goa.bits-pilani.ac.in",
+    "name": "x"
+   },
+   "addedAt": {
+    "$ts": -9
+   },
+   "auditId": "seed"
+  },
+  "resourceVersions/goa": {
+   "v": 1,
+   "k": "r1",
+   "links": {
+    "r1": {
+     "title": "Tutorial sheets",
+     "url": "https://drive.google.com/drive/folders/abc",
+     "department": "ELEC",
+     "scope": "department",
+     "courseIds": [],
+     "pinnedToDepartment": false
+    }
+   }
+  },
+  "contributorRequests/goa|ELEC|f20230777@goa.bits-pilani.ac.in": {
+   "name": "c",
+   "email": "f20230777@goa.bits-pilani.ac.in",
+   "campus": "goa",
+   "dept": "ELEC",
+   "status": "pending",
+   "createdAt": {
+    "$ts": -1
+   }
+  },
+  "courseClaims/goa|GEN F101": {
+   "campus": "goa",
+   "courseId": "GEN F101",
+   "dept": "ELEC",
+   "by": {
+    "email": "f20230802@goa.bits-pilani.ac.in",
+    "name": "x"
+   },
+   "at": {
+    "$ts": -4
+   },
+   "auditId": "seed"
+  },
+  "users/uid-student": {
+   "rev": 3,
+   "data": "x"
+  }
+ }
+}

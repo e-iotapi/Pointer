@@ -1,0 +1,39 @@
+[
+ {
+  "section": "suites",
+  "file": "reviewgate.test.mjs",
+  "test": "^owner and admin any campus$",
+  "reason": "Decision 11: the compulsory-reviews switch is own-campus for admins (the suite's pilani admin sets hyderabad/goa)"
+ },
+ {
+  "section": "suites",
+  "file": "reviewgate.test.mjs",
+  "test": "^president on own campus only; students never$",
+  "reason": "Owner ruling 2026-11-17: presidents lose the compulsory-reviews switch"
+ },
+ {
+  "section": "replay",
+  "test": "^gate/set-own-campus-goa@(PRES|SEC)$|^newdocs/reviewGate-new-no-dept-president-flips-it@PRES$",
+  "reason": "Owner ruling 2026-11-17: presidents (and secretaries) lose the compulsory-reviews switch"
+ },
+ {
+  "section": "replay",
+  "test": "^gate/set-own-campus-goa@ADMIN_P$|^gate/set-other-campus-pilani@(ADMIN_G|ADMINPRES)$",
+  "reason": "Decision 11: an admin sets the compulsory-reviews switch only on their own address's campus"
+ },
+ {
+  "section": "replay",
+  "test": "^(offering/.*|course/draft-create)@(ADMIN_G|ADMIN_P|ADMINPRES)$",
+  "reason": "Phase A (owner): admins get course tools (offerings, course drafts), on their own address's campus only (old rules: owner/president/CR only)"
+ },
+ {
+  "section": "replay",
+  "test": "^(prof/(add-ELEC|add-CS|merge-p2-into-p1))@ADMIN_P$",
+  "reason": "Decision 11: professors and merge are campus data; a Pilani-address admin no longer writes Goa professors"
+ },
+ {
+  "section": "replay",
+  "test": "^claim/create-elective(-pilani)?@(ADMIN_P|ADMIN_G|ADMINPRES)$",
+  "reason": "Decision 11: claiming electives is campus data; admins act on their own address's campus only"
+ }
+]
