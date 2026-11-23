@@ -7,6 +7,7 @@ import 'package:cgpa_calculator/core/cache/cache_first.dart';
 import 'package:cgpa_calculator/core/heads/heads.dart';
 import 'package:cgpa_calculator/core/heads/paths.dart';
 import 'package:cgpa_calculator/core/live/live_heads.dart';
+import 'package:cgpa_calculator/core/models/programmes.dart' show Campus;
 import 'package:cgpa_calculator/core/perf/perf.dart';
 import 'package:cgpa_calculator/core/roles/capabilities.dart';
 import 'package:cgpa_calculator/core/roles/role_defs.dart';
@@ -1297,6 +1298,11 @@ class RoleStore {
       },
     });
     await b.commit();
+    // Every hub re-reads its head; the contact's hash moves (BRK-014).
+    for (final c in Campus.values) {
+      LiveHeads.noteBump(c.name, 'contact');
+    }
+    LiveHeads.poke('contact');
     await forget('contact|');
     await forget('head|');
     skipWorkerUntil = DateTime.now().add(const Duration(minutes: 3));

@@ -186,10 +186,10 @@ Future<void> startApp(User user) async {
     );
     // The live socket (LOADING_SERVER_PLAN.md D3): moved markers and this
     // account's version, after the first frame. Off without POINTER_LIVE_URL.
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      final campus = viewCampus();
-      if (campus != null) {
-        LiveHeads.start(
+    // An owner's address names no campus and their pick counts only once
+    // roles load: wait for them, then take any hub — grants and roles frames
+    // reach every campus (BRK-011).
+    void startLive(String campus) => LiveHeads.start(
           campus,
           () => user.getIdToken(),
           onMe: Sync.pullLive,
@@ -199,6 +199,14 @@ Future<void> startApp(User user) async {
           loadRoles: liveRolesSeen,
           saveRoles: setLiveRolesSeen,
         );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final campus = viewCampus();
+      if (campus != null) {
+        startLive(campus);
+      } else {
+        unawaited(rolesDone.then((_) {}, onError: (Object _) {}).whenComplete(
+          () => startLive(viewCampus() ?? 'goa'),
+        ));
       }
     });
     // A deep link on a first sign-in has no cached roles yet, and its guard

@@ -32,12 +32,24 @@ const numbers = (m: unknown, prefix = ""): [string, number][] =>
         .map(([k, n]) => [prefix + k, n as number])
     : [];
 
+/** A 31-bit hash of `x`'s JSON, so a change to a head field that is not a counter still moves a number. */
+const hashOf = (x: unknown): number => {
+  let h = 0;
+  for (const ch of JSON.stringify(x)) h = (Math.imul(h, 31) + ch.charCodeAt(0)) | 0;
+  return h & 0x7fffffff;
+};
+
 /**
- * The head doc's `v` map (marker path -> version) and its scheme versions as
- * `o:<course|term>` (owner, 2026-10-06), numbers only; other head fields never leave.
+ * The head doc's `v` map (marker path -> version), its scheme versions as
+ * `o:<course|term>` (owner, 2026-10-06), and a hash of the public contact as `#contact` (BRK-014), numbers only;
+ * other head fields never leave.
  */
 export const markers = (d: Record<string, unknown> | null): Versions =>
-  Object.fromEntries([...numbers(d?.v), ...numbers(d?.offerings, "o:")]);
+  Object.fromEntries([
+    ...numbers(d?.v),
+    ...numbers(d?.offerings, "o:"),
+    ...(d?.contact && typeof d.contact === "object" ? [["#contact", hashOf(d.contact)] as [string, number]] : []),
+  ]);
 
 export class CampusHub extends DurableObject<Env> {
   private cache: { head: Versions; at: number } | null = null;

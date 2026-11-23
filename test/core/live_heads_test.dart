@@ -388,6 +388,35 @@ void main() {
     expect(liveMoved.value, before + 1);
   });
 
+  test('#contact: the first hash is a baseline; a change drops the saved contact (BRK-014)', () async {
+    await sharedCacheBox!.put(
+      'head|goa',
+      jsonEncode({
+        'at': 123,
+        'v': const Head(v: {'resources': 4}, contact: {'contactName': 'A'}).toMap(),
+        'ver': null,
+      }),
+    );
+    await sharedCacheBox!.put('contact|public', 'old');
+    start();
+    await pumpEventQueue();
+    final before = liveMoved.value;
+    chans.single.push({'t': 'hello', 'head': {'resources': 4, '#contact': 7}, 'me': 1});
+    await pumpEventQueue();
+    Map saved() => (jsonDecode(sharedCacheBox!.get('head|goa') as String) as Map)['v'] as Map;
+    expect(liveMoved.value, before);
+    expect(saved()['contact'], {'contactName': 'A'});
+    expect(sharedCacheBox!.get('contact|public'), 'old');
+    chans.single.push({'t': 'head', 'v': {'#contact': 7}});
+    await pumpEventQueue();
+    expect(liveMoved.value, before);
+    chans.single.push({'t': 'head', 'v': {'#contact': 8}});
+    await pumpEventQueue();
+    expect(liveMoved.value, before + 1);
+    expect(saved().containsKey('contact'), isFalse);
+    expect(sharedCacheBox!.get('contact|public'), isNull);
+  });
+
   test('roles: the first counter is the baseline; a later one reads roles once', () async {
     start();
     await pumpEventQueue();

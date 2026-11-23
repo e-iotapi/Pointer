@@ -262,11 +262,25 @@ abstract final class LiveHeads {
       final marks = Map<String, Object?>.from((head['v'] as Map?) ?? const {});
       final schemes =
           Map<String, Object?>.from((head['offerings'] as Map?) ?? const {});
-      var moved = false;
+      var moved = false, write = false;
       for (final e in v.entries) {
         final n = e.value;
         if (n is! num) continue;
         final k = '${e.key}';
+        // The public contact's hash (BRK-014): the first one is a baseline;
+        // a later change drops the saved contact, so the next read is fresh.
+        if (k == '#contact') {
+          final was = marks[k];
+          if (was == n.toInt()) continue;
+          marks[k] = n.toInt();
+          write = true;
+          if (was != null) {
+            head.remove('contact');
+            unawaited(box.delete('contact|public'));
+            moved = true;
+          }
+          continue;
+        }
         final into = k.startsWith('o:') ? schemes : marks;
         final key = k.startsWith('o:') ? k.substring(2) : k;
         // Equality, not max: a lowered marker costs one re-read, never a freeze.
@@ -275,7 +289,7 @@ abstract final class LiveHeads {
           moved = true;
         }
       }
-      if (!moved) return false;
+      if (!moved && !write) return false;
       head['v'] = marks;
       head['offerings'] = schemes;
       entry['v'] = head;
@@ -284,7 +298,7 @@ abstract final class LiveHeads {
             .put('head|$campus', jsonEncode(entry))
             .catchError((Object e) => debugPrint('live head: $e')),
       );
-      return true;
+      return moved;
     } on Object catch (e) {
       debugPrint('live merge: $e');
       return false;

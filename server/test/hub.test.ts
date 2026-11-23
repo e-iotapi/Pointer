@@ -1,5 +1,5 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { CampusHub, diffVersions } from "../src/hub";
+import { CampusHub, diffVersions, markers } from "../src/hub";
 import { readDoc } from "../src/firestore";
 
 vi.mock("../src/firestore", () => ({ readDoc: vi.fn() }));
@@ -68,6 +68,15 @@ describe("pure helpers", () => {
     expect(diffVersions({ a: 1 }, { a: 1 })).toEqual({});
     expect(diffVersions({}, { a: 1 })).toEqual({ a: 1 });
   });
+
+  it("markers hash the public contact, so a contact save moves a number (BRK-014)", () => {
+    const a = markers({ v: { r: 1 }, contact: { contactName: "A", contactMethod: "whatsapp" } });
+    const b = markers({ v: { r: 1 }, contact: { contactName: "B", contactMethod: "whatsapp" } });
+    expect(a.r).toBe(1);
+    expect(typeof a["#contact"]).toBe("number");
+    expect(diffVersions(a, b)).toEqual({ "#contact": b["#contact"] });
+    expect(markers({ v: { r: 1 } })).toEqual({ r: 1 });
+  });
 });
 
 describe("CampusHub", () => {
@@ -75,7 +84,7 @@ describe("CampusHub", () => {
     vi.mocked(readDoc).mockResolvedValue({ catalog: 9, contact: { name: "x" }, v: { "a/b": 4 } });
     const { connect } = makeHub();
     const ws = await connect("u1");
-    expect(ws.sent).toEqual([{ t: "hello", head: { "a/b": 4 }, me: 0, roles: 0 }]);
+    expect(ws.sent).toEqual([{ t: "hello", head: { "a/b": 4, "#contact": expect.any(Number) }, me: 0, roles: 0 }]);
     expect(readDoc).toHaveBeenCalledWith("heads/goa", expect.anything());
   });
 
