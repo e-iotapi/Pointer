@@ -16,6 +16,7 @@ Pointer: a Flutter **web** app (CGPA, marks, timetable, reviews, resources for B
 
 ```sh
 flutter pub get
+tools/qa/run.sh --tier 0|1|2|3|4|all           # test tiers, one pass/fail table (docs/ARCHITECTURE.md §14; all ≈ 30 min)
 flutter test                                    # all Dart tests
 flutter test test/grading/some_test.dart        # one file
 flutter test test/x_test.dart --plain-name "…"  # one test
