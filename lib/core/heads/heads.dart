@@ -9,6 +9,7 @@ library;
 
 import 'package:cgpa_calculator/core/cache/cache_first.dart';
 import 'package:cgpa_calculator/core/heads/heads_client.dart';
+import 'package:cgpa_calculator/core/live/live_heads.dart';
 import 'package:cgpa_calculator/core/models/programmes.dart';
 import 'package:cgpa_calculator/core/timings.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -146,10 +147,12 @@ void bumpOfferings(
 }, SetOptions(merge: true));
 
 /// In a write batch: moves [path]'s marker on [campus]'s head by one.
-void bumpPath(WriteBatch b, FirebaseFirestore db, String campus, String path) =>
-    b.set(headRef(db, campus), {
-      'v': {path: FieldValue.increment(1)},
-    }, SetOptions(merge: true));
+void bumpPath(WriteBatch b, FirebaseFirestore db, String campus, String path) {
+  LiveHeads.noteBump(campus, path); // the poke after the commit names this campus
+  b.set(headRef(db, campus), {
+    'v': {path: FieldValue.increment(1)},
+  }, SetOptions(merge: true));
+}
 
 /// The same on every campus head (owners, terms).
 void bumpPathOnAllHeads(WriteBatch b, FirebaseFirestore db, String path) {

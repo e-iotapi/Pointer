@@ -41,6 +41,8 @@ void main() {
   var failConnect = 0; // fail this many connects first
   var pulls = 0;
   int? stored; // the persisted last `me`
+  var roleReads = 0;
+  int? rolesSeen; // the persisted roles counter
 
   Future<LiveChannel> connect(String url, List<String> protocols) async {
     dials.add((url, protocols));
@@ -61,6 +63,9 @@ void main() {
     onMe: () async => pulls++,
     loadMe: () => stored,
     saveMe: (n) => stored = n,
+    onRoles: () async => roleReads++,
+    loadRoles: () => rolesSeen,
+    saveRoles: (n) => rolesSeen = n,
     retry: (_) => const Duration(milliseconds: 5),
     pokeDelay: const Duration(milliseconds: 40),
   );
@@ -87,6 +92,8 @@ void main() {
     failConnect = 0;
     pulls = 0;
     stored = null;
+    roleReads = 0;
+    rolesSeen = null;
   });
   tearDown(() async {
     LiveHeads.stop();
@@ -338,5 +345,70 @@ void main() {
     await Future<void>.delayed(const Duration(milliseconds: 40));
     expect(chans.single.closed, isTrue);
     expect(dials.length, 1);
+  });
+
+  test('poke names the campuses bumpPath noted for its path, else none', () async {
+    start();
+    await pumpEventQueue();
+    LiveHeads.noteBump('hyderabad', 'resources');
+    LiveHeads.noteBump('goa', 'resources');
+    LiveHeads.noteBump('pilani', 'terms');
+    LiveHeads.poke('resources');
+    LiveHeads.poke('resources'); // noted once: the second names nothing
+    LiveHeads.poke('reps');
+    expect(chans.single.sent, [
+      {'t': 'poke', 'path': 'resources', 'campuses': ['goa', 'hyderabad']},
+      {'t': 'poke', 'path': 'resources'},
+      {'t': 'poke', 'path': 'reps'},
+    ]);
+  });
+
+  test('pokeUser sends the address and nothing else', () async {
+    start();
+    await pumpEventQueue();
+    LiveHeads.pokeUser('sam@goa.bits-pilani.ac.in');
+    LiveHeads.pokeUser('');
+    expect(chans.single.sent, [
+      {'t': 'pokeUser', 'email': 'sam@goa.bits-pilani.ac.in'},
+    ]);
+  });
+
+  test('a moved marker ticks liveMoved; an unchanged one does not', () async {
+    start();
+    await pumpEventQueue();
+    chans.single.push({'t': 'hello', 'head': {'resources': 4}, 'me': 1});
+    await pumpEventQueue();
+    final before = liveMoved.value;
+    chans.single.push({'t': 'head', 'v': {'resources': 4}});
+    await pumpEventQueue();
+    expect(liveMoved.value, before);
+    chans.single.push({'t': 'head', 'v': {'resources': 5}});
+    await pumpEventQueue();
+    expect(liveMoved.value, before + 1);
+  });
+
+  test('roles: the first counter is the baseline; a later one reads roles once', () async {
+    start();
+    await pumpEventQueue();
+    final c = chans.single;
+    c.push({'t': 'hello', 'head': <String, int>{}, 'me': 1, 'roles': 3});
+    await pumpEventQueue();
+    expect(roleReads, 0);
+    expect(rolesSeen, 3);
+    c.push({'t': 'roles', 'v': 3}); // nothing new
+    c.push({'t': 'roles', 'v': 4});
+    await pumpEventQueue();
+    expect(roleReads, 1);
+    expect(rolesSeen, 4);
+  });
+
+  test('roles changed while the app was closed: the next hello reads them', () async {
+    rolesSeen = 2;
+    start();
+    await pumpEventQueue();
+    chans.single.push({'t': 'hello', 'head': <String, int>{}, 'me': 1, 'roles': 5});
+    await pumpEventQueue();
+    expect(roleReads, 1);
+    expect(rolesSeen, 5);
   });
 }

@@ -68,5 +68,5 @@ test('pokeUser is rate-limited and carries no data', async () => {
   s.close();
   expect(roles.length, 'a burst of 20 gives the target one or two re-reads').toBeGreaterThan(0);
   expect(roles.length).toBeLessThanOrEqual(2);
-  expect(Object.keys(roles[0]).sort(), 'only the frame type travels').toEqual(['at', 't']);
+  expect(Object.keys(roles[0]).sort(), 'only the frame type and a counter travel').toEqual(['at', 't', 'v']);
 });

@@ -3,6 +3,7 @@ library;
 
 import 'package:cgpa_calculator/app/theme/palette.dart';
 import 'package:cgpa_calculator/app/theme/tokens.dart';
+import 'package:cgpa_calculator/core/live/live_heads.dart' show liveMoved;
 import 'package:cgpa_calculator/core/roles/claim_store.dart' show ClaimError;
 import 'package:cgpa_calculator/core/roles/role_defs.dart';
 import 'package:cgpa_calculator/core/roles/roles.dart';
@@ -483,6 +484,24 @@ class _LoadedState<T> extends State<Loaded<T>> {
 
   /// The failed load already reported, so a rebuild doesn't report it again.
   Future<T>? _toldFailed;
+
+  // A live marker moved: load again. The stores refetch only what moved, so
+  // a screen whose data did not move costs no reads.
+  void _onLive() {
+    if (mounted) _reload();
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    liveMoved.addListener(_onLive);
+  }
+
+  @override
+  void dispose() {
+    liveMoved.removeListener(_onLive);
+    super.dispose();
+  }
 
   Widget _draw(BuildContext context, T v, bool saved) =>
       widget.gated?.call(context, v, _reload, saved) ??

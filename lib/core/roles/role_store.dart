@@ -608,6 +608,7 @@ class RoleStore {
     also?.call(b);
     await b.commit();
     LiveHeads.poke(Paths.grants);
+    LiveHeads.pokeUser(g.email);
     await forget('roster|');
     await forget('audit|');
   }
@@ -926,6 +927,7 @@ class RoleStore {
     for (final p in [Paths.grants, Paths.staff, Paths.reps]) {
       LiveHeads.poke(p);
     }
+    LiveHeads.pokeUser(address);
     await forget('roster|');
     await forget('audit|');
     return true;
@@ -1031,6 +1033,7 @@ class RoleStore {
     for (final p in [Paths.grants, Paths.staff, Paths.reps]) {
       LiveHeads.poke(p);
     }
+    LiveHeads.pokeUser(next.email);
     await forget('roster|');
     await forget('audit|');
   }
@@ -1165,6 +1168,7 @@ class RoleStore {
     bumpPathOnAllHeads(b, db, Paths.owners);
     await b.commit();
     LiveHeads.poke(Paths.owners);
+    LiveHeads.pokeUser(address);
     await forget('owners');
     await forget('audit|');
   }
@@ -1190,6 +1194,7 @@ class RoleStore {
     bumpPathOnAllHeads(b, db, Paths.owners);
     await b.commit();
     LiveHeads.poke(Paths.owners);
+    LiveHeads.pokeUser(email);
     await forget('owners');
     await forget('audit|');
   }
