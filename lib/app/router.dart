@@ -43,7 +43,7 @@ export 'package:cgpa_calculator/app/routes.dart';
 /// it and Back behaves exactly as the old pushed routes did.
 final GoRouter appRouter = GoRouter(
   routes: appRoutes,
-  refreshListenable: Listenable.merge([profileDue, ownerSetupDue]),
+  refreshListenable: Listenable.merge([profileDue, ownerSetupDue, myRoles]),
   redirect: (_, s) {
     leaveRoleOutside(s.matchedLocation);
     return profileGate(s.matchedLocation) ?? movedPath(s.uri);

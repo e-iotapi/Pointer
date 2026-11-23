@@ -4,7 +4,8 @@
   "description": "Playwright E2E, perf and quota specs against the seeded emulator (PERF_TEST_PLAN.md T6). Run: npm test",
   "type": "module",
   "scripts": {
-    "test": "playwright test"
+    "test": "playwright test",
+    "live": "bash live.sh"
   },
   "devDependencies": {
     "@playwright/test": "^1.63.0"

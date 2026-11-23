@@ -128,4 +128,13 @@ describe("GET /live/:campus", () => {
     expect(fwd.headers.get("Sec-WebSocket-Protocol")).toBe("pointer");
     expect(new URL(fwd.url).pathname).toBe("/live/goa");
   });
+
+  it("forwards the verified email as X-Email, never a caller's", async () => {
+    verify.mockResolvedValue({ uid: "u9", email: "a@b.test" });
+    await live("/live/goa", { ...ws, "X-Email": "evil@x.test" });
+    expect(fetchHub.mock.calls[0][0].headers.get("X-Email")).toBe("a@b.test");
+    verify.mockResolvedValue({ uid: "u9" });
+    await live("/live/goa", { ...ws, "X-Email": "evil@x.test" });
+    expect(fetchHub.mock.calls[1][0].headers.has("X-Email")).toBe(false);
+  });
 });

@@ -8,6 +8,7 @@ const executablePath = existsSync(CHROMIUM_PATH) ? CHROMIUM_PATH : undefined;
 
 export default defineConfig({
   testDir: './specs',
+  testIgnore: '**/live/**', // `npm run live` runs those against the Worker
   outputDir: './out/test-results',
   timeout: 30_000,
   fullyParallel: false,

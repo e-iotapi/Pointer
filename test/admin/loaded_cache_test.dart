@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:cgpa_calculator/admin/widgets.dart';
+import 'package:cgpa_calculator/core/live/live_heads.dart' show liveMoved;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 
@@ -89,5 +90,28 @@ void main() {
     await t.tap(find.text('Try again'));
     await t.pump();
     expect(loads, 2);
+  });
+
+  testWidgets('a live marker move loads an open screen again, no navigation', (
+    t,
+  ) async {
+    var n = 0;
+    await t.pumpWidget(
+      MaterialApp(
+        home: Loaded<String>(
+          load: () async => 'v${++n}',
+          builder: (_, v, _) => Text(v),
+        ),
+      ),
+    );
+    await t.pump();
+    expect(find.text('v1'), findsOneWidget);
+    liveMoved.value++;
+    await t.pump();
+    await t.pump();
+    expect(find.text('v2'), findsOneWidget);
+    await t.pumpWidget(const SizedBox());
+    liveMoved.value++; // a closed screen is not loaded
+    expect(n, 2);
   });
 }

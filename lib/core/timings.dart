@@ -59,7 +59,10 @@ const offeringVersionRecheck = fullReadEvery;
 
 // --- Session (lib/core/roles/session.dart) ---
 
-/// My roles are re-read at most this often. 2 reads each.
+/// My roles are re-read at most this often. 2 reads each. Also read at once
+/// (about 3 reads) when the live socket says they changed: an appointer's
+/// `pokeUser`, or a roles counter at hello that differs from the saved one
+/// (agent_instructions/QUOTA.md, Live updates).
 const rolesRefreshEvery = Duration(days: 7);
 
 /// The sign-in record is written at most this often per device. 1 write.

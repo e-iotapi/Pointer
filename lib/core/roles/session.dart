@@ -238,6 +238,16 @@ Future<void> refreshMyRolesIfDue() async {
   await refreshMyRoles();
 }
 
+/// The roles counter the live server last announced for this person, kept
+/// on this device (LiveHeads compares it at every hello).
+int? liveRolesSeen() {
+  final v = _device?.get('rolesSeen|${roleStore?.me}');
+  return v is int ? v : null;
+}
+
+void setLiveRolesSeen(int n) =>
+    unawaited(_device?.put('rolesSeen|${roleStore?.me}', n));
+
 /// Reads the person's roles again. Offline, keeps what it had.
 Future<void> refreshMyRoles() async {
   final store = roleStore;

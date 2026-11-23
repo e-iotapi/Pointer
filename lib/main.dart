@@ -195,6 +195,9 @@ Future<void> startApp(User user) async {
           onMe: Sync.pullLive,
           loadMe: () => Sync.liveMe,
           saveMe: Sync.setLiveMe,
+          onRoles: refreshMyRoles,
+          loadRoles: liveRolesSeen,
+          saveRoles: setLiveRolesSeen,
         );
       }
     });

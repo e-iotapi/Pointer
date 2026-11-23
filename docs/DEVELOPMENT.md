@@ -77,6 +77,16 @@ python3 agent_toolchains/code/verify.py    # analyzer baseline + full suite
 - **End to end:** [`tools/e2e`](../tools/e2e) runs Playwright specs, including
   performance and Firestore-quota budgets, against the seeded emulator
   (`e2e.yml`, run by hand).
+- **Live updates:** `cd tools/e2e && npm run live -- local` (or
+  `STAGING_PASSWORD=… npm run live -- staging`; extra args go to Playwright)
+  proves another user's edit, appointment or revoke reaches an open app
+  without a sign-out, and that the Worker's endpoints are up. Local: the real
+  Worker under `wrangler dev` (`server/wrangler.live.toml`,
+  `server/test/live/entry.ts`) against the emulators, with an app built for
+  them and the Worker on :8793 (`live.sh` prints the build command). Specs:
+  `tools/e2e/specs/live/` (`infra`, `fanout`, `instant`, `failure`); the
+  "other user" is a script that writes Firestore and sends the frames the app
+  sends. Staging writes only head markers.
 - **Analyzer baseline:** CI fails on any analyzer issue not in
   `tools/analyze_baseline.txt`; the legacy files' old issues are listed there.
 

@@ -2,9 +2,11 @@ import { readDoc, type Env } from "./firestore";
 import { verifyIdToken } from "./token";
 import { loadTimetable, toIcs } from "./timetable";
 
+import { CAMPUSES as CAMPUS_LIST } from "./hub";
+
 export { CampusHub } from "./hub";
 
-const CAMPUSES = new Set(["goa", "hyderabad", "pilani", "dubai"]);
+const CAMPUSES = new Set(CAMPUS_LIST);
 
 // CORS is added per request, after the cache, so cached bodies are origin-agnostic.
 function withCors(res: Response, req: Request, env: Env): Response {
@@ -24,14 +26,16 @@ async function liveSocket(campus: string, req: Request, env: Env): Promise<Respo
   if (req.headers.get("Upgrade") !== "websocket") return new Response("expected websocket", { status: 426 });
   const [proto, token] = (req.headers.get("Sec-WebSocket-Protocol") ?? "").split(",").map((s) => s.trim());
   if (proto !== "pointer" || !token) return new Response("unauthorized", { status: 401 });
-  let uid: string;
+  let uid: string, email: string | undefined;
   try {
-    uid = (await verifyIdToken(token, env.PROJECT_ID)).uid;
+    ({ uid, email } = await verifyIdToken(token, env.PROJECT_ID));
   } catch {
     return new Response("unauthorized", { status: 401 });
   }
   const fwd = new Request(req);
   fwd.headers.set("X-Uid", uid);
+  if (email) fwd.headers.set("X-Email", email);
+  else fwd.headers.delete("X-Email"); // never trust a caller's
   fwd.headers.set("Sec-WebSocket-Protocol", "pointer");
   return env.HUB.get(env.HUB.idFromName(campus)).fetch(fwd);
 }

@@ -12,9 +12,10 @@ class FakeWs {
   }
 }
 
-function makeHub() {
+function makeHub(campus = "goa", hubs: Record<string, any> = {}) {
   const kv = new Map<string, unknown>();
   const users = new Map<string, number>();
+  const rolesV = new Map<string, number>();
   const sockets: FakeWs[] = [];
   let alarm: number | null = null;
   const setAlarm = vi.fn(async (t: number) => void (alarm = t));
@@ -28,11 +29,12 @@ function makeHub() {
       sql: {
         exec: (q: string, ...p: any[]) => {
           if (/^\s*CREATE/i.test(q)) return { toArray: () => [] };
+          const t = /roles/i.test(q) ? rolesV : users;
           if (/^\s*INSERT/i.test(q)) {
-            users.set(p[0], (users.get(p[0]) ?? 0) + 1);
+            t.set(p[0], (t.get(p[0]) ?? 0) + 1);
             return { toArray: () => [] };
           }
-          if (/^\s*SELECT/i.test(q)) return { toArray: () => (users.has(p[0]) ? [{ v: users.get(p[0]) }] : []) };
+          if (/^\s*SELECT/i.test(q)) return { toArray: () => (t.has(p[0]) ? [{ v: t.get(p[0]) }] : []) };
           throw new Error("unexpected sql " + q);
         },
       },
@@ -41,11 +43,13 @@ function makeHub() {
     getTags: (ws: FakeWs) => ws.tags,
     blockConcurrencyWhile: async (f: () => Promise<void>) => f(),
   };
-  const hub = new CampusHub(ctx as any, {} as any);
-  const connect = async (uid: string) => {
-    const ws = new FakeWs([uid]);
+  const env = { HUB: { idFromName: (n: string) => n, get: (id: string) => hubs[id] } };
+  const hub = new CampusHub(ctx as any, env as any);
+  hubs[campus] = hub;
+  const connect = async (uid: string, email?: string) => {
+    const ws = new FakeWs(email ? [uid, `e:${email}`] : [uid]);
     sockets.push(ws);
-    await hub.sendHello(ws as any, uid, "goa");
+    await hub.sendHello(ws as any, uid, campus);
     return ws;
   };
   return { hub, ctx, connect, setAlarm, clearAlarm: () => void (alarm = null) };
@@ -71,7 +75,7 @@ describe("CampusHub", () => {
     vi.mocked(readDoc).mockResolvedValue({ catalog: 9, contact: { name: "x" }, v: { "a/b": 4 } });
     const { connect } = makeHub();
     const ws = await connect("u1");
-    expect(ws.sent).toEqual([{ t: "hello", head: { "a/b": 4 }, me: 0 }]);
+    expect(ws.sent).toEqual([{ t: "hello", head: { "a/b": 4 }, me: 0, roles: 0 }]);
     expect(readDoc).toHaveBeenCalledWith("heads/goa", expect.anything());
   });
 
@@ -284,5 +288,127 @@ describe("CampusHub", () => {
     await hub.webSocketMessage(ws as any, JSON.stringify({ t: "nope" }));
     expect(setAlarm).not.toHaveBeenCalled();
     expect(ws.sent).toHaveLength(1);
+  });
+
+  describe("fan-out", () => {
+    const poke = (hub: CampusHub, ws: any, extra: object = {}) =>
+      hub.webSocketMessage(ws, JSON.stringify({ t: "poke", path: "p", ...extra }));
+
+    async function four() {
+      vi.mocked(readDoc).mockResolvedValue({ v: { p: 1 } });
+      const hubs: Record<string, any> = {};
+      const m = Object.fromEntries(["goa", "hyderabad", "pilani", "dubai"].map((c) => [c, makeHub(c, hubs)]));
+      for (const [c, h] of Object.entries(m)) await h.ctx.storage.put("campus", c);
+      return m;
+    }
+
+    it("a poke naming another campus arms that campus's hub, not its own", async () => {
+      const m = await four();
+      const ws = await m.goa.connect("owner");
+      await poke(m.goa.hub, ws, { campuses: ["hyderabad"] });
+      expect(m.hyderabad.setAlarm).toHaveBeenCalledTimes(1);
+      expect(m.goa.setAlarm).not.toHaveBeenCalled();
+    });
+
+    it("a poke without campuses arms the hub it came to (older apps)", async () => {
+      const m = await four();
+      const ws = await m.goa.connect("u");
+      await poke(m.goa.hub, ws);
+      expect(m.goa.setAlarm).toHaveBeenCalledTimes(1);
+      expect(m.hyderabad.setAlarm).not.toHaveBeenCalled();
+    });
+
+    it("an every-campus poke arms all four hubs once each", async () => {
+      const m = await four();
+      const ws = await m.goa.connect("owner");
+      await poke(m.goa.hub, ws, { campuses: ["goa", "hyderabad", "pilani", "dubai"] });
+      for (const h of Object.values(m)) expect(h.setAlarm).toHaveBeenCalledTimes(1);
+    });
+
+    it("unknown campuses are ignored, duplicates arm once, a burst fans out once per second", async () => {
+      const m = await four();
+      const ws = await m.goa.connect("owner");
+      await poke(m.goa.hub, ws, { campuses: ["mars", "pilani", "pilani"] });
+      expect(m.pilani.setAlarm).toHaveBeenCalledTimes(1);
+      m.pilani.clearAlarm();
+      await poke(m.goa.hub, ws, { campuses: ["dubai"] }); // inside the gap: dropped
+      expect(m.dubai.setAlarm).not.toHaveBeenCalled();
+      vi.setSystemTime(1_000_000 + 1100);
+      await poke(m.goa.hub, ws, { campuses: ["dubai"] });
+      expect(m.dubai.setAlarm).toHaveBeenCalledTimes(1);
+    });
+
+    it("each armed hub reads its own head once and pushes the moved marker to its own clients", async () => {
+      const m = await four();
+      const hyd = await m.hyderabad.connect("s");
+      const owner = await m.goa.connect("owner");
+      vi.mocked(readDoc).mockClear();
+      await poke(m.goa.hub, owner, { campuses: ["hyderabad"] });
+      vi.mocked(readDoc).mockResolvedValue({ v: { p: 2 } });
+      m.hyderabad.clearAlarm();
+      await m.hyderabad.hub.alarm();
+      expect(readDoc).toHaveBeenCalledTimes(1);
+      expect(readDoc).toHaveBeenCalledWith("heads/hyderabad", expect.anything());
+      expect(hyd.sent.at(-1)).toEqual({ t: "head", v: { p: 2 } });
+    });
+
+    it("pokeUser tells the person's sockets on every campus, nobody else, and carries only a counter", async () => {
+      const m = await four();
+      const owner = await m.goa.connect("owner");
+      const hyd = await m.hyderabad.connect("u2", "sam@x.test");
+      const phone = await m.hyderabad.connect("u2", "sam@x.test");
+      const other = await m.hyderabad.connect("u3", "kim@x.test");
+      const goa = await m.goa.connect("u4", "sam@x.test");
+      await m.goa.hub.webSocketMessage(owner as any, JSON.stringify({ t: "pokeUser", email: " Sam@X.test " }));
+      for (const w of [hyd, phone, goa]) expect(w.sent.at(-1)).toEqual({ t: "roles", v: 1 });
+      expect(other.sent.some((f) => f.t === "roles")).toBe(false);
+    });
+
+    it("pokeUser: a burst is one, 30 an hour per sender, none dropped for the target's sake; the counter shows at hello", async () => {
+      const m = await four();
+      const owner = await m.goa.connect("owner");
+      const sam = await m.hyderabad.connect("u2", "sam@x.test");
+      const tell = () => m.goa.hub.webSocketMessage(owner as any, JSON.stringify({ t: "pokeUser", email: "sam@x.test" }));
+      await tell();
+      await tell(); // same instant: the sender's gap
+      expect(sam.sent.filter((f) => f.t === "roles")).toHaveLength(1);
+      vi.setSystemTime(1_000_000 + 300);
+      await tell(); // an appointment right after another is not swallowed
+      expect(sam.sent.filter((f) => f.t === "roles")).toHaveLength(2);
+      for (let i = 0; i < 40; i++) {
+        vi.setSystemTime(1_000_000 + 2000 + i * 300);
+        await tell();
+      }
+      expect(sam.sent.filter((f) => f.t === "roles")).toHaveLength(30); // the hourly cap
+      vi.setSystemTime(1_000_000 + 3_700_000);
+      await tell();
+      expect(sam.sent.filter((f) => f.t === "roles")).toHaveLength(31);
+      const again = await m.hyderabad.connect("u2", "sam@x.test");
+      expect(again.sent[0].roles).toBe(31);
+      const stranger = await m.hyderabad.connect("u9", "kim@x.test");
+      expect(stranger.sent[0].roles).toBe(0);
+    });
+
+    it("pokeUser ignores a missing or oversized email", async () => {
+      const m = await four();
+      const owner = await m.goa.connect("owner");
+      await m.goa.hub.webSocketMessage(owner as any, JSON.stringify({ t: "pokeUser" }));
+      await m.goa.hub.webSocketMessage(owner as any, JSON.stringify({ t: "pokeUser", email: "a".repeat(300) }));
+      expect(owner.sent).toHaveLength(1); // only its hello
+    });
+  });
+
+  it("a pokeUser right after a poke is not held back by the poke's fan-out gap", async () => {
+    vi.mocked(readDoc).mockResolvedValue({ v: { p: 1 } });
+    const hubs: Record<string, any> = {};
+    const a = makeHub("goa", hubs), b = makeHub("hyderabad", hubs);
+    hubs.pilani = hubs.dubai = { notifyUser: async () => {}, arm: async () => {} };
+    await b.ctx.storage.put("campus", "hyderabad");
+    const owner = await a.connect("owner");
+    const sam = await b.connect("u2", "sam@x.test");
+    await a.hub.webSocketMessage(owner as any, JSON.stringify({ t: "poke", path: "grants", campuses: ["hyderabad"] }));
+    await a.hub.webSocketMessage(owner as any, JSON.stringify({ t: "pokeUser", email: "sam@x.test" }));
+    expect(b.setAlarm).toHaveBeenCalledTimes(1);
+    expect(sam.sent.filter((f) => f.t === "roles")).toHaveLength(1);
   });
 });
