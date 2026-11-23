@@ -105,7 +105,7 @@ export function loadExpected(dataset) {
 
 export const MODE = process.env.LIVE_MODE ?? 'local';
 export const LOCAL = MODE === 'local';
-const ACCOUNTS = JSON.parse(readFileSync(new URL('../../test_env/accounts.json', import.meta.url), 'utf8'));
+const ACCOUNTS = JSON.parse(readFileSync(new URL('../../../test_env/accounts.json', import.meta.url), 'utf8'));
 export const email = (key) => ACCOUNTS.accounts.find((a) => a.key === key).email;
 export const PASSWORD = process.env.STAGING_PASSWORD ?? ACCOUNTS.password;
 
