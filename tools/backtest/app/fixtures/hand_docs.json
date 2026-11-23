@@ -1,0 +1,10 @@
+{
+ "_comment": "Shapes no old-app encoder in the harness writes (other stores, early builds). Add a doc here when a new collection or shape reaches production. {\"$ts\": ms} is a Firestore Timestamp.",
+ "grants/contributor|goa|ELEC|f20249911@goa.bits-pilani.ac.in": {"role":"contributor","email":"f20249911@goa.bits-pilani.ac.in","name":"Test Contributor","campus":"goa","scope":"ELEC","dept":"ELEC","active":true,"expiresAt":{"$ts":4102444800000},"grantedBy":{"email":"f20239992@goa.bits-pilani.ac.in","name":"Test President"},"grantedAt":{"$ts":1700000000000}},
+ "grants/course|goa|EEE F111|f20249912@goa.bits-pilani.ac.in": {"role":"course","email":"f20249912@goa.bits-pilani.ac.in","name":"Early CR","campus":"goa","scope":"EEE F111","active":true,"expiresAt":4102444800000},
+ "staff/f20249912@goa.bits-pilani.ac.in": {"email":"f20249912@goa.bits-pilani.ac.in","courses":["EEE F111"],"admin":false,"owner":false,"presidentOf":[]},
+ "directory/f20239992@goa.bits-pilani.ac.in": {"name":"Test President","campus":"goa","roles":[{"role":"dept","scope":"ELEC","programme":"A3","until":{"$ts":4102444800000}}],"email":"p@example.com","whatsapp":"9000000001","phone":null},
+ "searchHints/goa": {"q":{"oel":{"open elective":7,"oe":1},"dsa":{"data structures":12}},"k":"oel","t":"open elective"},
+ "config/public": {"name":"Pointer","method":"email","target":"help@example.com","enabled":true},
+ "people/f20249911@goa.bits-pilani.ac.in": {"name":"Test Contributor","campus":"goa","firstSignIn":1700000000000,"lastSeen":1700000000000}
+}

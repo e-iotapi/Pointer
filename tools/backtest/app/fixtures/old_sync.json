@@ -1,0 +1,9 @@
+{
+ "data": "{\"format\":2,\"settingsBox\":[[\"batch\",22],[\"campus\",\"goa\"],[\"discipline\",\"B3A7\"],[\"unknownFutureKey\",{\"a\":[1,2,3]}]],\"coursesBox\":[[\"CS F111\",{\"id\":\"CS F111\",\"title\":\"Computer Programming\",\"credits\":4.0,\"linked\":true,\"grade1\":8,\"grade2\":9,\"discipline\":\"B3A7\",\"sem\":\"1 - 1\",\"elective\":\"CDC\",\"more\":{\"3\":7}}],[\"ECON F211\",{\"id\":\"ECON F211\",\"title\":\"Principles of Economics\",\"credits\":3.0,\"linked\":true,\"grade1\":-2,\"grade2\":-2,\"discipline\":\"B3A7\",\"sem\":\"2 - 1\",\"elective\":\"HUEL\"}]],\"offshootBox\":[],\"marksBox\":[]}",
+ "keys": [
+  "data",
+  "rev",
+  "uid",
+  "updatedAt"
+ ]
+}

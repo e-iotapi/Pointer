@@ -1,0 +1,83 @@
+// Runs in the extracted base tree only: the stable app's own code on
+// documents the new app wrote. Outcomes starting "throws" or "BREAK" are
+// reported by run.mjs as breaks (unless allow-listed).
+import 'package:cgpa_calculator/core/heads/heads.dart';
+import 'package:cgpa_calculator/core/reviews/gate_store.dart';
+import 'package:cgpa_calculator/core/roles/role_store.dart';
+import 'package:cgpa_calculator/core/roles/roles.dart';
+import 'package:cgpa_calculator/core/search/hints.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'common/support.dart';
+
+void main() {
+  test('stable app on new-app documents', () async {
+    final docs = fixture('new_app_docs.json')..remove('_comment');
+    final out = <String, String>{};
+    final db = await seeded(docs);
+    final now = DateTime(2026, 11, 23);
+    RoleStore as(String e) => RoleStore(db, me: e, myName: 'x');
+
+    for (final e in docs.keys.where((k) => k.startsWith('grants/'))) {
+      out['grant.fromMap|$e'] = await outcome(() async {
+        final g = Grant.fromMap(Map<String, dynamic>.from(hydrate(docs[e])! as Map));
+        return g.role.key;
+      });
+    }
+    for (final e in docs.keys.where((k) => k.startsWith('staff/'))) {
+      out['staff.fromMap|$e'] = await outcome(() async {
+        final s = StaffEntry.fromMap(Map<String, dynamic>.from(hydrate(docs[e])! as Map));
+        return 'president=${s.presidentOf.length}';
+      });
+    }
+    for (final e in docs.keys.where((k) => k.startsWith('heads/'))) {
+      out['head.fromMap|$e'] = await outcome(() async =>
+          Head.fromMap(Map<String, dynamic>.from(hydrate(docs[e])! as Map)).v.length);
+    }
+    final who = {
+      'custom_only_student': 'f20249994@goa.bits-pilani.ac.in',
+      'cr_plus_custom': 'f20239993@goa.bits-pilani.ac.in',
+      'president': 'f20239992@goa.bits-pilani.ac.in',
+      'admin': 'f20209991@pilani.bits-pilani.ac.in',
+      'owner': 'owner@pointer.test',
+    };
+    for (final e in who.entries) {
+      out['loadMine|${e.key}'] = await outcome(() async {
+        final r = await as(e.value).loadMine(now: now);
+        return 'grants=${r.grants.map((g) => g.role.key).join('+')}|owner=${r.owner}';
+      });
+    }
+    out['roster|goa (admin/president screens)'] =
+        await outcome(() async => (await as(who['president']!).roster(campus: 'goa')).length);
+    out['roster|all (owner/admin screens)'] =
+        await outcome(() async => (await as(who['owner']!).roster()).length);
+    out['terms'] = await outcome(() async {
+      final t = await as(who['owner']!).terms();
+      return '${t.crDays}/${t.presidentDays}/${t.adminDays}';
+    });
+    out['gate.of goa (no dept)'] =
+        await outcome(() => GateStore(as(who['president']!)).of('goa'));
+    out['hints.load (negative vote)'] = await outcome(() async {
+      final m = await SearchHints(db).load('goa');
+      return alsoSearch('oel', m).join(',');
+    });
+    // The stable app appoints a CR for someone the new app gave a custom role:
+    // its staff write has no `reach`, so the index loses the custom entry.
+    final cu = who['custom_only_student']!;
+    out['appoint CR for a custom-role holder (staff.reach kept?)'] = await outcome(() async {
+      final owner = RoleStore(db, me: 'owner@pointer.test', myName: 'Owner');
+      await owner.appoint(
+        role: GrantRole.course, email: cu, campus: 'goa',
+        scope: 'EEE F211', expiresAt: DateTime(2100));
+      final s = (await db.doc('staff/$cu').get()).data()!;
+      if (!s.containsKey('reach')) {
+        throw StateError('BREAK: staff/$cu lost its reach list (custom entry gone)');
+      }
+      return 'reach kept';
+    }).then((o) => o.startsWith('throws:StateError')
+        ? 'BREAK: staff doc written without reach (custom entry lost)'
+        : o);
+    emit('old_on_new.json', out);
+    expect(out, isNotEmpty);
+  });
+}
