@@ -227,6 +227,25 @@ describe('the roster and the audit log', () => {
     await assertFails(getDocs(query(collection(as(STUDENT), 'audit'), where('campus', '==', 'goa'))));
   });
 
+  test('a president grant on a faculty address, or on another campus, reads no roster (BRK-002/009)', async () => {
+    const X = 'f20230777@hyderabad.bits-pilani.ac.in';
+    await seed(async (db) => {
+      for (const e of [FACULTY, X]) {
+        await setDoc(doc(db, 'grants', `dept|goa|ELEC|${e}`), {
+          role: 'dept', campus: 'goa', scope: 'ELEC', programme: 'A3', email: e, name: 'P',
+          active: true, expiresAt: days(100),
+        });
+        await setDoc(doc(db, 'staff', e), {
+          email: e, campus: 'goa', admin: false, presidentOf: ['ELEC'], courses: [], owner: false, expiresAt: days(100),
+        });
+      }
+    });
+    for (const e of [FACULTY, X]) {
+      await assertFails(getDocs(query(collection(as(e), 'grants'), where('campus', '==', 'goa'))));
+      await assertFails(getDocs(query(collection(as(e), 'audit'), where('campus', '==', 'goa'))));
+    }
+  });
+
   test('audit entries cannot be forged or orphaned', async () => {
     const db = as(PRES);
     await assertFails(

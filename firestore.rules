@@ -258,9 +258,11 @@ service cloud.firestore {
     function readsRoster(campus) {
       return isOwner()
         || (capIn('admin', 'readAuditAndRoster') && isAdmin())
-        || (capIn('president', 'readAuditAndRoster')
-            && (isPresidentOn(campus) || (campus == 'all' && isPresidentOn(campusOf(me())))))
-        || (capIn('cr', 'readAuditAndRoster') && campus != 'all' && staffCrOn(campus))
+        // Built-in presidents and CRs: student addresses, own campus (as may()).
+        || (capIn('president', 'readAuditAndRoster') && isStudent(me())
+            && (campus == campusOf(me()) || campus == 'all') && isPresidentOn(campusOf(me())))
+        || (capIn('cr', 'readAuditAndRoster') && isStudent(me())
+            && campus == campusOf(me()) && staffCrOn(campus))
         || customMay('readAuditAndRoster', campus, 'all');
     }
 
