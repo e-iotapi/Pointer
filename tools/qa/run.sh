@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # The one entry point for the test tiers (docs/DEVELOPMENT.md, "Testing").
-#   tools/qa/run.sh --tier 0|1|2|3|4[,…]|all [--base origin/master]
+#   tools/qa/run.sh --tier 0|1|2|3|4[,…]|all [--base origin/master]   (all: ~30 min here)
 #   T0 fast       analyzer vs baseline, Dart unit/widget, Worker vitest, tool unit tests, fixture/allow-list checks, ui_check (local)
 #   T1 rules      firestore.rules suite, files in parallel (one emulator project per file)
 #   T2 compat     tools/backtest/rules + tools/backtest/app vs <base>, on the shared fixtures
