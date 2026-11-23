@@ -10,9 +10,30 @@ git ignores.
 | `code/` | Surgical editing, one-line verify gates, and a commit helper that enforces this repo's rules. |
 | `plan/` | Reads the deprecated PERF_TEST_PLAN.md, UI.md and UI_OPT.md (all in `agent_instructions/deprecated/`) by number (T7.3, 8.4, N27, O0.2): exact text, never a summary. |
 | `progress_report/` | Builds the one-page progress report from `status.json` and the git log. |
+| `tools/qa/` (outside this folder) | The test tiers T0–T4 behind one command, `tools/qa/run.sh --tier …`, and the two-lane heavy-job wrapper. See below. |
 
 Setup, once per container: `pip install pillow numpy`, and put flutter on
 PATH (`export PATH=/opt/flutter/bin:$PATH`).
+
+## Test tiers (`tools/qa`)
+
+```
+tools/qa/run.sh --tier 0,1      # before every push: analyzer, Dart, Worker, tools, ui_check, rules
+tools/qa/run.sh --tier 2        # rules/roles changed: backtests vs origin/master (--base to change)
+tools/qa/run.sh --tier 3,4      # before a release: live system, production-like e2e
+```
+
+One pass/fail table at the end; each step's log is `build/qa/run/<step>.log`
+(read the tail of a FAIL only). Steps start together and queue in
+`tools/qa/heavy.sh` (the same script as `/tmp/pointer-heavy.sh`): an emulator
+lane and a compute lane, one job each, gated on 2 GB free. Put any other heavy
+command through `/tmp/pointer-heavy.sh` as before; it picks the lane from the
+command (`POINTER_LANE=emu|compute` overrides) and is re-entrant, so a wrapped
+script may wrap its own steps. Do not wrap `run.sh` itself.
+
+`verify.py` stays the quick pre-commit gate (format + analyzer + Dart);
+`run.sh --tier 0,1` is what CI runs. Tiers, fixtures and allow-lists:
+`docs/DEVELOPMENT.md`, "Tests and checks".
 
 ## ui_check
 

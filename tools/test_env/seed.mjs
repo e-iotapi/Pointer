@@ -27,6 +27,9 @@ function parseArgs(argv) {
     // Only reset the test accounts' passwords, no wipe: CI runs this on
     // every deploy, so the build's baked-in password always signs in.
     if (argv[i] === '--passwords-only') out.passwordsOnly = true;
+    // Emulator: seed on top of what is loaded (tools/qa fixtures, a mirror)
+    // instead of wiping first; the seed's own documents win on a clash.
+    if (argv[i] === '--keep') out.keep = true;
   }
   // An alias from .firebaserc ("staging") resolves to its project id.
   const aliases = loadJson(path.join(root, '.firebaserc')).projects ?? {};
@@ -49,7 +52,7 @@ async function main() {
   if (args.project === PROD_PROJECT_ID) {
     throw new Error(`Refusing to seed the production project (${PROD_PROJECT_ID}).`);
   }
-  const usingEmulator = args.project === 'demo-pointer';
+  const usingEmulator = args.project.startsWith('demo-');
   if (!usingEmulator) {
     // Never fall back to the emulator for a real project: say what is missing.
     if (!process.env.GOOGLE_APPLICATION_CREDENTIALS) {
@@ -64,9 +67,13 @@ async function main() {
     process.env.FIREBASE_AUTH_EMULATOR_HOST ??= 'localhost:9099';
   }
 
-  initializeApp({ projectId: args.project });
+  const app = initializeApp({ projectId: args.project });
   const db = getFirestore();
-  const auth = getAuth();
+  // The app signs in on the Auth emulator's own project (demo-pointer) whatever
+  // Firestore project it reads, so a parallel e2e worker's project
+  // (demo-e2e-<n>) shares demo-pointer's accounts and uids.
+  const auth = getAuth(usingEmulator && args.project !== 'demo-pointer'
+    ? initializeApp({ projectId: 'demo-pointer' }, 'auth') : app);
 
   const accountsConfig = loadJson(path.join(root, 'test_env', 'accounts.json'));
   const { accounts } = accountsConfig;
@@ -82,7 +89,7 @@ async function main() {
   }
 
   if (usingEmulator) {
-    await wipeEmulator(args.project);
+    if (!args.keep) await wipeEmulator(args.project);
   } else {
     await wipeStaging(db, accounts);
   }

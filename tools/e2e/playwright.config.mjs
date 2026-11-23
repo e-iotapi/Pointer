@@ -1,5 +1,6 @@
 import { existsSync } from 'node:fs';
 import { defineConfig, devices } from '@playwright/test';
+import { E2E_WORKERS } from './specs/helpers.mjs';
 
 // Deprecated (cloud container): /opt/pw-browsers was pre-installed there.
 // Locally Playwright's own download is used (`npx playwright install chromium`).
@@ -12,7 +13,10 @@ export default defineConfig({
   outputDir: './out/test-results',
   timeout: 30_000,
   fullyParallel: false,
-  workers: 1,
+  // Each worker reads its own emulator project (demo-e2e-<n>), seeded by
+  // global_setup.mjs; one worker keeps the caller's demo-pointer seed.
+  workers: E2E_WORKERS,
+  globalSetup: './global_setup.mjs',
   retries: 0,
   reporter: [
     ['list'],

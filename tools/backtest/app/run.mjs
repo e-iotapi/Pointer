@@ -30,11 +30,24 @@ const notes = [];
 const log = (...m) => console.log(...m);
 const abs = (p) => path.resolve(p);
 
+// Allow-list (allowlist.json): every kind of finding can be ruled intended, one reason per entry.
+const allow = JSON.parse(fs.readFileSync('tools/backtest/app/allowlist.json', 'utf8')).intended;
+const used = new Set();
+const intended = {};
+const allowed = (kind, key, oldV, newV) => {
+  const a = allow.find((e) => e.kind === kind && new RegExp(e.keyRegex).test(key) &&
+    (e.old == null || String(oldV) === e.old) && (e.new == null || String(newV) === e.new) &&
+    (e.oldRegex == null || new RegExp(e.oldRegex).test(String(oldV))) && (e.newRegex == null || new RegExp(e.newRegex).test(String(newV))));
+  if (a) { used.add(a.id); (intended[a.id] ??= []).push(key); }
+  return a;
+};
+
 // 1. Surface that must be byte-identical (users/{uid} sync, models, storage).
 const SURFACE = ['lib/sync.dart', 'lib/course.dart', 'lib/course.g.dart', 'lib/core/models', 'lib/core/storage',
   'lib/core/grading', 'lib/core/cache', 'lib/core/prefs', 'lib/core/timings.dart', 'lib/main.dart', 'lib/script.dart'];
-const changed = git('diff', '--name-only', base, 'HEAD', '--', ...SURFACE).split('\n').filter(Boolean);
-log(`sync/model/storage surface vs ${base}: ${changed.length ? 'CHANGED ' + changed.join(', ') : 'unchanged'}`);
+const surface = git('diff', '--name-only', base, 'HEAD', '--', ...SURFACE).split('\n').filter(Boolean);
+log(`sync/model/storage surface vs ${base}: ${surface.length ? 'CHANGED ' + surface.join(', ') : 'unchanged'}`);
+const changed = surface.filter((f) => !allowed('surface', f));
 if (changed.length) findings.push({ id: 'surface-changed', severity: 'review', text: `Student-data code changed vs ${base}: ${changed.join(', ')}. Review the round-trip and add fixtures.` });
 
 // 2. Extract the base tree and give it the harness.
@@ -72,7 +85,9 @@ const short = (n) => n.replace(/^.*\/(\w+_test\.dart): /, '$1: ');
 
 // 3. Base tree: pub get, then its own encoders write the fixtures and probes.
 log('base tree: pub get ...');
-const pg = sh(heavy[0] ?? 'flutter', [...heavy.slice(1), ...(heavy.length ? ['flutter'] : []), 'pub', 'get', '--offline'], { cwd: oldDir });
+const pubGet = (...extra) => sh(heavy[0] ?? 'flutter', [...heavy.slice(1), ...(heavy.length ? ['flutter'] : []), 'pub', 'get', ...extra], { cwd: oldDir });
+let pg = pubGet('--offline');
+if (pg.status) pg = pubGet(); // a fresh machine (CI) lacks the base's packages in its cache
 if (pg.status) { console.error(pg.stdout, pg.stderr); throw new Error('flutter pub get failed in the base tree'); }
 log('base tree: generate fixtures + probes ...');
 let o = flutter(oldDir, ['test/backtest/gen_old_test.dart', 'test/backtest/probes_test.dart', 'test/backtest/sync_probe_test.dart'], { BACKTEST_SIDE: 'old' }, 'old_gen');
@@ -100,14 +115,6 @@ const ran = n.tests.length;
 
 // 5. Differential outcomes.
 const rd = (f) => JSON.parse(fs.readFileSync(path.join(res, f), 'utf8'));
-const allow = JSON.parse(fs.readFileSync('tools/backtest/app/allowlist.json', 'utf8')).intended;
-const used = new Set();
-const allowed = (kind, key, oldV, newV) => {
-  const a = allow.find((e) => e.kind === kind && new RegExp(e.keyRegex).test(key) && (e.old == null || String(oldV) === e.old) && (e.new == null || String(newV) === e.new));
-  if (a) used.add(a.id);
-  return a;
-};
-const intended = {};
 const held = {};
 for (const [kind, file] of [['may', 'may'], ['docs', 'docs'], ['device', 'device']]) {
   const a = rd(`old_${file}.json`), b = rd(`new_${file}.json`);
@@ -117,8 +124,7 @@ for (const [kind, file] of [['may', 'may'], ['docs', 'docs'], ['device', 'device
     cmp++;
     if (a[k] === b[k]) continue;
     diff++;
-    const al = allowed(kind, k, a[k], b[k]);
-    if (al) { (intended[al.id] ??= []).push(k); continue; }
+    if (allowed(kind, k, a[k], b[k])) continue;
     const regress = kind !== 'may' && String(b[k]).startsWith('throws') && !String(a[k]).startsWith('throws');
     findings.push({ severity: regress ? 'break' : 'review', id: `${kind}:${k}`, source: 'differential', text: `${kind} ${k}: base ${a[k]} -> new ${b[k]}` });
   }
@@ -130,7 +136,7 @@ for (const [kind, file] of [['may', 'may'], ['docs', 'docs'], ['device', 'device
 const mixed = rd('old_on_new.json');
 let mixedOk = 0;
 for (const [k, v] of Object.entries(mixed)) {
-  if (/^(throws|BREAK)/.test(v)) findings.push({ severity: 'break', id: `mixed:${k}`, source: 'stable app on new docs', text: `${k}: ${v}` });
+  if (/^(throws|BREAK)/.test(v) && !allowed('mixed', k, null, v)) findings.push({ severity: 'break', id: `mixed:${k}`, source: 'stable app on new docs', text: `${k}: ${v}` });
   else mixedOk++;
 }
 held.mixedFleet = { compared: Object.keys(mixed).length, ok: mixedOk };

@@ -1,26 +1,29 @@
 {
- "_readme": "Known, intended differences between the base ref and HEAD. A difference matches an entry when its kind equals `kind` and `key` matches the regex `keyRegex` (and `old`/`new` equal the outcomes, when given). Anything that matches nothing is a finding and fails the run. Empty this list after each release goes to production: the base then already contains the changes.",
+ "_readme": "Known, intended differences between the base ref and HEAD. A difference matches an entry when its kind equals `kind` and `key` matches the regex `keyRegex` (and `old`/`new` equal the outcomes, `oldRegex`/`newRegex` match them, when given). Kinds: `may`, `docs`, `device` (differential), `mixed` (stable app on new documents; key = the case), `surface` (key = a changed student-data file), `e2e` (T4 journeys). Anything that matches nothing is a finding and fails the run. Empty this list after each release goes to production: the base then already contains the changes.",
  "intended": [
   {
    "id": "admin-own-campus-only",
    "kind": "may",
    "reason": "Owner ruling (Decision 11): admins act on campus data only on their own address's campus (merge professors, contribute).",
    "keyRegex": "^(admin_pilani\\|(mergeProfessors|contribute)\\|(goa|hyderabad|dubai)|admin_goa\\|(mergeProfessors|contribute)\\|(hyderabad|pilani|dubai))\\|",
-   "old": "true", "new": "false"
+   "old": "true",
+   "new": "false"
   },
   {
    "id": "admin-phase-a-course-tools",
    "kind": "may",
    "reason": "Owner ruling: admins get the Phase A course tools (structures, bulk upload, degree requirements, averages, professors, moderation) on their own campus.",
    "keyRegex": "^(admin_pilani\\|(courseStructures|bulkUpload|degreeRequirements|averages|professors|moderateReviews)\\|(\\*|pilani)|admin_goa\\|(courseStructures|bulkUpload|degreeRequirements|averages|professors|moderateReviews)\\|(\\*|goa))\\|",
-   "old": "false", "new": "true"
+   "old": "false",
+   "new": "true"
   },
   {
    "id": "campus-rows-ignore-scope",
    "kind": "may",
    "reason": "Matrix artifact, not a behaviour change: a row whose reach is the campus (read roster, contribute) was answered per department by the old table; the new one ignores the scope argument. Callers pass no scope for these rows; the null-scope cells are unchanged (they are not in the diff).",
    "keyRegex": "^(president|secretary|cr)[a-zA-Z_]*\\|(readAuditAndRoster|contribute)\\|[^|]+\\|(?!\\*$)",
-   "old": "false", "new": "true"
+   "old": "false",
+   "new": "true"
   },
   {
    "id": "settings-campus-pick",
@@ -33,6 +36,41 @@
    "kind": "docs",
    "reason": "Custom roles are new: the new code reads a `custom` grant / directory role the base build cannot.",
    "keyRegex": "^(grant\\.fromMap|loadMine|roster|directory\\.fromMap)\\|(custom_role|role_custom)$"
+  },
+  {
+   "id": "cross-campus-grant-ignored",
+   "kind": "may",
+   "reason": "Decision 11 / bfe3cd4 (BRK-001/002/009): a president's or CR's campus is their address's own; a goa address's CR grant on a hyderabad course is honoured by neither the rules nor (now) the app.",
+   "keyRegex": "^president_and_cr\\|[A-Za-z]+\\|(hyderabad|\\*)\\|(\\*|CS F111)$",
+   "old": "true",
+   "new": "false"
+  },
+  {
+   "id": "damaged-grant-docs-tolerated",
+   "kind": "docs",
+   "reason": "Hardening (backtest fixes, 2026-11-23): a grant/directory doc with a missing, wrong-typed or unknown field no longer throws in loadMine/roster; the stable app threw. The reverse (new throws) still fails the run as a break.",
+   "keyRegex": "^(loadMine|roster)\\|",
+   "oldRegex": "^throws",
+   "newRegex": "^ok"
+  },
+  {
+   "id": "damaged-roles-cache-keeps-identity",
+   "kind": "device",
+   "reason": "178856a: a cached roles entry with one damaged grant keeps the cached identity and drops only that grant (the stable app dropped the whole cache); both then show no staff tools until the live roles load.",
+   "keyRegex": "^device\\|roles_grant_(exp_string|missing_fields|unknown_role)$",
+   "newRegex": "^ok:roles=me\\|owner=false\\|grants=0"
+  },
+  {
+   "id": "stable-app-custom-grants",
+   "kind": "mixed",
+   "reason": "Known open item (Builder, 2026-11-23): the stable app throws on custom grants and drops staff.reach when it appoints a custom-role holder; the rules read a missing reach as empty (42e4851). Fixed only by an owner-side stable release; delete this entry once that ships.",
+   "keyRegex": "^(grant\\.fromMap\\|grants/custom\\||loadMine\\|(custom_only_student|cr_plus_custom)$|roster\\||appoint CR for a custom-role holder)"
+  },
+  {
+   "id": "surface-reviewed-2026-11-23",
+   "kind": "surface",
+   "reason": "Reviewed for the test-architecture build: lib/sync.dart's output is checked by this same run (old and new must push byte-identical users/{uid} documents; a difference is a separate 'sync-differs' break), and the grading, timings and main.dart changes compute or start the app without encoding synced boxes. Re-review (delete this entry) before the next release.",
+   "keyRegex": "^lib/(core/grading/(cgpa|requirements)\\.dart|core/timings\\.dart|main\\.dart|sync\\.dart)$"
   }
  ]
 }

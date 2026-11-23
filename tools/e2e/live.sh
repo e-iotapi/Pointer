@@ -9,7 +9,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 HERE="$ROOT/tools/e2e"
 cd "$HERE"
 mkdir -p out/live
-export LIVE_MODE="$MODE"
+export LIVE_MODE="$MODE" E2E_WORKERS=1 # the live specs share demo-pointer with the Worker
 PIDS=()
 cleanup() { for p in "${PIDS[@]:-}"; do [ -n "$p" ] && kill -- "-$p" 2>/dev/null || true; done; }
 trap cleanup EXIT INT TERM
@@ -42,7 +42,11 @@ if [ "$MODE" = "local" ]; then
 
   start "$ROOT" firebase emulators:start --only auth,firestore --project demo-pointer
   wait_http http://127.0.0.1:8085/; wait_http http://127.0.0.1:9099/
-  (cd "$ROOT" && node tools/test_env/seed.mjs >> "$HERE/out/live/services.log" 2>&1) || { echo "seed failed (out/live/services.log)" >&2; exit 1; }
+  # LIVE_FIXTURES=<docs.jsonl dir> (tools/qa/run.sh: the shared production-shaped fixtures) goes in first, the seed on top.
+  if [ -n "${LIVE_FIXTURES:-}" ]; then
+    (cd "$ROOT" && node tools/prod_mirror/load.mjs --in "$LIVE_FIXTURES" --no-auth >> "$HERE/out/live/services.log" 2>&1) || { echo "fixture load failed (out/live/services.log)" >&2; exit 1; }
+  fi
+  (cd "$ROOT" && node tools/test_env/seed.mjs ${LIVE_FIXTURES:+--keep} >> "$HERE/out/live/services.log" 2>&1) || { echo "seed failed (out/live/services.log)" >&2; exit 1; }
   start "$ROOT/server" npx wrangler dev --config wrangler.live.toml --port 8793 --ip 127.0.0.1 --persist-to "$HERE/out/live/wrangler-state" --env-file "$HERE/out/live/worker.env"
   wait_http http://127.0.0.1:8793/heads/goa
   PORT=5050 start "$ROOT/tools/e2e" node serve.mjs

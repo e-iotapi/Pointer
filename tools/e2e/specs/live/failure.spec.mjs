@@ -34,6 +34,23 @@ test.describe('app', () => {
     await context.close();
   });
 
+  test('refused connect (an expired token): the app asks for a token again, retries and gets hello', async ({ browser }) => {
+    let attempts = 0, hello = false;
+    const context = await browser.newContext({ baseURL: CFG.app });
+    const page = await context.newPage();
+    await installLocalCanvasKit(page);
+    await page.routeWebSocket(/127\.0\.0\.1:8793\/live/, (ws) => {
+      if (++attempts === 1) { ws.close({ code: 1008, reason: 'token expired' }); return; } // the Worker's refusal
+      const server = ws.connectToServer();
+      ws.onMessage((m) => server.send(m));
+      server.onMessage((m) => { if (String(m).includes('"hello"')) hello = true; ws.send(m); });
+    });
+    await page.goto('/settings?as=student_full');
+    await expect.poll(() => hello, { timeout: 60_000, message: 'a retried connect reaches hello' }).toBe(true);
+    expect(attempts).toBeGreaterThanOrEqual(2);
+    await context.close();
+  });
+
   test('socket drop and recovery: after the connection is cut the app reconnects and goes on receiving', async ({ browser }) => {
     let opens = 0;
     const context = await browser.newContext({ baseURL: CFG.app });

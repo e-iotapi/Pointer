@@ -3,7 +3,13 @@ import { readFile } from 'node:fs/promises';
 import { readFileSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { expect } from '@playwright/test';
+import { expect, test } from '@playwright/test';
+
+/// Parallel workers (E2E_WORKERS, default 2). With more than one, worker n
+/// reads emulator project demo-e2e-<n> (seeded by global_setup.mjs); the app
+/// takes it from window.pointerEmulatorProject (lib/main.dart).
+export const E2E_WORKERS = Number(process.env.E2E_WORKERS ?? 2);
+export const workerProject = (n) => (E2E_WORKERS > 1 ? `demo-e2e-${n}` : null);
 
 const BUILD_WEB = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
@@ -19,6 +25,8 @@ const BUILD_WEB = path.resolve(
 /// before the app ever renders. Serve it from the build's own bundled copy
 /// instead, so the specs need no internet access at all.
 export async function installLocalCanvasKit(page) {
+  const project = workerProject(test.info().parallelIndex);
+  if (project) await page.addInitScript((p) => { window.pointerEmulatorProject = p; }, project);
   await page.route('https://www.gstatic.com/flutter-canvaskit/**', async (route) => {
     const url = new URL(route.request().url());
     const rest = url.pathname.split('/').filter(Boolean).slice(2).join('/');
@@ -52,6 +60,7 @@ export async function settled(page) {
 /// land on degree setup rather than Home (student_new, faculty).
 export async function signInRaw(page, key) {
   await installLocalCanvasKit(page);
+  page.pointerAs = key; // goto() signs in again: emulator builds forget the session on every load
   await page.goto(`/?as=${key}`);
   await settled(page);
 }
@@ -73,7 +82,11 @@ export async function assertNoErrors(page) {
   }
 }
 
+/// A fresh load of [route]. Emulator builds drop the saved sign-in on every
+/// load (beforeFirebase in lib/core/env/app_env.dart), so the account from
+/// signIn() comes along as ?as=.
 export async function goto(page, route) {
+  if (page.pointerAs && !/[?&]as=/.test(route)) route += `${route.includes('?') ? '&' : '?'}as=${page.pointerAs}`;
   await page.goto(route);
   await settled(page);
 }
@@ -84,6 +97,8 @@ export async function visitAndCheck(page, route) {
   await page.waitForTimeout(500); // Flutter's post-navigate frame settles
   const body = await page.locator('body').innerText();
   expect(body.trim().length, `"${route}" rendered no visible text`).toBeGreaterThan(0);
+  // The sign-in screen has text and no errors too: a lost session must not pass.
+  if (page.pointerAs) expect(body, `"${route}" shows the sign-in screen`).not.toContain('Continue with Google');
   await assertNoErrors(page);
 }
 

@@ -30,6 +30,10 @@ void onDomPointerDown(void Function(double x, double y) run) =>
 /// browser hands them to the right app.
 void openUrl(String url) => impl.openUrl(url);
 
+/// The emulator project a parallel E2E worker set on
+/// `window.pointerEmulatorProject` before the app loaded; null otherwise.
+String? emulatorProject() => impl.emulatorProject();
+
 /// Deletes Firebase Auth's saved sign-in on this origin.
 void forgetSavedSignIn() => impl.forgetSavedSignIn();
 

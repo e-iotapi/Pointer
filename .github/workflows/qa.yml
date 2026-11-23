@@ -1,0 +1,71 @@
+name: qa
+# The slower tiers of tools/qa/run.sh (docs/DEVELOPMENT.md, "Testing").
+# T2 (compatibility with the stable app and old data) on every push to
+# pointer-dev that touches the rules or roles; release.yml calls T3 (live
+# system) + T4 (production-like) before a beta release. Run by hand from the
+# Actions tab with any tiers.
+on:
+  push:
+    branches: [pointer-dev]
+    paths:
+      - firestore.rules
+      - lib/core/roles/**
+      - lib/admin/**
+      - test/rules/**
+      - tools/backtest/**
+  workflow_dispatch:
+    inputs:
+      tiers:
+        description: Tiers, e.g. 2 or 3,4
+        type: string
+        default: '2'
+  workflow_call:
+    inputs:
+      ref:
+        type: string
+        required: true
+      tiers:
+        type: string
+        required: true
+
+jobs:
+  qa:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ inputs.ref || github.ref }}
+          fetch-depth: 0 # T2 and T4 compare against origin/master
+      - uses: subosito/flutter-action@v2
+        with:
+          channel: stable
+          cache: true
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - run: npm install -g firebase-tools
+      - run: flutter pub get
+      - run: npm ci
+        working-directory: test/rules
+      - run: npm ci
+        working-directory: tools/test_env
+      - run: npm ci
+        working-directory: server
+      - run: npm ci && npx playwright install --with-deps chromium
+        working-directory: tools/e2e
+      - name: tools/qa/run.sh
+        run: tools/qa/run.sh --tier "${{ inputs.tiers || '2' }}"
+      - name: logs
+        if: failure()
+        run: tail -n 80 build/qa/run/*.log
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: qa-${{ github.run_id }}
+          path: |
+            build/qa/run
+            build/backtest/**/summary.md
+            tools/e2e/out/results.json
+          if-no-files-found: ignore

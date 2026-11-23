@@ -26,7 +26,7 @@ env:
   DEV_ONLY: >-
     test test_env tools tools/prod_mirror agent_instructions agent_toolchains demo
     docs/DEVELOPMENT.md server/test server/vitest.config.ts CLAUDE.md
-    .github/workflows/check.yml .github/workflows/e2e.yml
+    .github/workflows/check.yml .github/workflows/e2e.yml .github/workflows/qa.yml
 
 jobs:
   # The full checks run once, before pointer-dev becomes a beta. A beta is
@@ -37,9 +37,17 @@ jobs:
     with:
       ref: pointer-dev
 
+  # T3 (live system) + T4 (production-like) gate the beta too (tools/qa/run.sh).
+  qa:
+    if: inputs.to == 'pointer-beta'
+    uses: e-iotapi/Pointer/.github/workflows/qa.yml@pointer-dev
+    with:
+      ref: pointer-dev
+      tiers: '3,4'
+
   release:
-    needs: check
-    if: ${{ !cancelled() && needs.check.result != 'failure' }}
+    needs: [check, qa]
+    if: ${{ !cancelled() && needs.check.result != 'failure' && needs.qa.result != 'failure' }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

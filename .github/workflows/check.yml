@@ -1,8 +1,11 @@
 name: check
-# The full checks. They live on pointer-dev only (master and pointer-beta carry
-# no tests): they run on pull requests into pointer-dev, and release.yml calls
-# them before pointer-dev is released to pointer-beta.
+# T0 + T1 (tools/qa/run.sh) and the production build guard. They live on
+# pointer-dev only (master and pointer-beta carry no tests): they run on every
+# push to pointer-dev and on pull requests into it, and release.yml calls them
+# before pointer-dev is released to pointer-beta. T2 is qa.yml.
 on:
+  push:
+    branches: [pointer-dev]
   pull_request:
     branches: [pointer-dev]
   workflow_call:
@@ -30,20 +33,19 @@ jobs:
       - run: npm install -g firebase-tools
 
       - run: flutter pub get
+      - run: npm ci
+        working-directory: test/rules
+      - run: npm ci
+        working-directory: server
+      - run: npm ci
+        working-directory: tools/test_env
 
-      - name: flutter analyze (no new issues vs. tools/analyze_baseline.txt)
-        run: |
-          flutter analyze --no-fatal-infos > /tmp/analyze.out 2>&1 || true
-          cat /tmp/analyze.out
-          node tools/check_analyze_baseline.mjs < /tmp/analyze.out
+      - name: T0 + T1 (analyzer vs tools/analyze_baseline.txt, Dart, Worker, tools, rules)
+        run: tools/qa/run.sh --tier 0,1
 
-      - run: flutter test
-
-      - name: firestore.rules tests
-        run: |
-          cd test/rules
-          npm ci
-          npm test
+      - name: logs
+        if: failure()
+        run: tail -n 60 build/qa/run/*.log
 
       - name: production build + prod guard (T1)
         run: |

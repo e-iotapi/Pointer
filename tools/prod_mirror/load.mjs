@@ -166,9 +166,10 @@ export function selectSample(docs, auth, n, { now = Math.floor(Date.now() / 1000
 
 // ---- target ---------------------------------------------------------------
 
-export function resolveTarget(target, env = process.env) {
+export function resolveTarget(target, env = process.env, emulatorProject = EMULATOR_PROJECT) {
   if (target === 'emulator' || !target) {
-    return { kind: 'emulator', project: EMULATOR_PROJECT, firestoreHost: env.FIRESTORE_EMULATOR_HOST ?? 'localhost:8085', authHost: env.FIREBASE_AUTH_EMULATOR_HOST ?? 'localhost:9099' };
+    if (!emulatorProject.startsWith('demo-')) throw new Error(`An emulator --project must start with demo-, not ${emulatorProject}.`);
+    return { kind: 'emulator', project: emulatorProject, firestoreHost: env.FIRESTORE_EMULATOR_HOST ?? 'localhost:8085', authHost: env.FIREBASE_AUTH_EMULATOR_HOST ?? 'localhost:9099' };
   }
   if (target !== 'staging') throw new Error(`--target is emulator or staging, not ${target}.`);
   const rc = JSON.parse(readFileSync(path.join(root, '.firebaserc'), 'utf8')).projects ?? {};
@@ -246,9 +247,9 @@ async function ensureUsers(auth, picks, password) {
 
 async function main() {
   const a = parseArgs(process.argv.slice(2), ['resume', 'restart', 'wipe', 'no-auth', 'all-auth', 'keep', 'dry']);
-  if (!a.in) { console.error('usage: load.mjs --in <dir> [--target emulator|staging] [--sample N] [--only prefix,prefix] [--skip-same-as <dir>] [--daily-write-cap N] [--resume|--restart] [--wipe] [--no-auth] [--all-auth]'); process.exit(2); }
+  if (!a.in) { console.error('usage: load.mjs --in <dir> [--target emulator|staging] [--sample N] [--only prefix,prefix] [--skip-same-as <dir>] [--daily-write-cap N] [--resume|--restart] [--wipe] [--no-auth] [--all-auth] [--project demo-…]'); process.exit(2); }
   const inDir = path.resolve(a.in);
-  const tgt = resolveTarget(a.target ?? 'emulator');
+  const tgt = resolveTarget(a.target ?? 'emulator', process.env, a.project); // --project: an emulator project (parallel e2e workers)
   if (tgt.kind === 'emulator') {
     process.env.FIRESTORE_EMULATOR_HOST = tgt.firestoreHost;
     process.env.FIREBASE_AUTH_EMULATOR_HOST = tgt.authHost;

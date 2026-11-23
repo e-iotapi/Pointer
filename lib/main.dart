@@ -66,10 +66,11 @@ void main() async {
   await Perf.time('startup.firebaseInit', () => Firebase.initializeApp(
     options: appEnv == AppEnv.staging
         ? StagingFirebaseOptions.currentPlatform
-        // The emulators hold one project's data per id: the seed's.
+        // The emulators hold one project's data per id: the seed's, or a
+        // parallel E2E worker's own (tools/e2e/specs/helpers.mjs).
         : appEnv == AppEnv.emulator
         ? DefaultFirebaseOptions.currentPlatform
-            .copyWith(projectId: 'demo-pointer')
+            .copyWith(projectId: emulatorProject() ?? 'demo-pointer')
         : DefaultFirebaseOptions.currentPlatform,
   ));
   configureEnv();

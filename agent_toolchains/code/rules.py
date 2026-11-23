@@ -16,8 +16,9 @@ FORBIDDEN = ['test/fixtures/transcript.csv', 'test/fixtures/performance_sheet.js
              '*.pdf', 'agent_instructions/deprecated/PLAN.md', 'sensitive_data_NO_COMMIT/*', 'idthp', '*.png', '*.jpg', 'test/ui/zz_*', 'build/*']
 
 # Committed although they match FORBIDDEN: the UI sheet the user asked for
-# (ui_check.py atlas), for their own manual pass.
-ALLOWED = ['ui_sheet/ui_sheet.png']
+# (ui_check.py atlas), for their own manual pass, and ui_check's accepted
+# renders (agent_toolchains/README.md: commit them after `accept`).
+ALLOWED = ['ui_sheet/ui_sheet.png', 'agent_toolchains/ui_check/baseline/*']
 
 # Never edited by the edit tool without --allow (docs of record).
 PROTECTED = ['agent_instructions/deprecated/PLAN.md']

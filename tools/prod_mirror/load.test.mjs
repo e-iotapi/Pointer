@@ -47,6 +47,7 @@ test('staging is refused unless every safeguard holds; production never', () => 
   assert.throws(() => resolveTarget('staging', { GOOGLE_APPLICATION_CREDENTIALS: key('pointer-staging'), FIRESTORE_EMULATOR_HOST: 'localhost:8085' }), /unset it/);
   assert.equal(resolveTarget('staging', { GOOGLE_APPLICATION_CREDENTIALS: key('pointer-staging'), STAGING_PASSWORD: 'x' }).project, 'pointer-staging');
   assert.equal(resolveTarget('emulator', {}).project, 'demo-pointer');
+  assert.throws(() => resolveTarget('emulator', {}, 'cgpa-calculator-fb90c'), /demo-/); // --project: emulator projects only
 });
 
 test('the writer stops at the daily cap and resumes where it stopped', async () => {

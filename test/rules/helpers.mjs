@@ -107,11 +107,19 @@ export function appoint(db, actor, g, staff, { audit = true, auditPath, marker =
   return b.commit();
 }
 
+/// `demo-r-<test file name>`: node --test runs each file as its own process.
+function fileProject() {
+  const f = (process.argv[1] ?? 'rules').split('/').pop().replace(/\.test\.mjs$|\.mjs$/, '');
+  return `demo-r-${f.toLowerCase().replace(/[^a-z0-9-]/g, '-')}`.slice(0, 30);
+}
+
 /// Registers the emulator hooks and the seed every test starts from.
 export function useEmulator({ extraRules = '' } = {}) {
 before(async () => {
   env = await initializeTestEnvironment({
-    projectId: process.env.RULES_PROJECT ?? 'demo-pointer', // warm runs use their own, sparing up.sh's seed
+    // One emulator project per test file (data is isolated per project), so
+    // files run in parallel on one emulator and never touch up.sh's seed.
+    projectId: process.env.RULES_PROJECT ?? fileProject(),
     firestore: {
       rules: readFileSync(new URL('../../firestore.rules', import.meta.url), 'utf8')
         // extraRules (test-only matches) go inside the documents block.

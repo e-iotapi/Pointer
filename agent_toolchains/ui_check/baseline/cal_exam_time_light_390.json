@@ -20,11 +20,9 @@
   "contrast: \"8 AM\" 1.56:1, needs 4.5 (8.5 px)",
   "contrast: \"9 AM\" 1.56:1, needs 4.5 (8.5 px)",
   "contrast: \"9:30–11\" 2.68:1, needs 4.5 (7.0 px)",
-  "contrast: \"9–10\" 3.01:1, needs 4.5 (7.0 px)",
   "contrast: \"Day\" 3.59:1, needs 4.5 (12.5 px)",
   "contrast: \"Fri\" 2.71:1, needs 4.5 (9.5 px)",
   "contrast: \"Intro Widgets Midsem\" 2.68:1, needs 4.5 (7.0 px)",
-  "contrast: \"Intro Widgets\" 3.01:1, needs 4.5 (7.0 px)",
   "contrast: \"Month\" 3.59:1, needs 4.5 (12.5 px)",
   "contrast: \"NOW\" 1.88:1, needs 4.5 (8.0 px)",
   "contrast: \"Sat\" 2.71:1, needs 4.5 (9.5 px)",
@@ -39,7 +37,6 @@
   "overlap: \"Week of\" over \"3 AM\"",
   "overlap: \"What is coming\" over \"1 AM\"",
   "tap: \"\" 320x16",
-  "truncated: \"Intro Widgets Midsem\"",
-  "truncated: \"Intro Widgets\""
+  "truncated: \"Intro Widgets Midsem\""
  ]
 }

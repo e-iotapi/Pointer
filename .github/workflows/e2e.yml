@@ -39,7 +39,7 @@ jobs:
         run: |
           firebase emulators:exec --only auth,firestore --project demo-pointer "
             node tools/test_env/seed.mjs &&
-            flutter build web --profile --dart-define=POINTER_ENV=emulator --dart-define=POINTER_EMULATOR_HOST=localhost &&
+            flutter build web --profile --dart-define=POINTER_ENV=emulator --dart-define=POINTER_EMULATOR_HOST=127.0.0.1 &&
             npm --prefix tools/e2e test
           "
 

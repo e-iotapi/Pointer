@@ -1,6 +1,7 @@
 {
  "errors": [],
  "issues": [
-  "tap: \"Back\" 42x42"
+  "tap: \"Back\" 42x42",
+  "truncated: \"Search notes, papers, courses\""
  ]
 }

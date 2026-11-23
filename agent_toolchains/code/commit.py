@@ -28,7 +28,7 @@ def main(argv):
     a = ap.parse_args(argv)
 
     changed = set(changed_files())
-    bad = [f for f in a.files if matches(f, FORBIDDEN) and f not in ALLOWED]
+    bad = [f for f in a.files if matches(f, FORBIDDEN) and not matches(f, ALLOWED)]
     stale = [f for f in a.files if f not in changed]
     if bad or stale:
         for f in bad:
@@ -47,7 +47,7 @@ def main(argv):
             print('REFUSED: verify failed')
             return 1
     sh('git', 'add', '--', *a.files, check=True)
-    r = sh('git', 'commit', '-q', '-m', a.message)
+    r = sh('git', 'commit', '-q', '-m', a.message, '--', *a.files)  # only these paths, never someone else's staged files
     if r.returncode:
         print(r.stdout + r.stderr)
         return 1

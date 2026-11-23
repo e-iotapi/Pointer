@@ -6,7 +6,7 @@ set -euo pipefail
 export PATH="$HOME/.local/bin:$HOME/development/flutter/bin:$PATH"
 cd "$(dirname "$0")/../../.."
 OLD="$1"; H=/tmp/pointer-heavy.sh; [ -x $H ] || H=
-DEFS="--profile --dart-define=POINTER_ENV=emulator --dart-define=POINTER_EMULATOR_HOST=localhost"
+DEFS="--profile --dart-define=POINTER_ENV=emulator --dart-define=POINTER_EMULATOR_HOST=127.0.0.1" # localhost builds hang at startup.authState in headless Chromium here; T3 uses 127.0.0.1 too
 POINTER_SEED=1 $H flutter test --no-pub tools/test_env/build_snapshots_test.dart
 BASE_REF="${BASE_REF:-origin/master}"
 git archive "$BASE_REF" web | tar -x -C "$OLD"

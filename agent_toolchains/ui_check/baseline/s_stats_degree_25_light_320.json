@@ -1,0 +1,9 @@
+{
+ "errors": [],
+ "issues": [
+  "contrast: \"0 / 12 cr\" 2.75:1, needs 4.5 (11.0 px)",
+  "dead: button \"Credits earned 36 of 164, 128 left\" has no tap action",
+  "tap: \"Degree\" 137x38",
+  "tap: \"Progress\" 137x38"
+ ]
+}

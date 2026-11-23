@@ -192,3 +192,6 @@ void openUrl(String url) {
     app ? '' : 'noopener,noreferrer',
   );
 }
+
+String? emulatorProject() =>
+    (globalContext['pointerEmulatorProject'] as JSString?)?.toDart;
