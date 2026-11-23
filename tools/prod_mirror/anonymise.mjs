@@ -41,6 +41,8 @@ const eligible = (base) => {
   const t = base.split(' ');
   return t.length === 1 ? t[0].length >= 4 && !COMMON.has(t[0]) : t.some((x) => !COMMON.has(x));
 };
+/** A given name or surname worth hunting on its own: 3+ letters, not an ordinary word. */
+const isPart = (t) => t.length >= 3 && /[a-z]/.test(t) && !COMMON.has(t);
 /** Digits of a phone-like match, or null when it is an epoch, a long id or too short/long to be a phone. */
 const phoneDigits = (m) => {
   const d = m.replace(/\D/g, '');
@@ -48,6 +50,7 @@ const phoneDigits = (m) => {
   if (/^\d+$/.test(m) && d[0] === '1' && (d.length === 10 || d.length === 13)) return null; // epoch seconds / ms; Indian mobiles start 6-9
   return d;
 };
+const matchCase = (orig, fake) => (orig[0] === orig[0].toUpperCase() ? fake[0].toUpperCase() + fake.slice(1) : fake);
 const hm = (salt, s) => createHmac('sha256', salt).update(s).digest('hex');
 const normName = (s) => s.toLowerCase().replace(TITLE, '').replace(/[^a-z0-9]+/g, ' ').trim();
 const windows = (words, max = 5) => {
@@ -74,7 +77,7 @@ const SAFE_PROFILE = new Set(['Actual', 'Expected', 'Third', 'Fourth', 'Fifth'])
 /** The pieces of a dataset that are about people. Built by collect mode. */
 class Registry {
   emails = new Set(); uids = new Set(); names = new Set(); phones = new Set();
-  usernames = new Set(); hints = new Set(); hashes = new Set(); pairs = new Map(); grades = [];
+  usernames = new Set(); parts = new Set(); hints = new Set(); hashes = new Set(); pairs = new Map(); grades = [];
 }
 
 /** Seconds from the newest past timestamp to now: shifting by it makes the export "today". */
@@ -99,7 +102,7 @@ export function anonymise(docs, auth, { salt, shiftDays = 0, shiftSeconds }) {
   const shiftSec = shiftSeconds ?? Math.round(shiftDays * 86400);
 
   // ---- maps, filled between the two passes ----
-  const M = { email: new Map(), uid: new Map(), name: new Map(), phone: new Map(), user: new Map(), hash: new Map(), emailName: new Map() };
+  const M = { part: new Map(), email: new Map(), uid: new Map(), name: new Map(), phone: new Map(), user: new Map(), hash: new Map(), emailName: new Map() };
   let collecting = true;
   let lorem = WORDS;
 
@@ -117,6 +120,7 @@ export function anonymise(docs, auth, { salt, shiftDays = 0, shiftSeconds }) {
     const base = normName(s);
     if (collecting) {
       R.names.add(base);
+      for (const t of base.split(' ')) if (t.length >= 3 && /[a-z]/.test(t)) R.parts.add(t);
       if (email) (R.pairs.get(email.toLowerCase()) ?? R.pairs.set(email.toLowerCase(), new Set()).get(email.toLowerCase())).add(base);
       return s;
     }
@@ -149,8 +153,8 @@ export function anonymise(docs, auth, { salt, shiftDays = 0, shiftSeconds }) {
     for (let i = 0; i < toks.length; i++) {
       for (let n = Math.min(5, toks.length - i); n >= 1; n--) {
         const key = toks.slice(i, i + n).map((t) => t[0].toLowerCase()).join(' ');
-        const fake = M.name.get(key);
-        if (fake && eligible(key)) {
+        const fake = (eligible(key) && M.name.get(key)) || (n === 1 && M.part.get(key) && matchCase(toks[i][0], M.part.get(key)));
+        if (fake) {
           const last = toks[i + n - 1];
           out += str.slice(at, toks[i].index) + fake;
           at = last.index + last[0].length;
@@ -267,7 +271,6 @@ export function anonymise(docs, auth, { salt, shiftDays = 0, shiftSeconds }) {
     : s.split(' ').map((w) => (w.length > 1 && !/\d/.test(w) ? lorem[parseInt(hm(salt, 'hint:' + w).slice(0, 6), 16) % lorem.length] : w)).join(' '));
 
   const txString = (s, key, c, parent) => {
-    if (collecting && NAME_KEYS.has(key) && s) R.names.add(normName(s));
     if (c.coll === 'users' && key === 'data' && c.keys.length === 1) return txUsersData(s, c.selfUid);
     if (c.coll === 'users' && key === 'v1' && c.keys.length === 1) return txUsersData(s, c.selfUid);
     if (c.coll === 'searchHints' && (key === 'k' || key === 't')) return hintWords(s);
@@ -332,11 +335,18 @@ export function anonymise(docs, auth, { salt, shiftDays = 0, shiftSeconds }) {
   // ---- assign ----
   const emails = [...R.emails].sort();
   for (const k of R.names) origNames.add(k);
-  const nameClash = (cand) => windows(normName(cand).split(' ')).some((w) => origNames.has(w));
+  const nameClash = (cand) => {
+    const t = normName(cand).split(' ');
+    return windows(t).some((w) => origNames.has(w)) || t.some((x) => R.parts.has(x));
+  };
+  const SYL = 'ba be bi bo bu da de di do ka ke ki ko la le li lo ma me mi mo na ne ni no ra re ri ro sa se si so ta te ti to va ve vi vo za ze zi zo'.split(' ');
+  const syl = (h, k) => Array.from({ length: 3 }, (_, i) => SYL[parseInt(h.slice(k + i * 2, k + i * 2 + 2), 16) % SYL.length]).join('');
+  const cap = (x) => x[0].toUpperCase() + x.slice(1);
   const mkName = (label) => {
     for (let n = 0; ; n++) {
       const h = hm(salt, `name:${label}:${n}`);
-      const cand = `${FIRST[parseInt(h.slice(0, 6), 16) % FIRST.length]} ${LAST[parseInt(h.slice(6, 12), 16) % LAST.length]}`;
+      // the lists first; when real names have used them up, invented syllables
+      const cand = n < 30 ? `${FIRST[parseInt(h.slice(0, 6), 16) % FIRST.length]} ${LAST[parseInt(h.slice(6, 12), 16) % LAST.length]}` : `${cap(syl(h, 0))} ${cap(syl(h, 8))}`;
       if (!nameClash(cand)) return cand;
     }
   };
@@ -365,7 +375,12 @@ export function anonymise(docs, auth, { salt, shiftDays = 0, shiftSeconds }) {
   }
   for (const b of [...R.names].sort()) if (!M.name.has(b)) M.name.set(b, mkName(b));
   for (const x of M.name.values()) fakeNames.add(x);
-  lorem = WORDS.filter((w) => !origNames.has(w));
+  // a given name or surname seen alone in free text maps to the same position of the fake name
+  for (const b of [...R.names].sort()) {
+    const ft = M.name.get(b).toLowerCase().split(' ');
+    b.split(' ').forEach((t, i) => { if (isPart(t) && !M.part.has(t)) M.part.set(t, ft[Math.min(i, ft.length - 1)]); });
+  }
+  lorem = WORDS.filter((w) => !origNames.has(w) && !R.parts.has(w));
   for (const u of [...R.uids].sort()) {
     for (let n = 0; ; n++) {
       const f = base62(hm(salt, `uid:${u}:${n}`), Math.max(20, u.length));
@@ -457,7 +472,7 @@ function resolveHashes(docs, R, M, salt) {
     }
   };
   resolve(groupBy(/^reviews\/([^/]+)\/entries\/([0-9a-f]{64})$/));
-  resolve(groupBy(/^reviews\/[^/]+\/entries\/([0-9a-f]{64})\/(?:votes|reports)\/([0-9a-f]{64})$/));
+  resolve(groupBy(/^reviews\/[^/]+\/entries\/([^/]+)\/(?:votes|reports)\/([0-9a-f]{64})$/));
   resolve(groupBy(/^resourceReports\/([^/]+)\/entries\/([0-9a-f]{64})$/));
 }
 
@@ -520,7 +535,7 @@ export function leakCheck(outDocs, outAuth, R, fakes) {
           let hit = false;
           for (let n = 1; n <= 5 && i + n <= words.length && !hit; n++) {
             const w = words.slice(i, i + n).join(' ');
-            if (w.length >= 4 && R.names.has(w) && eligible(w)) { one(p, it, 'name', { window: n, common: w.split(' ').every((x) => COMMON.has(x)) }); hit = true; }
+            if ((w.length >= 4 && R.names.has(w) && eligible(w)) || (n === 1 && R.parts.has(w) && !COMMON.has(w))) { one(p, it, 'name', { window: n, common: w.split(' ').every((x) => COMMON.has(x)) }); hit = true; }
           }
           if (hit) break;
         }

@@ -221,10 +221,40 @@ test('the leak report names kind, collection, where and field, never the value',
   docs.find((d) => d.path.startsWith('grants/')).data[P.student.uid] = 1;
   const problems = leakCheck(docs, r.auth, r.registry, r.fakes);
   const nameHit = problems.find((x) => x.kind === 'name');
-  assert.deepEqual([nameHit.collection, nameHit.where, nameHit.field, nameHit.window, nameHit.common], ['audit', 'value', 'after.grants[0].name', 2, false]);
+  assert.deepEqual([nameHit.collection, nameHit.where, nameHit.field, nameHit.window, nameHit.common], ['audit', 'value', 'after.grants[0].name', 1, false]);
   assert.ok(problems.some((x) => x.kind === 'email' && x.field === 'after.grants[1].note'));
   assert.ok(problems.some((x) => x.kind === 'uid-or-hash' && x.where === 'key' && x.field.endsWith('<key>')));
   const dump = JSON.stringify(problems) + JSON.stringify(leakTable(problems));
   for (const secret of ['Tanvi', 'Shetty', P.student.email, P.student.uid]) assert.ok(!dump.includes(secret), secret);
   assert.ok(leakTable(problems).some(([k, n]) => k === 'name | audit | value | after.grants[].name' && n === 1));
+});
+
+test('votes under imported reviews with unknown voters, person names in component labels, and a first name alone', () => {
+  const f = buildFixture();
+  const voter = sha('someone-with-no-account' + 'imp_abc');
+  const extra = [
+    { path: 'reviews/EEE F311/entries/imp_abc', data: { courseId: 'EEE F311', stars: 4, campus: 'goa', hidden: false, helpful: 1, reports: 1 } },
+    { path: `reviews/EEE F311/entries/imp_abc/votes/${voter}`, data: { createdAt: { __t: 'ts', s: 1, n: 0 } } },
+    { path: `reviews/EEE F311/entries/imp_abc/reports/${sha('another' + 'imp_abc')}`, data: { createdAt: { __t: 'ts', s: 1, n: 0 } } },
+    { path: 'courses/CS F372/offerings/goa_2026-27-1', data: { courseId: 'CS F372', components: [{ id: 'q', name: 'Quiz 1 (Dr. R. Menon, Kabir Singh)', weight: 10 }, { id: 'm', name: 'Midsem', weight: 30 }] } },
+    { path: 'audit/rem', data: { actor: { email: P.owner.email, name: P.owner.name, role: 'owner' }, action: 'x', summary: 'x', path: 'config/public', after: { remark: 'Thanks Aman, and thanks Kabir!' } } },
+  ];
+  const r = anonymise([...f.docs, ...extra], f.auth, { salt: SALT });
+  assert.deepEqual(leakCheck(r.docs, r.auth, r.registry, r.fakes), []);
+  const paths = r.docs.map((d) => d.path);
+  assert.ok(!paths.some((p) => p.includes(voter)) && paths.some((p) => /^reviews\/EEE F311\/entries\/imp_abc\/votes\/[0-9a-f]{64}$/.test(p)));
+  assert.ok(paths.some((p) => /^reviews\/EEE F311\/entries\/imp_abc\/reports\/[0-9a-f]{64}$/.test(p)));
+  const comp = r.docs.find((d) => d.path.startsWith('courses/CS F372')).data.components;
+  assert.match(comp[0].name, /^Quiz 1 \(.+\)$/);
+  assert.ok(!/Menon|Kabir|Singh/.test(comp[0].name));
+  assert.equal(comp[1].name, 'Midsem');
+  const remark = r.docs.find((d) => d.path === 'audit/rem').data.after.remark;
+  assert.ok(!/Aman|Kabir/.test(remark) && /^Thanks \w+, and thanks \w+!$/.test(remark), remark);
+  // the same first name maps to the same fake first name everywhere
+  const fakeFirst = r.maps.emailName.get(P.cr.email.toLowerCase()).split(' ')[0];
+  assert.ok(remark.endsWith(`thanks ${fakeFirst}!`), remark);
+  // and a first name alone left in the output is caught
+  const planted = structuredClone(r.docs);
+  planted.find((d) => d.path === 'audit/rem').data.after.remark = 'Thanks Aman';
+  assert.ok(summarise(leakCheck(planted, r.auth, r.registry, r.fakes)).name);
 });
