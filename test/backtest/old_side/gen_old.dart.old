@@ -1,0 +1,92 @@
+// Runs in the extracted base tree only: the old app's own encoders write the
+// production-shaped Firestore documents and device caches (fixtures).
+import 'dart:convert';
+import 'dart:io';
+
+import 'package:cgpa_calculator/core/cache/cache_first.dart';
+import 'package:cgpa_calculator/core/reviews/gate_store.dart';
+import 'package:cgpa_calculator/core/roles/contacts.dart';
+import 'package:cgpa_calculator/core/roles/role_store.dart';
+import 'package:cgpa_calculator/core/roles/roles.dart';
+import 'package:cgpa_calculator/core/roles/session.dart';
+import 'package:cgpa_calculator/core/search/hints.dart';
+import 'package:cgpa_calculator/core/storage/cache_boxes.dart';
+import 'package:fake_cloud_firestore/fake_cloud_firestore.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:hive_ce/hive.dart';
+
+import '../common/support.dart';
+
+void main() {
+  test('generate old-encoder fixtures', () async {
+    final db = FakeFirebaseFirestore();
+    final owner = RoleStore(
+      db,
+      me: 'owner@pointer.test',
+      myName: 'Test Owner',
+      actingAs: () => (role: 'owner', viewingAs: null),
+    );
+    const people = {
+      'f20209991@pilani.bits-pilani.ac.in': 'Test Admin',
+      'f20239992@goa.bits-pilani.ac.in': 'Test President',
+      'f20239993@goa.bits-pilani.ac.in': 'Test CR',
+      'f20249994@goa.bits-pilani.ac.in': 'Test Student',
+      'f20249913@goa.bits-pilani.ac.in': 'Test Electives Lead',
+      'f20219998@goa.bits-pilani.ac.in': 'Expired President',
+      'f20249995@goa.bits-pilani.ac.in': 'Revoked CR',
+    };
+    for (final e in people.entries) {
+      await RoleStore(db, me: e.key, myName: e.value)
+          .recordSignIn(name: e.value, campus: campusOfAddress(e.key)!);
+    }
+    await owner.addOwner('owner@pointer.test', 'Test Owner');
+    await owner.saveTerms((crDays: 183, presidentDays: 365, adminDays: 730));
+    final far = DateTime(2100);
+    await owner.appoint(role: GrantRole.admin, email: 'f20209991@pilani.bits-pilani.ac.in', campus: 'all', scope: 'all', expiresAt: far);
+    await owner.appoint(role: GrantRole.dept, email: 'f20239992@goa.bits-pilani.ac.in', campus: 'goa', scope: 'ELEC', programme: 'A3', expiresAt: far);
+    await owner.appoint(role: GrantRole.course, email: 'f20239993@goa.bits-pilani.ac.in', campus: 'goa', scope: 'EEE F211', expiresAt: far);
+    await owner.appoint(role: GrantRole.dept, email: 'f20249913@goa.bits-pilani.ac.in', campus: 'goa', scope: 'GEN', secretary: true, expiresAt: far);
+    await owner.appoint(role: GrantRole.dept, email: 'f20219998@goa.bits-pilani.ac.in', campus: 'goa', scope: 'CS', programme: 'A7', expiresAt: DateTime(2020));
+    await owner.appoint(role: GrantRole.course, email: 'f20249995@goa.bits-pilani.ac.in', campus: 'goa', scope: 'CS F111', expiresAt: far);
+    final revoked = await owner.grant('course|goa|CS F111|f20249995@goa.bits-pilani.ac.in');
+    await owner.revoke(revoked!);
+    await GateStore(owner).set('goa', true, dept: 'ELEC');
+
+    final docs = await dump(db, touched);
+    emit('old_app_docs.json', docs);
+
+    // Device storage the old app leaves behind.
+    final dir = await Directory.systemTemp.createTemp('bt_gen');
+    Hive.init(dir.path);
+    await openDeviceBox();
+    await openSharedCache();
+    final shared = await seeded(docs);
+    final store = RoleStore(shared, me: 'f20239992@goa.bits-pilani.ac.in', myName: 'Test President');
+    roleStore = store;
+    await refreshMyRoles();
+    final adm = RoleStore(shared, me: 'owner@pointer.test', myName: 'Test Owner');
+    await adm.roster(campus: 'goa');
+    await adm.roster();
+    await adm.audit(campus: 'goa');
+    await adm.terms();
+    await adm.owners();
+    await GateStore(adm).of('goa');
+    await SearchHints(shared).load('goa');
+    await ContactStore(adm).directory('goa');
+    final dev = Hive.box(deviceBoxName);
+    await dev.put('workingAs', 'dept|goa|ELEC|f20239992@goa.bits-pilani.ac.in');
+    await dev.put('previewCampus', 'pilani');
+    await dev.put('pref.starred', ['EEE F211', 'CS F111']);
+    await dev.put('hint|goa|oel|open elective', true);
+    await Future<void>.delayed(const Duration(milliseconds: 50));
+    emit('old_storage.json', {
+      'deviceBox': {for (final k in dev.keys) '$k': dev.get(k)},
+      'sharedCache': {
+        for (final k in sharedCacheBox!.keys) '$k': sharedCacheBox!.get(k),
+      },
+    });
+    await Hive.close();
+    await dir.delete(recursive: true);
+    expect(jsonDecode(jsonEncode(docs)), isNotEmpty);
+  });
+}

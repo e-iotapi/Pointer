@@ -1,0 +1,504 @@
+{
+ "people/f20209991@pilani.bits-pilani.ac.in": {
+  "name": "Test Admin",
+  "campus": "pilani",
+  "firstSignIn": 1795392970312,
+  "lastSeen": 1795392970312
+ },
+ "people/f20239992@goa.bits-pilani.ac.in": {
+  "name": "Test President",
+  "campus": "goa",
+  "firstSignIn": 1795392970334,
+  "lastSeen": 1795392970334
+ },
+ "people/f20239993@goa.bits-pilani.ac.in": {
+  "name": "Test CR",
+  "campus": "goa",
+  "firstSignIn": 1795392970335,
+  "lastSeen": 1795392970335
+ },
+ "people/f20249994@goa.bits-pilani.ac.in": {
+  "name": "Test Student",
+  "campus": "goa",
+  "firstSignIn": 1795392970335,
+  "lastSeen": 1795392970335
+ },
+ "people/f20249913@goa.bits-pilani.ac.in": {
+  "name": "Test Electives Lead",
+  "campus": "goa",
+  "firstSignIn": 1795392970336,
+  "lastSeen": 1795392970336
+ },
+ "people/f20219998@goa.bits-pilani.ac.in": {
+  "name": "Expired President",
+  "campus": "goa",
+  "firstSignIn": 1795392970337,
+  "lastSeen": 1795392970337
+ },
+ "people/f20249995@goa.bits-pilani.ac.in": {
+  "name": "Revoked CR",
+  "campus": "goa",
+  "firstSignIn": 1795392970338,
+  "lastSeen": 1795392970338
+ },
+ "owners/owner@pointer.test": {
+  "email": "owner@pointer.test",
+  "name": "Test Owner",
+  "active": true,
+  "addedBy": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner"
+  },
+  "addedAt": {
+   "$ts": 1795392970346
+  },
+  "auditId": "Ibn1DvcczIoVrvrJS6OA"
+ },
+ "grants/admin|all|all|f20209991@pilani.bits-pilani.ac.in": {
+  "active": true,
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "auditId": "EGTJGBjfMrA6QBnKDAT5",
+  "role": "admin",
+  "email": "f20209991@pilani.bits-pilani.ac.in",
+  "name": "Test Admin",
+  "campus": "all",
+  "scope": "all",
+  "grantedBy": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner"
+  },
+  "grantedAt": {
+   "$ts": 1795392970368
+  }
+ },
+ "grants/dept|goa|ELEC|f20239992@goa.bits-pilani.ac.in": {
+  "active": true,
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "auditId": "sq2YpzZDGncXAF5fE475",
+  "role": "dept",
+  "email": "f20239992@goa.bits-pilani.ac.in",
+  "name": "Test President",
+  "campus": "goa",
+  "scope": "ELEC",
+  "programme": "A3",
+  "grantedBy": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner"
+  },
+  "grantedAt": {
+   "$ts": 1795392970372
+  }
+ },
+ "grants/course|goa|EEE F211|f20239993@goa.bits-pilani.ac.in": {
+  "active": true,
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "auditId": "e5DRMXDyrlCWjD6SfgAU",
+  "role": "course",
+  "email": "f20239993@goa.bits-pilani.ac.in",
+  "name": "Test CR",
+  "campus": "goa",
+  "scope": "EEE F211",
+  "grantedBy": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner"
+  },
+  "grantedAt": {
+   "$ts": 1795392970375
+  }
+ },
+ "grants/dept|goa|GEN|f20249913@goa.bits-pilani.ac.in": {
+  "active": true,
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "auditId": "587cXuBUnndu4lNkD7t1",
+  "role": "dept",
+  "email": "f20249913@goa.bits-pilani.ac.in",
+  "name": "Test Electives Lead",
+  "campus": "goa",
+  "scope": "GEN",
+  "secretary": true,
+  "grantedBy": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner"
+  },
+  "grantedAt": {
+   "$ts": 1795392970377
+  }
+ },
+ "grants/dept|goa|CS|f20219998@goa.bits-pilani.ac.in": {
+  "active": true,
+  "expiresAt": {
+   "$ts": 1577817000000
+  },
+  "auditId": "Khrpmruf0TDdTMBeBaes",
+  "role": "dept",
+  "email": "f20219998@goa.bits-pilani.ac.in",
+  "name": "Expired President",
+  "campus": "goa",
+  "scope": "CS",
+  "programme": "A7",
+  "grantedBy": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner"
+  },
+  "grantedAt": {
+   "$ts": 1795392970380
+  }
+ },
+ "grants/course|goa|CS F111|f20249995@goa.bits-pilani.ac.in": {
+  "active": false,
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "auditId": "Y3fUe1cB8bOMIutoaHsk",
+  "role": "course",
+  "email": "f20249995@goa.bits-pilani.ac.in",
+  "name": "Revoked CR",
+  "campus": "goa",
+  "scope": "CS F111",
+  "grantedBy": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner"
+  },
+  "grantedAt": {
+   "$ts": 1795392970383
+  }
+ },
+ "staff/f20209991@pilani.bits-pilani.ac.in": {
+  "email": "f20209991@pilani.bits-pilani.ac.in",
+  "name": "Test Admin",
+  "campus": "all",
+  "owner": false,
+  "admin": true,
+  "presidentOf": [],
+  "courses": [],
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "lastGrant": "admin|all|all|f20209991@pilani.bits-pilani.ac.in"
+ },
+ "staff/f20239992@goa.bits-pilani.ac.in": {
+  "email": "f20239992@goa.bits-pilani.ac.in",
+  "name": "Test President",
+  "campus": "goa",
+  "owner": false,
+  "admin": false,
+  "presidentOf": [
+   "ELEC"
+  ],
+  "courses": [],
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "lastGrant": "dept|goa|ELEC|f20239992@goa.bits-pilani.ac.in"
+ },
+ "staff/f20239993@goa.bits-pilani.ac.in": {
+  "email": "f20239993@goa.bits-pilani.ac.in",
+  "name": "Test CR",
+  "campus": "goa",
+  "owner": false,
+  "admin": false,
+  "presidentOf": [],
+  "courses": [
+   "EEE F211"
+  ],
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "lastGrant": "course|goa|EEE F211|f20239993@goa.bits-pilani.ac.in"
+ },
+ "staff/f20249913@goa.bits-pilani.ac.in": {
+  "email": "f20249913@goa.bits-pilani.ac.in",
+  "name": "Test Electives Lead",
+  "campus": "goa",
+  "owner": false,
+  "admin": false,
+  "presidentOf": [
+   "GEN"
+  ],
+  "courses": [],
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "lastGrant": "dept|goa|GEN|f20249913@goa.bits-pilani.ac.in"
+ },
+ "staff/f20219998@goa.bits-pilani.ac.in": {
+  "email": "f20219998@goa.bits-pilani.ac.in",
+  "name": "Expired President",
+  "campus": "goa",
+  "owner": false,
+  "admin": false,
+  "presidentOf": [
+   "CS"
+  ],
+  "courses": [],
+  "expiresAt": {
+   "$ts": 1577817000000
+  },
+  "lastGrant": "dept|goa|CS|f20219998@goa.bits-pilani.ac.in"
+ },
+ "staff/f20249995@goa.bits-pilani.ac.in": {
+  "email": "f20249995@goa.bits-pilani.ac.in",
+  "name": "Revoked CR",
+  "campus": "goa",
+  "owner": false,
+  "admin": false,
+  "presidentOf": [],
+  "courses": [],
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "lastGrant": "course|goa|CS F111|f20249995@goa.bits-pilani.ac.in"
+ },
+ "audit/Ibn1DvcczIoVrvrJS6OA": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Added owner@pointer.test as an owner",
+  "summary": "Added owner@pointer.test as an owner",
+  "path": "owners/owner@pointer.test",
+  "campus": "all",
+  "before": null,
+  "after": {
+   "active": true
+  },
+  "at": {
+   "$ts": 1795392970345
+  }
+ },
+ "audit/KMuI6zsWdQIwWLjWuHmu": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Set grant terms: CR 183 days, president 365, admin 730",
+  "summary": "Set grant terms: CR 183 days, president 365, admin 730",
+  "path": "config/grantTerms",
+  "campus": "all",
+  "before": {
+   "crDays": 183,
+   "presidentDays": 365,
+   "adminDays": 730
+  },
+  "after": {
+   "crDays": 183,
+   "presidentDays": 365,
+   "adminDays": 730
+  },
+  "at": {
+   "$ts": 1795392970355
+  }
+ },
+ "audit/EGTJGBjfMrA6QBnKDAT5": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Appointed Test Admin admin",
+  "summary": "Appointed Test Admin admin",
+  "path": "grants/admin|all|all|f20209991@pilani.bits-pilani.ac.in",
+  "campus": "all",
+  "before": null,
+  "after": {
+   "active": true,
+   "expiresAt": "2100-01-01T00:00:00.000"
+  },
+  "at": {
+   "$ts": 1795392970367
+  }
+ },
+ "audit/sq2YpzZDGncXAF5fE475": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Appointed Test President president of A3",
+  "summary": "Appointed Test President president of A3",
+  "path": "grants/dept|goa|ELEC|f20239992@goa.bits-pilani.ac.in",
+  "campus": "goa",
+  "before": null,
+  "after": {
+   "active": true,
+   "expiresAt": "2100-01-01T00:00:00.000"
+  },
+  "at": {
+   "$ts": 1795392970372
+  }
+ },
+ "audit/e5DRMXDyrlCWjD6SfgAU": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Appointed Test CR CR for EEE F211",
+  "summary": "Appointed Test CR CR for EEE F211",
+  "path": "grants/course|goa|EEE F211|f20239993@goa.bits-pilani.ac.in",
+  "campus": "goa",
+  "course": "EEE F211",
+  "before": null,
+  "after": {
+   "active": true,
+   "expiresAt": "2100-01-01T00:00:00.000"
+  },
+  "at": {
+   "$ts": 1795392970374
+  }
+ },
+ "audit/587cXuBUnndu4lNkD7t1": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Appointed Test Electives Lead secretary of Electives",
+  "summary": "Appointed Test Electives Lead secretary of Electives",
+  "path": "grants/dept|goa|GEN|f20249913@goa.bits-pilani.ac.in",
+  "campus": "goa",
+  "before": null,
+  "after": {
+   "active": true,
+   "expiresAt": "2100-01-01T00:00:00.000"
+  },
+  "at": {
+   "$ts": 1795392970377
+  }
+ },
+ "audit/Khrpmruf0TDdTMBeBaes": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Appointed Expired President president of A7",
+  "summary": "Appointed Expired President president of A7",
+  "path": "grants/dept|goa|CS|f20219998@goa.bits-pilani.ac.in",
+  "campus": "goa",
+  "before": null,
+  "after": {
+   "active": true,
+   "expiresAt": "2020-01-01T00:00:00.000"
+  },
+  "at": {
+   "$ts": 1795392970380
+  }
+ },
+ "audit/ixErvGoFjEEPF4NhoQYJ": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Appointed Revoked CR CR for CS F111",
+  "summary": "Appointed Revoked CR CR for CS F111",
+  "path": "grants/course|goa|CS F111|f20249995@goa.bits-pilani.ac.in",
+  "campus": "goa",
+  "course": "CS F111",
+  "before": null,
+  "after": {
+   "active": true,
+   "expiresAt": "2100-01-01T00:00:00.000"
+  },
+  "at": {
+   "$ts": 1795392970382
+  }
+ },
+ "audit/Y3fUe1cB8bOMIutoaHsk": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Revoked Revoked CR as course manager (CS F111)",
+  "summary": "Revoked Revoked CR as course manager (CS F111)",
+  "path": "grants/course|goa|CS F111|f20249995@goa.bits-pilani.ac.in",
+  "campus": "goa",
+  "course": "CS F111",
+  "before": {
+   "active": true,
+   "expiresAt": "2100-01-01T00:00:00.000"
+  },
+  "after": {
+   "active": false,
+   "expiresAt": "2100-01-01T00:00:00.000"
+  },
+  "at": {
+   "$ts": 1795392970387
+  }
+ },
+ "audit/MWsqGfSiwy56djEfaGmC": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Turned the review gate on",
+  "summary": "Turned the review gate on",
+  "path": "reviewGate/goa",
+  "campus": "goa",
+  "before": null,
+  "after": null,
+  "at": {
+   "$ts": 1795392970390
+  }
+ },
+ "config/grantTerms": {
+  "crDays": 183,
+  "presidentDays": 365,
+  "adminDays": 730,
+  "auditId": "KMuI6zsWdQIwWLjWuHmu"
+ },
+ "heads/goa": {
+  "v": {
+   "owners": 1,
+   "terms": 1,
+   "grants": 7,
+   "reviewGate": 1
+  }
+ },
+ "heads/hyderabad": {
+  "v": {
+   "owners": 1,
+   "terms": 1,
+   "grants": 1
+  }
+ },
+ "heads/pilani": {
+  "v": {
+   "owners": 1,
+   "terms": 1,
+   "grants": 1
+  }
+ },
+ "heads/dubai": {
+  "v": {
+   "owners": 1,
+   "terms": 1,
+   "grants": 1
+  }
+ },
+ "reviewGate/goa": {
+  "on": true,
+  "by": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner"
+  },
+  "at": {
+   "$ts": 1795392970390
+  },
+  "auditId": "MWsqGfSiwy56djEfaGmC",
+  "dept": "ELEC"
+ }
+}

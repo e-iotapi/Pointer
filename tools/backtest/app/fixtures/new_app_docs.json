@@ -1,0 +1,928 @@
+{
+ "people/f20209991@pilani.bits-pilani.ac.in": {
+  "name": "Test Admin",
+  "campus": "pilani",
+  "firstSignIn": 1795392970312,
+  "lastSeen": 1795392970312
+ },
+ "people/f20239992@goa.bits-pilani.ac.in": {
+  "name": "Test President",
+  "campus": "goa",
+  "firstSignIn": 1795392970334,
+  "lastSeen": 1795392970334
+ },
+ "people/f20239993@goa.bits-pilani.ac.in": {
+  "name": "Test CR",
+  "campus": "goa",
+  "firstSignIn": 1795392970335,
+  "lastSeen": 1795392970335
+ },
+ "people/f20249994@goa.bits-pilani.ac.in": {
+  "name": "Test Student",
+  "campus": "goa",
+  "firstSignIn": 1795392970335,
+  "lastSeen": 1795392970335
+ },
+ "people/f20249913@goa.bits-pilani.ac.in": {
+  "name": "Test Electives Lead",
+  "campus": "goa",
+  "firstSignIn": 1795392970336,
+  "lastSeen": 1795392970336
+ },
+ "people/f20219998@goa.bits-pilani.ac.in": {
+  "name": "Expired President",
+  "campus": "goa",
+  "firstSignIn": 1795392970337,
+  "lastSeen": 1795392970337
+ },
+ "people/f20249995@goa.bits-pilani.ac.in": {
+  "name": "Revoked CR",
+  "campus": "goa",
+  "firstSignIn": 1795392970338,
+  "lastSeen": 1795392970338
+ },
+ "owners/owner@pointer.test": {
+  "email": "owner@pointer.test",
+  "name": "Test Owner",
+  "active": true,
+  "addedBy": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner"
+  },
+  "addedAt": {
+   "$ts": 1795392970346
+  },
+  "auditId": "Ibn1DvcczIoVrvrJS6OA"
+ },
+ "grants/admin|all|all|f20209991@pilani.bits-pilani.ac.in": {
+  "active": true,
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "auditId": "EGTJGBjfMrA6QBnKDAT5",
+  "role": "admin",
+  "email": "f20209991@pilani.bits-pilani.ac.in",
+  "name": "Test Admin",
+  "campus": "all",
+  "scope": "all",
+  "grantedBy": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner"
+  },
+  "grantedAt": {
+   "$ts": 1795392970368
+  }
+ },
+ "grants/dept|goa|ELEC|f20239992@goa.bits-pilani.ac.in": {
+  "active": true,
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "auditId": "m3YxH2L3TvJ7icwS10O0",
+  "role": "dept",
+  "email": "f20239992@goa.bits-pilani.ac.in",
+  "name": "Test President",
+  "campus": "goa",
+  "scope": "ELEC",
+  "programme": "A3",
+  "grantedBy": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner"
+  },
+  "grantedAt": {
+   "$ts": 1795392970372
+  }
+ },
+ "grants/course|goa|EEE F211|f20239993@goa.bits-pilani.ac.in": {
+  "active": true,
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "auditId": "e5DRMXDyrlCWjD6SfgAU",
+  "role": "course",
+  "email": "f20239993@goa.bits-pilani.ac.in",
+  "name": "Test CR",
+  "campus": "goa",
+  "scope": "EEE F211",
+  "grantedBy": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner"
+  },
+  "grantedAt": {
+   "$ts": 1795392970375
+  }
+ },
+ "grants/dept|goa|GEN|f20249913@goa.bits-pilani.ac.in": {
+  "active": true,
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "auditId": "587cXuBUnndu4lNkD7t1",
+  "role": "dept",
+  "email": "f20249913@goa.bits-pilani.ac.in",
+  "name": "Test Electives Lead",
+  "campus": "goa",
+  "scope": "GEN",
+  "secretary": true,
+  "grantedBy": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner"
+  },
+  "grantedAt": {
+   "$ts": 1795392970377
+  }
+ },
+ "grants/dept|goa|CS|f20219998@goa.bits-pilani.ac.in": {
+  "active": true,
+  "expiresAt": {
+   "$ts": 1577817000000
+  },
+  "auditId": "Khrpmruf0TDdTMBeBaes",
+  "role": "dept",
+  "email": "f20219998@goa.bits-pilani.ac.in",
+  "name": "Expired President",
+  "campus": "goa",
+  "scope": "CS",
+  "programme": "A7",
+  "grantedBy": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner"
+  },
+  "grantedAt": {
+   "$ts": 1795392970380
+  }
+ },
+ "grants/course|goa|CS F111|f20249995@goa.bits-pilani.ac.in": {
+  "active": false,
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "auditId": "Y3fUe1cB8bOMIutoaHsk",
+  "role": "course",
+  "email": "f20249995@goa.bits-pilani.ac.in",
+  "name": "Revoked CR",
+  "campus": "goa",
+  "scope": "CS F111",
+  "grantedBy": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner"
+  },
+  "grantedAt": {
+   "$ts": 1795392970383
+  }
+ },
+ "grants/custom|f20249994@goa.bits-pilani.ac.in": {
+  "active": true,
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "auditId": "b4MgKUCBzhjhDI5Mllij",
+  "role": "custom",
+  "email": "f20249994@goa.bits-pilani.ac.in",
+  "name": "Test Student",
+  "campus": "goa",
+  "scope": "role",
+  "roleId": "7pKDkLELD6K0JBZRUFg8",
+  "grantedBy": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner"
+  },
+  "grantedAt": {
+   "$ts": 1795393223186
+  }
+ },
+ "grants/custom|f20239993@goa.bits-pilani.ac.in": {
+  "active": true,
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "auditId": "LCD3ePPDnJe3QyectxJJ",
+  "role": "custom",
+  "email": "f20239993@goa.bits-pilani.ac.in",
+  "name": "Test CR",
+  "campus": "goa",
+  "scope": "role",
+  "roleId": "7pKDkLELD6K0JBZRUFg8",
+  "grantedBy": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner"
+  },
+  "grantedAt": {
+   "$ts": 1795393223193
+  }
+ },
+ "staff/f20209991@pilani.bits-pilani.ac.in": {
+  "email": "f20209991@pilani.bits-pilani.ac.in",
+  "name": "Test Admin",
+  "campus": "all",
+  "owner": false,
+  "admin": true,
+  "presidentOf": [],
+  "courses": [],
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "lastGrant": "admin|all|all|f20209991@pilani.bits-pilani.ac.in"
+ },
+ "staff/f20239992@goa.bits-pilani.ac.in": {
+  "email": "f20239992@goa.bits-pilani.ac.in",
+  "name": "Test President",
+  "campus": "goa",
+  "owner": false,
+  "admin": false,
+  "presidentOf": [
+   "ELEC"
+  ],
+  "courses": [],
+  "reach": [
+   {
+    "role": "president",
+    "campus": "goa",
+    "dept": "ELEC"
+   }
+  ],
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "lastGrant": "dept|goa|ELEC|f20239992@goa.bits-pilani.ac.in"
+ },
+ "staff/f20239993@goa.bits-pilani.ac.in": {
+  "email": "f20239993@goa.bits-pilani.ac.in",
+  "name": "Test CR",
+  "campus": "goa",
+  "owner": false,
+  "admin": false,
+  "presidentOf": [],
+  "courses": [
+   "EEE F211"
+  ],
+  "reach": [
+   {
+    "role": "custom",
+    "campus": "goa",
+    "dept": "all"
+   }
+  ],
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "lastGrant": "custom|f20239993@goa.bits-pilani.ac.in"
+ },
+ "staff/f20249913@goa.bits-pilani.ac.in": {
+  "email": "f20249913@goa.bits-pilani.ac.in",
+  "name": "Test Electives Lead",
+  "campus": "goa",
+  "owner": false,
+  "admin": false,
+  "presidentOf": [
+   "GEN"
+  ],
+  "courses": [],
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "lastGrant": "dept|goa|GEN|f20249913@goa.bits-pilani.ac.in"
+ },
+ "staff/f20219998@goa.bits-pilani.ac.in": {
+  "email": "f20219998@goa.bits-pilani.ac.in",
+  "name": "Expired President",
+  "campus": "goa",
+  "owner": false,
+  "admin": false,
+  "presidentOf": [
+   "CS"
+  ],
+  "courses": [],
+  "expiresAt": {
+   "$ts": 1577817000000
+  },
+  "lastGrant": "dept|goa|CS|f20219998@goa.bits-pilani.ac.in"
+ },
+ "staff/f20249995@goa.bits-pilani.ac.in": {
+  "email": "f20249995@goa.bits-pilani.ac.in",
+  "name": "Revoked CR",
+  "campus": "goa",
+  "owner": false,
+  "admin": false,
+  "presidentOf": [],
+  "courses": [],
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "lastGrant": "course|goa|CS F111|f20249995@goa.bits-pilani.ac.in"
+ },
+ "staff/f20249994@goa.bits-pilani.ac.in": {
+  "email": "f20249994@goa.bits-pilani.ac.in",
+  "name": "Test Student",
+  "campus": "goa",
+  "owner": false,
+  "admin": false,
+  "presidentOf": [],
+  "courses": [],
+  "reach": [
+   {
+    "role": "custom",
+    "campus": "goa",
+    "dept": "all"
+   }
+  ],
+  "expiresAt": {
+   "$ts": 4102425000000
+  },
+  "lastGrant": "custom|f20249994@goa.bits-pilani.ac.in"
+ },
+ "audit/Ibn1DvcczIoVrvrJS6OA": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Added owner@pointer.test as an owner",
+  "summary": "Added owner@pointer.test as an owner",
+  "path": "owners/owner@pointer.test",
+  "campus": "all",
+  "before": null,
+  "after": {
+   "active": true
+  },
+  "at": {
+   "$ts": 1795392970345
+  }
+ },
+ "audit/KMuI6zsWdQIwWLjWuHmu": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Set grant terms: CR 183 days, president 365, admin 730",
+  "summary": "Set grant terms: CR 183 days, president 365, admin 730",
+  "path": "config/grantTerms",
+  "campus": "all",
+  "before": {
+   "crDays": 183,
+   "presidentDays": 365,
+   "adminDays": 730
+  },
+  "after": {
+   "crDays": 183,
+   "presidentDays": 365,
+   "adminDays": 730
+  },
+  "at": {
+   "$ts": 1795392970355
+  }
+ },
+ "audit/EGTJGBjfMrA6QBnKDAT5": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Appointed Test Admin admin",
+  "summary": "Appointed Test Admin admin",
+  "path": "grants/admin|all|all|f20209991@pilani.bits-pilani.ac.in",
+  "campus": "all",
+  "before": null,
+  "after": {
+   "active": true,
+   "expiresAt": "2100-01-01T00:00:00.000"
+  },
+  "at": {
+   "$ts": 1795392970367
+  }
+ },
+ "audit/sq2YpzZDGncXAF5fE475": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Appointed Test President president of A3",
+  "summary": "Appointed Test President president of A3",
+  "path": "grants/dept|goa|ELEC|f20239992@goa.bits-pilani.ac.in",
+  "campus": "goa",
+  "before": null,
+  "after": {
+   "active": true,
+   "expiresAt": "2100-01-01T00:00:00.000"
+  },
+  "at": {
+   "$ts": 1795392970372
+  }
+ },
+ "audit/e5DRMXDyrlCWjD6SfgAU": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Appointed Test CR CR for EEE F211",
+  "summary": "Appointed Test CR CR for EEE F211",
+  "path": "grants/course|goa|EEE F211|f20239993@goa.bits-pilani.ac.in",
+  "campus": "goa",
+  "course": "EEE F211",
+  "before": null,
+  "after": {
+   "active": true,
+   "expiresAt": "2100-01-01T00:00:00.000"
+  },
+  "at": {
+   "$ts": 1795392970374
+  }
+ },
+ "audit/587cXuBUnndu4lNkD7t1": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Appointed Test Electives Lead secretary of Electives",
+  "summary": "Appointed Test Electives Lead secretary of Electives",
+  "path": "grants/dept|goa|GEN|f20249913@goa.bits-pilani.ac.in",
+  "campus": "goa",
+  "before": null,
+  "after": {
+   "active": true,
+   "expiresAt": "2100-01-01T00:00:00.000"
+  },
+  "at": {
+   "$ts": 1795392970377
+  }
+ },
+ "audit/Khrpmruf0TDdTMBeBaes": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Appointed Expired President president of A7",
+  "summary": "Appointed Expired President president of A7",
+  "path": "grants/dept|goa|CS|f20219998@goa.bits-pilani.ac.in",
+  "campus": "goa",
+  "before": null,
+  "after": {
+   "active": true,
+   "expiresAt": "2020-01-01T00:00:00.000"
+  },
+  "at": {
+   "$ts": 1795392970380
+  }
+ },
+ "audit/ixErvGoFjEEPF4NhoQYJ": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Appointed Revoked CR CR for CS F111",
+  "summary": "Appointed Revoked CR CR for CS F111",
+  "path": "grants/course|goa|CS F111|f20249995@goa.bits-pilani.ac.in",
+  "campus": "goa",
+  "course": "CS F111",
+  "before": null,
+  "after": {
+   "active": true,
+   "expiresAt": "2100-01-01T00:00:00.000"
+  },
+  "at": {
+   "$ts": 1795392970382
+  }
+ },
+ "audit/Y3fUe1cB8bOMIutoaHsk": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Revoked Revoked CR as course manager (CS F111)",
+  "summary": "Revoked Revoked CR as course manager (CS F111)",
+  "path": "grants/course|goa|CS F111|f20249995@goa.bits-pilani.ac.in",
+  "campus": "goa",
+  "course": "CS F111",
+  "before": {
+   "active": true,
+   "expiresAt": "2100-01-01T00:00:00.000"
+  },
+  "after": {
+   "active": false,
+   "expiresAt": "2100-01-01T00:00:00.000"
+  },
+  "at": {
+   "$ts": 1795392970387
+  }
+ },
+ "audit/MWsqGfSiwy56djEfaGmC": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Turned the review gate on",
+  "summary": "Turned the review gate on",
+  "path": "reviewGate/goa",
+  "campus": "goa",
+  "before": null,
+  "after": null,
+  "at": {
+   "$ts": 1795392970390
+  }
+ },
+ "audit/HtyZ4ddj2TduZzS8mlcp": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Created the role Marks team",
+  "summary": "Created the role Marks team",
+  "path": "roles/7pKDkLELD6K0JBZRUFg8",
+  "campus": "all",
+  "before": null,
+  "after": {
+   "name": "Marks team",
+   "caps": [
+    "publishTimetable",
+    "contribute"
+   ],
+   "termDays": 90,
+   "campus": "goa",
+   "dept": "all"
+  },
+  "at": {
+   "$ts": 1795393223143
+  }
+ },
+ "audit/b4MgKUCBzhjhDI5Mllij": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Appointed Test Student custom role holder",
+  "summary": "Appointed Test Student custom role holder",
+  "path": "grants/custom|f20249994@goa.bits-pilani.ac.in",
+  "campus": "goa",
+  "before": null,
+  "after": {
+   "active": true,
+   "expiresAt": "2100-01-01T00:00:00.000"
+  },
+  "at": {
+   "$ts": 1795393223186
+  }
+ },
+ "audit/LCD3ePPDnJe3QyectxJJ": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Appointed Test CR custom role holder",
+  "summary": "Appointed Test CR custom role holder",
+  "path": "grants/custom|f20239993@goa.bits-pilani.ac.in",
+  "campus": "goa",
+  "before": null,
+  "after": {
+   "active": true,
+   "expiresAt": "2100-01-01T00:00:00.000"
+  },
+  "at": {
+   "$ts": 1795393223193
+  }
+ },
+ "audit/m3YxH2L3TvJ7icwS10O0": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Renewed Test President president of A3",
+  "summary": "Renewed Test President president of A3",
+  "path": "grants/dept|goa|ELEC|f20239992@goa.bits-pilani.ac.in",
+  "campus": "goa",
+  "before": {
+   "active": true,
+   "expiresAt": "2100-01-01T00:00:00.000"
+  },
+  "after": {
+   "active": true,
+   "expiresAt": "2100-01-01T00:00:00.000"
+  },
+  "at": {
+   "$ts": 1795393223198
+  }
+ },
+ "audit/U5ZxSkqtbQWQ1wUeo2Uq": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Changed the built-in Course manager role",
+  "summary": "Changed the built-in Course manager role",
+  "path": "roles/builtin",
+  "campus": "all",
+  "before": {
+   "admin": {
+    "caps": [
+     "appointPresidents",
+     "appointCrs",
+     "publicContact",
+     "grantTermsCrPresident",
+     "mergeProfessors",
+     "courseStructures",
+     "bulkUpload",
+     "degreeRequirements",
+     "departmentResources",
+     "courseResources",
+     "averages",
+     "professors",
+     "moderateReviews",
+     "readAuditAndRoster",
+     "contribute",
+     "manageRoles",
+     "approveContributors",
+     "claimElectives",
+     "reviewGateSwitch",
+     "publishTimetable",
+     "publishDirectly"
+    ],
+    "termDays": 730
+   },
+   "president": {
+    "caps": [
+     "appointCrs",
+     "mergeProfessors",
+     "courseStructures",
+     "bulkUpload",
+     "degreeRequirements",
+     "departmentResources",
+     "courseResources",
+     "averages",
+     "professors",
+     "moderateReviews",
+     "readAuditAndRoster",
+     "contribute",
+     "approveContributors",
+     "claimElectives",
+     "publishDirectly"
+    ],
+    "termDays": 365
+   },
+   "cr": {
+    "caps": [
+     "courseStructures",
+     "courseResources",
+     "averages",
+     "contribute"
+    ],
+    "termDays": 183
+   }
+  },
+  "after": {
+   "admin": {
+    "caps": [
+     "appointPresidents",
+     "appointCrs",
+     "publicContact",
+     "grantTermsCrPresident",
+     "mergeProfessors",
+     "courseStructures",
+     "bulkUpload",
+     "degreeRequirements",
+     "departmentResources",
+     "courseResources",
+     "averages",
+     "professors",
+     "moderateReviews",
+     "readAuditAndRoster",
+     "contribute",
+     "manageRoles",
+     "approveContributors",
+     "claimElectives",
+     "reviewGateSwitch",
+     "publishTimetable",
+     "publishDirectly"
+    ],
+    "termDays": 730
+   },
+   "president": {
+    "caps": [
+     "appointCrs",
+     "mergeProfessors",
+     "courseStructures",
+     "bulkUpload",
+     "degreeRequirements",
+     "departmentResources",
+     "courseResources",
+     "averages",
+     "professors",
+     "moderateReviews",
+     "readAuditAndRoster",
+     "contribute",
+     "approveContributors",
+     "claimElectives",
+     "publishDirectly"
+    ],
+    "termDays": 365
+   },
+   "cr": {
+    "caps": [
+     "contribute",
+     "courseStructures"
+    ],
+    "termDays": 120
+   }
+  },
+  "at": {
+   "$ts": 1795393223206
+  }
+ },
+ "audit/WpkvdniXsd4Qi0kdbAqX": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Set grant terms: CR 120 days, president 365, admin 730",
+  "summary": "Set grant terms: CR 120 days, president 365, admin 730",
+  "path": "config/grantTerms",
+  "campus": "all",
+  "before": {
+   "crDays": 183,
+   "presidentDays": 365,
+   "adminDays": 730
+  },
+  "after": {
+   "crDays": 120,
+   "presidentDays": 365,
+   "adminDays": 730
+  },
+  "at": {
+   "$ts": 1795393223207
+  }
+ },
+ "audit/5qKdxWJVWVzyDfP1lklx": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Turned the review gate off",
+  "summary": "Turned the review gate off",
+  "path": "reviewGate/goa",
+  "campus": "goa",
+  "before": null,
+  "after": null,
+  "at": {
+   "$ts": 1795393223209
+  }
+ },
+ "audit/iDZkC5IWcBxfqzhkwjVt": {
+  "actor": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner",
+   "role": "owner"
+  },
+  "action": "Turned the review gate on",
+  "summary": "Turned the review gate on",
+  "path": "reviewGate/goa",
+  "campus": "goa",
+  "before": null,
+  "after": null,
+  "at": {
+   "$ts": 1795393223210
+  }
+ },
+ "config/grantTerms": {
+  "crDays": 120,
+  "presidentDays": 365,
+  "adminDays": 730,
+  "auditId": "WpkvdniXsd4Qi0kdbAqX"
+ },
+ "heads/goa": {
+  "v": {
+   "owners": 1,
+   "terms": 2,
+   "grants": 10,
+   "reviewGate": 3,
+   "roles": 2
+  }
+ },
+ "heads/hyderabad": {
+  "v": {
+   "owners": 1,
+   "terms": 2,
+   "grants": 1
+  }
+ },
+ "heads/pilani": {
+  "v": {
+   "owners": 1,
+   "terms": 2,
+   "grants": 1
+  }
+ },
+ "heads/dubai": {
+  "v": {
+   "owners": 1,
+   "terms": 2,
+   "grants": 1
+  }
+ },
+ "reviewGate/goa": {
+  "on": true,
+  "by": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner"
+  },
+  "at": {
+   "$ts": 1795393223210
+  },
+  "auditId": "iDZkC5IWcBxfqzhkwjVt"
+ },
+ "roles/7pKDkLELD6K0JBZRUFg8": {
+  "name": "Marks team",
+  "caps": [
+   "publishTimetable",
+   "contribute"
+  ],
+  "termDays": 90,
+  "campus": "goa",
+  "dept": "all",
+  "createdBy": {
+   "email": "owner@pointer.test",
+   "name": "Test Owner"
+  },
+  "updatedAt": {
+   "$ts": 1795393223144
+  },
+  "auditId": "HtyZ4ddj2TduZzS8mlcp"
+ },
+ "roles/builtin": {
+  "admin": {
+   "caps": [
+    "appointPresidents",
+    "appointCrs",
+    "publicContact",
+    "grantTermsCrPresident",
+    "mergeProfessors",
+    "courseStructures",
+    "bulkUpload",
+    "degreeRequirements",
+    "departmentResources",
+    "courseResources",
+    "averages",
+    "professors",
+    "moderateReviews",
+    "readAuditAndRoster",
+    "contribute",
+    "manageRoles",
+    "approveContributors",
+    "claimElectives",
+    "reviewGateSwitch",
+    "publishTimetable",
+    "publishDirectly"
+   ],
+   "termDays": 730
+  },
+  "president": {
+   "caps": [
+    "appointCrs",
+    "mergeProfessors",
+    "courseStructures",
+    "bulkUpload",
+    "degreeRequirements",
+    "departmentResources",
+    "courseResources",
+    "averages",
+    "professors",
+    "moderateReviews",
+    "readAuditAndRoster",
+    "contribute",
+    "approveContributors",
+    "claimElectives",
+    "publishDirectly"
+   ],
+   "termDays": 365
+  },
+  "cr": {
+   "caps": [
+    "contribute",
+    "courseStructures"
+   ],
+   "termDays": 120
+  },
+  "auditId": "U5ZxSkqtbQWQ1wUeo2Uq"
+ },
+ "searchHints/goa": {
+  "q": {
+   "oel": {
+    "open elective": -1
+   }
+  },
+  "k": "oel",
+  "t": "open elective"
+ }
+}

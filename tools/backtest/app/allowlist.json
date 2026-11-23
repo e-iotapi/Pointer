@@ -1,0 +1,38 @@
+{
+ "_readme": "Known, intended differences between the base ref and HEAD. A difference matches an entry when its kind equals `kind` and `key` matches the regex `keyRegex` (and `old`/`new` equal the outcomes, when given). Anything that matches nothing is a finding and fails the run. Empty this list after each release goes to production: the base then already contains the changes.",
+ "intended": [
+  {
+   "id": "admin-own-campus-only",
+   "kind": "may",
+   "reason": "Owner ruling (Decision 11): admins act on campus data only on their own address's campus (merge professors, contribute).",
+   "keyRegex": "^(admin_pilani\\|(mergeProfessors|contribute)\\|(goa|hyderabad|dubai)|admin_goa\\|(mergeProfessors|contribute)\\|(hyderabad|pilani|dubai))\\|",
+   "old": "true", "new": "false"
+  },
+  {
+   "id": "admin-phase-a-course-tools",
+   "kind": "may",
+   "reason": "Owner ruling: admins get the Phase A course tools (structures, bulk upload, degree requirements, averages, professors, moderation) on their own campus.",
+   "keyRegex": "^(admin_pilani\\|(courseStructures|bulkUpload|degreeRequirements|averages|professors|moderateReviews)\\|(\\*|pilani)|admin_goa\\|(courseStructures|bulkUpload|degreeRequirements|averages|professors|moderateReviews)\\|(\\*|goa))\\|",
+   "old": "false", "new": "true"
+  },
+  {
+   "id": "campus-rows-ignore-scope",
+   "kind": "may",
+   "reason": "Matrix artifact, not a behaviour change: a row whose reach is the campus (read roster, contribute) was answered per department by the old table; the new one ignores the scope argument. Callers pass no scope for these rows; the null-scope cells are unchanged (they are not in the diff).",
+   "keyRegex": "^(president|secretary|cr)[a-zA-Z_]*\\|(readAuditAndRoster|contribute)\\|[^|]+\\|(?!\\*$)",
+   "old": "false", "new": "true"
+  },
+  {
+   "id": "settings-campus-pick",
+   "kind": "device",
+   "reason": "Owner ruling: owners and admins may pick the campus Reviews/Resources/Representatives show (Settings › Campus); an owner's saved previewCampus now wins over their address's campus.",
+   "keyRegex": "^device\\|previewCampus_valid_with_owner$"
+  },
+  {
+   "id": "custom-roles-are-new",
+   "kind": "docs",
+   "reason": "Custom roles are new: the new code reads a `custom` grant / directory role the base build cannot.",
+   "keyRegex": "^(grant\\.fromMap|loadMine|roster|directory\\.fromMap)\\|(custom_role|role_custom)$"
+  }
+ ]
+}
