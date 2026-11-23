@@ -89,12 +89,14 @@ class _SettingsPageState extends State<SettingsPage> {
   void initState() {
     super.initState();
     contribState.addListener(_again);
+    myRoles.addListener(_again); // an appointment or revoke lands while this is open
     refreshContribState();
   }
 
   @override
   void dispose() {
     contribState.removeListener(_again);
+    myRoles.removeListener(_again);
     super.dispose();
   }
 

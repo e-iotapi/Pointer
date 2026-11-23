@@ -7,6 +7,7 @@ import 'package:cgpa_calculator/core/live/live_heads.dart' show liveMoved;
 import 'package:cgpa_calculator/core/roles/claim_store.dart' show ClaimError;
 import 'package:cgpa_calculator/core/roles/role_defs.dart';
 import 'package:cgpa_calculator/core/roles/roles.dart';
+import 'package:cgpa_calculator/core/roles/session.dart' show myRoles;
 import 'package:cgpa_calculator/shared/widgets/app_card.dart';
 import 'package:cgpa_calculator/shared/widgets/card_row.dart';
 import 'package:cgpa_calculator/shared/widgets/dashed_outline.dart';
@@ -491,15 +492,22 @@ class _LoadedState<T> extends State<Loaded<T>> {
     if (mounted) _reload();
   }
 
+  // The person's roles changed (live): draw again with them, no new load.
+  void _onRoles() {
+    if (mounted) setState(() {});
+  }
+
   @override
   void initState() {
     super.initState();
     liveMoved.addListener(_onLive);
+    myRoles.addListener(_onRoles);
   }
 
   @override
   void dispose() {
     liveMoved.removeListener(_onLive);
+    myRoles.removeListener(_onRoles);
     super.dispose();
   }
 

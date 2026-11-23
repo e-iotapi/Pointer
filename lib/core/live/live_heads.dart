@@ -35,7 +35,11 @@ abstract final class LiveHeads {
   static LiveChannel? _ch;
   static Timer? _meTimer;
   static bool _pulling = false, _again = false;
-  static int? _lastRoles;
+  static int? _lastRoles, _wantRoles;
+  static Timer? _rolesTimer;
+  static bool _rolesBusy = false;
+  static DateTime? _rolesAt;
+  static Duration _rolesGap = const Duration(seconds: 10);
   static int? Function()? _loadRoles;
   static void Function(int)? _saveRoles;
   static Future<void> Function()? _onRoles;
@@ -65,10 +69,12 @@ abstract final class LiveHeads {
     void Function(int)? saveRoles,
     Duration Function(int attempt)? retry,
     Duration pokeDelay = const Duration(seconds: 2),
+    Duration rolesGap = const Duration(seconds: 10),
   }) {
     if (baseUrl.isEmpty || _started) return;
     _started = true;
     _pokeDelay = pokeDelay;
+    _rolesGap = rolesGap;
     _onMe = onMe;
     _loadMe = loadMe;
     _saveMe = saveMe;
@@ -128,7 +134,11 @@ abstract final class LiveHeads {
     _started = _gaveUp = _pulling = _again = false;
     _failures = 0;
     _lastMe = null;
-    _lastRoles = null;
+    _lastRoles = _wantRoles = null;
+    _rolesTimer?.cancel();
+    _rolesTimer = null;
+    _rolesBusy = false;
+    _rolesAt = null;
     _bumped.clear();
     _ownPokes = 0;
     _meTimer?.cancel();
@@ -326,16 +336,42 @@ abstract final class LiveHeads {
       return;
     }
     if (n == last) return;
-    _lastRoles = n;
-    unawaited(
-      _onRoles!().then(
-        (_) => _saveRoles?.call(n),
-        onError: (Object e) {
-          _lastRoles = last; // retried at the next hello
-          debugPrint('live roles: $e');
-        },
-      ),
-    );
+    _wantRoles = n;
+    _readRoles();
+  }
+
+  /// One read at a time and at most one per [_rolesGap], the newest counter
+  /// wanted last: a burst of frames (or a stranger's) is one read, and an
+  /// appointment right after another still lands.
+  static void _readRoles() {
+    if (_rolesTimer != null || _rolesBusy) return;
+    final at = _rolesAt;
+    final wait =
+        at == null
+            ? Duration.zero
+            : _rolesGap - DateTime.now().difference(at);
+    _rolesTimer = Timer(wait.isNegative ? Duration.zero : wait, () async {
+      _rolesTimer = null;
+      final n = _wantRoles, gen = _gen;
+      if (n == null || n == (_lastRoles ?? _loadRoles?.call())) return;
+      _rolesBusy = true;
+      var ok = false;
+      try {
+        await _onRoles!();
+        if (gen != _gen) return;
+        _lastRoles = n;
+        _saveRoles?.call(n);
+        ok = true;
+      } on Object catch (e) {
+        debugPrint('live roles: $e'); // retried at the next hello
+      } finally {
+        if (gen == _gen) {
+          _rolesBusy = false;
+          _rolesAt = DateTime.now();
+          if (ok && _lastRoles != _wantRoles) _readRoles();
+        }
+      }
+    });
   }
 
   static Future<void> _pullMe() async {

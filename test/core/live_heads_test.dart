@@ -68,6 +68,7 @@ void main() {
     saveRoles: (n) => rolesSeen = n,
     retry: (_) => const Duration(milliseconds: 5),
     pokeDelay: const Duration(milliseconds: 40),
+    rolesGap: const Duration(milliseconds: 60),
   );
 
   Map<String, dynamic> savedV() =>
@@ -410,5 +411,24 @@ void main() {
     await pumpEventQueue();
     expect(roleReads, 1);
     expect(rolesSeen, 5);
+  });
+
+  test('roles frames in a burst are one read of the newest, and a later one still lands', () async {
+    start();
+    await pumpEventQueue();
+    final c = chans.single;
+    c.push({'t': 'hello', 'head': <String, int>{}, 'me': 1, 'roles': 1});
+    await pumpEventQueue();
+    c.push({'t': 'roles', 'v': 2});
+    c.push({'t': 'roles', 'v': 3});
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(roleReads, 1);
+    expect(rolesSeen, 3);
+    c.push({'t': 'roles', 'v': 4}); // inside the gap: held, then read
+    await Future<void>.delayed(const Duration(milliseconds: 20));
+    expect(roleReads, 1);
+    await Future<void>.delayed(const Duration(milliseconds: 100));
+    expect(roleReads, 2);
+    expect(rolesSeen, 4);
   });
 }
