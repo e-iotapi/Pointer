@@ -51,6 +51,17 @@ const phoneDigits = (m) => {
   return d;
 };
 const matchCase = (orig, fake) => (orig[0] === orig[0].toUpperCase() ? fake[0].toUpperCase() + fake.slice(1) : fake);
+/** The app's nameTokens (tools/test_env/seed.mjs): prefixes of the name's words, titles left out. */
+const nameTokensOf = (names) => {
+  const titles = new Set(['dr', 'prof', 'mr', 'ms', 'mrs']);
+  const tokens = new Set();
+  for (const n of names) {
+    for (const w of String(n).toLowerCase().split(/[^a-z0-9]+/).filter((x) => x && !titles.has(x))) {
+      for (let i = 1; i <= Math.min(w.length, 12); i++) tokens.add(w.slice(0, i));
+    }
+  }
+  return [...tokens];
+};
 const hm = (salt, s) => createHmac('sha256', salt).update(s).digest('hex');
 const normName = (s) => s.toLowerCase().replace(TITLE, '').replace(/[^a-z0-9]+/g, ' ').trim();
 const windows = (words, max = 5) => {
@@ -77,7 +88,7 @@ const SAFE_PROFILE = new Set(['Actual', 'Expected', 'Third', 'Fourth', 'Fifth'])
 /** The pieces of a dataset that are about people. Built by collect mode. */
 class Registry {
   emails = new Set(); uids = new Set(); names = new Set(); phones = new Set();
-  usernames = new Set(); parts = new Set(); hints = new Set(); hashes = new Set(); pairs = new Map(); grades = [];
+  usernames = new Set(); profIds = new Map(); parts = new Set(); hints = new Set(); hashes = new Set(); pairs = new Map(); grades = [];
 }
 
 /** Seconds from the newest past timestamp to now: shifting by it makes the export "today". */
@@ -102,7 +113,7 @@ export function anonymise(docs, auth, { salt, shiftDays = 0, shiftSeconds }) {
   const shiftSec = shiftSeconds ?? Math.round(shiftDays * 86400);
 
   // ---- maps, filled between the two passes ----
-  const M = { part: new Map(), email: new Map(), uid: new Map(), name: new Map(), phone: new Map(), user: new Map(), hash: new Map(), emailName: new Map() };
+  const M = { id: new Map(), part: new Map(), email: new Map(), uid: new Map(), name: new Map(), phone: new Map(), user: new Map(), hash: new Map(), emailName: new Map() };
   let collecting = true;
   let lorem = WORDS;
 
@@ -169,6 +180,14 @@ export function anonymise(docs, auth, { salt, shiftDays = 0, shiftSeconds }) {
   /** Every personal pattern inside a free string: emails, uids/hashes, phones. */
   const scrub = (s) => {
     if (s.length < 5) return s;
+    if (!collecting && M.id.size) {
+      // a professor's id is built from a name: it is replaced whole, wherever it is named
+      const hit = M.id.get(s);
+      if (hit) return hit;
+      const m = /^(goa|pilani|hyderabad|dubai)_(.+)$/.exec(s);
+      if (m && M.id.has(m[2])) return `${m[1]}_${M.id.get(m[2])}`;
+      if (s.includes('professors/')) s = s.replace(/(?<=professors\/)[^/]+/g, (id) => M.id.get(id) ?? id);
+    }
     let r = s;
     if (r.includes('@')) r = r.replace(EMAIL, (e) => mapEmail(e));
     if (r.length >= 20) {
@@ -327,6 +346,13 @@ export function anonymise(docs, auth, { salt, shiftDays = 0, shiftSeconds }) {
     const uidField = d.data?.uid;
     if (typeof uidField === 'string') R.uids.add(uidField);
   }
+  for (const d of docs) {
+    const m = /^professors\/([^/]+)$/.exec(d.path);
+    if (!m || typeof d.data?.name !== 'string' || /^[A-Za-z0-9]+$/.test(m[1])) continue;
+    R.profIds.set(m[1], d.data.name);
+    // the words of the id are real names too (an id may carry a slug the name field does not)
+    for (const t of m[1].replace(/^[a-z]+_/, '').toLowerCase().split(/[^a-z0-9]+/)) if (isPart(t)) R.parts.add(t);
+  }
   // Hashed ids found in paths (reviews, votes, reports) are original ids too.
   for (const d of docs) for (const t of d.path.match(/[0-9a-f]{64}/g) ?? []) R.hashes.add(t);
   run();
@@ -380,6 +406,17 @@ export function anonymise(docs, auth, { salt, shiftDays = 0, shiftSeconds }) {
     const ft = M.name.get(b).toLowerCase().split(' ');
     b.split(' ').forEach((t, i) => { if (isPart(t) && !M.part.has(t)) M.part.set(t, ft[Math.min(i, ft.length - 1)]); });
   }
+  const usedIds = new Set();
+  for (const [id, name] of [...R.profIds].sort()) {
+    const prefix = /^[a-z]+_/.exec(id)?.[0] ?? '';
+    const fake = M.name.get(normName(name)) ?? mkName(id);
+    for (let n = 4; ; n++) {
+      const nid = `${prefix}${fake}-${hm(salt, 'pid:' + id).slice(0, n)}`;
+      if (!usedIds.has(nid)) { usedIds.add(nid); M.id.set(id, nid); break; }
+    }
+  }
+  // words that only appear in ids (slugs): invented syllables
+  for (const t of [...R.parts].sort()) if (isPart(t) && !M.part.has(t)) M.part.set(t, syl(hm(salt, 'part:' + t), 0));
   lorem = WORDS.filter((w) => !origNames.has(w) && !R.parts.has(w));
   for (const u of [...R.uids].sort()) {
     for (let n = 0; ; n++) {
@@ -421,18 +458,9 @@ export function anonymise(docs, auth, { salt, shiftDays = 0, shiftSeconds }) {
 
   // ---- pass 2: apply ----
   const out = run();
-  // nameTokens are prefixes of the name words (tools/test_env/seed.mjs): rebuild
-  // them from the fake name and aliases, or the old name survives in them.
+  // nameTokens are derived from the name: rebuild them from the fake name and aliases.
   for (const d of out) {
-    if (!d.path.startsWith('professors/') || !Array.isArray(d.data.nameTokens)) continue;
-    const titles = new Set(['dr', 'prof', 'mr', 'ms', 'mrs']);
-    const tokens = new Set();
-    for (const n of [d.data.name, ...(d.data.aliases ?? [])]) {
-      for (const w of String(n).toLowerCase().split(/[^a-z0-9]+/).filter((x) => x && !titles.has(x))) {
-        for (let i = 1; i <= Math.min(w.length, 12); i++) tokens.add(w.slice(0, i));
-      }
-    }
-    d.data.nameTokens = [...tokens];
+    if (d.path.startsWith('professors/') && Array.isArray(d.data.nameTokens)) d.data.nameTokens = nameTokensOf([d.data.name, ...(d.data.aliases ?? [])]);
   }
   const authOut = auth.map((u) => ({
     uid: M.uid.get(u.uid) ?? u.uid,
@@ -529,6 +557,7 @@ export function leakCheck(outDocs, outAuth, R, fakes) {
         }
       }
       if (R.usernames.has(s) || s.split('|').some((x) => R.usernames.has(x))) one(p, it, 'username');
+      if (it.field.startsWith('nameTokens')) continue; // prefixes of the fake name: checked against it below
       const words = normName(s).split(' ');
       if (words.length && words.length < 400) {
         for (let i = 0; i < words.length; i++) {
@@ -542,7 +571,13 @@ export function leakCheck(outDocs, outAuth, R, fakes) {
       }
     }
   };
-  for (const d of outDocs) check(d.path, itemsOf(d));
+  for (const d of outDocs) {
+    check(d.path, itemsOf(d));
+    if (d.path.startsWith('professors/') && Array.isArray(d.data.nameTokens)) {
+      const want = new Set(nameTokensOf([d.data.name, ...(d.data.aliases ?? [])]));
+      if (d.data.nameTokens.length !== want.size || d.data.nameTokens.some((t) => !want.has(t))) one(d.path, { where: 'value', field: 'nameTokens' }, 'name', { window: 0, common: false });
+    }
+  }
   for (const u of outAuth) check(`auth:${u.uid}`, [u.uid, u.email ?? '', u.displayName ?? ''].map((s, i) => ({ where: 'value', field: ['uid', 'email', 'displayName'][i], s })));
   return problems;
 }

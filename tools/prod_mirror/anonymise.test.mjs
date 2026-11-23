@@ -258,3 +258,43 @@ test('votes under imported reviews with unknown voters, person names in componen
   planted.find((d) => d.path === 'audit/rem').data.after.remark = 'Thanks Aman';
   assert.ok(summarise(leakCheck(planted, r.auth, r.registry, r.fakes)).name);
 });
+
+test('fac_ professor ids are rebuilt from the fake name, stay one-to-one, and every reference follows', () => {
+  const f = buildFixture();
+  const ts = { __t: 'ts', s: 1, n: 0 };
+  const names = ['Deepa Sethi', 'Deepa Sethi', 'Pooja Sethi', 'Charu Lal'];
+  const ids = ['fac_Deepa Sethi-a', 'fac_Deepa Sethi-b', 'fac_Pooja Sethi-krushnachandra-thakur', 'fac_Charu Lal'];
+  const profs = ids.map((id, i) => ({ path: `professors/${id}`, data: { name: names[i], campus: 'goa', department: 'ELEC', aliases: [], nameTokens: ['d', 'de', 'dee', 'deep', 'deepa', 's', 'se', 'set', 'seth', 'sethi'], mergedIds: i === 1 ? [ids[0]] : [], active: true, updatedAt: ts } }));
+  profs[0].data.mergedInto = ids[1];
+  const refs = [
+    { path: 'courses/CS F372/offerings/goa_2026-27-1', data: { courseId: 'CS F372', professors: [ids[2], ids[3]] } },
+    { path: `courses/CS F372/stats/goa_${ids[2]}`, data: { count: 1, starSum: 4, recommendCount: 1, campus: 'goa', courseId: 'CS F372', scope: 'professor', professorId: ids[2] } },
+    { path: 'audit/pm', data: { actor: { email: P.owner.email, name: P.owner.name, role: 'owner' }, action: 'merge professor', summary: 'm', path: `professors/${ids[1]}`, after: {} } },
+  ];
+  const r = anonymise([...f.docs, ...profs, ...refs], f.auth, { salt: SALT });
+  assert.deepEqual(leakCheck(r.docs, r.auth, r.registry, r.fakes), []);
+  const out = r.docs.filter((d) => d.path.startsWith('professors/fac_') || /^professors\/[^/]*-[0-9a-f]+$/.test(d.path));
+  const newIds = out.map((d) => d.path.slice(11));
+  assert.equal(newIds.length, 4);
+  assert.equal(new Set(newIds).size, 4); // one-to-one: two professors that share a fake name still keep their own doc
+  assert.ok(newIds.every((id) => id.startsWith('fac_') && !/Sethi|Thakur|krushna|Lal|Deepa|Pooja|Charu/i.test(id)), newIds.join());
+  const map = Object.fromEntries(ids.map((id, i) => [id, newIds[i]]));
+  const byOld = (id) => r.docs.find((d) => d.path === `professors/${map[id]}`).data;
+  assert.equal(byOld(ids[0]).mergedInto, map[ids[1]]);
+  assert.deepEqual(byOld(ids[1]).mergedIds, [map[ids[0]]]);
+  assert.deepEqual(r.docs.find((d) => d.path.startsWith('courses/CS F372/offerings')).data.professors, [map[ids[2]], map[ids[3]]]);
+  const st = r.docs.find((d) => d.path.startsWith('courses/CS F372/stats'));
+  assert.equal(st.path, `courses/CS F372/stats/goa_${map[ids[2]]}`);
+  assert.equal(st.data.professorId, map[ids[2]]);
+  assert.equal(r.docs.find((d) => d.path === 'audit/pm').data.path, `professors/${map[ids[1]]}`);
+  // nameTokens are exactly the app's prefixes of the fake name
+  const t = byOld(ids[0]);
+  assert.ok(t.nameTokens.includes(t.name.split(' ').at(-1).toLowerCase()) && !t.nameTokens.includes('sethi') && !t.nameTokens.includes('deepa'));
+  // the leak check also reads ids, and notices tokens that were not rebuilt
+  const bad = structuredClone(r.docs);
+  bad.find((d) => d.path === `professors/${map[ids[3]]}`).data.nameTokens = ['l', 'la', 'lal'];
+  assert.ok(summarise(leakCheck(bad, r.auth, r.registry, r.fakes)).name);
+  const bad2 = structuredClone(r.docs);
+  bad2.find((d) => d.path === `professors/${map[ids[3]]}`).path = 'professors/fac_x-krushnachandra-thakur';
+  assert.ok(leakCheck(bad2, r.auth, r.registry, r.fakes).some((x) => x.where === 'id'));
+});
