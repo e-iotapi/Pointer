@@ -255,7 +255,8 @@ Future<void> refreshMyRoles() async {
   try {
     final r = await store.loadMine();
     _use(r);
-    await _device?.put('rolesAt', DateTime.now().millisecondsSinceEpoch);
+    // 'roles' first: a reload between the two writes must not find a fresh
+    // 'rolesAt' beside the old roles and skip the load (BRK-010).
     await _device?.put(
       'roles',
       jsonEncode({
@@ -279,6 +280,7 @@ Future<void> refreshMyRoles() async {
         ],
       }),
     );
+    await _device?.put('rolesAt', DateTime.now().millisecondsSinceEpoch);
   } on Object catch (e) {
     debugPrint('[Pointer roles] refresh failed: $e');
   }

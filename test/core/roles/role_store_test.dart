@@ -94,7 +94,7 @@ void main() {
   group('MyRoles.may', () {
     Grant grant(GrantRole r, String scope) => Grant(
       role: r,
-      email: 'x@goa.bits-pilani.ac.in',
+      email: 'f20230099@goa.bits-pilani.ac.in',
       name: 'X',
       campus: 'goa',
       scope: scope,
@@ -104,7 +104,7 @@ void main() {
 
     test('a president works in their department and campus only', () {
       final r = MyRoles(
-        email: 'x@goa.bits-pilani.ac.in',
+        email: 'f20230099@goa.bits-pilani.ac.in',
         grants: [grant(GrantRole.dept, 'ELEC')],
       );
       expect(
@@ -124,7 +124,7 @@ void main() {
 
     test('a CR works on their own course only', () {
       final r = MyRoles(
-        email: 'x@goa.bits-pilani.ac.in',
+        email: 'f20230099@goa.bits-pilani.ac.in',
         grants: [grant(GrantRole.course, 'CS F301')],
       );
       expect(
@@ -140,11 +140,11 @@ void main() {
 
     test('an admin manages resources on their own campus only', () {
       final r = MyRoles(
-        email: 'x@goa.bits-pilani.ac.in',
+        email: 'f20230099@goa.bits-pilani.ac.in',
         grants: [
           Grant(
             role: GrantRole.admin,
-            email: 'x@goa.bits-pilani.ac.in',
+            email: 'f20230099@goa.bits-pilani.ac.in',
             name: 'X',
             campus: 'all',
             scope: 'all',
@@ -186,11 +186,11 @@ void main() {
 
     test('a president cannot switch compulsory reviews', () {
       final r = MyRoles(
-        email: 'p@goa.bits-pilani.ac.in',
+        email: 'f20230098@goa.bits-pilani.ac.in',
         grants: [
           Grant(
             role: GrantRole.dept,
-            email: 'p@goa.bits-pilani.ac.in',
+            email: 'f20230098@goa.bits-pilani.ac.in',
             name: 'P',
             campus: 'goa',
             scope: 'ELEC',

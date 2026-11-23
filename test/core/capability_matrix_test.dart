@@ -7,7 +7,7 @@ import 'package:cgpa_calculator/core/roles/roles.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 final _later = DateTime(2100);
-const _admin = 'adm@pilani.bits-pilani.ac.in';
+const _admin = 'f20230009@pilani.bits-pilani.ac.in';
 const _goa = 'f20230001@goa.bits-pilani.ac.in';
 const _hyd = 'f20230002@hyderabad.bits-pilani.ac.in';
 

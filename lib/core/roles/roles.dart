@@ -445,11 +445,11 @@ class MyRoles {
   const MyRoles({
     required this.email,
     this.owner = false,
-    this.grants = const [],
+    List<Grant> grants = const [],
     this.contributor = false,
     this.defs,
     this.custom,
-  });
+  }) : _grants = grants;
 
   /// Nobody signed in, or a plain student.
   static const none = MyRoles(email: '');
@@ -460,9 +460,20 @@ class MyRoles {
   /// Whether the person is the owner.
   final bool owner;
 
-  /// Live grants only (contributor and custom grants are not among them, see
-  /// [contributor] and [custom]).
-  final List<Grant> grants;
+  final List<Grant> _grants;
+
+  /// Live grants the rules honour (contributor and custom grants are not
+  /// among them, see [contributor] and [custom]): built-in roles need a
+  /// student address, and a president's or CR's campus must be the
+  /// address's own (firestore.rules `holds`, `isBits`; BRK-001/002/009).
+  List<Grant> get grants {
+    if (!isStudentAddress(email)) return const [];
+    final home = campusOfAddress(email);
+    return [
+      for (final g in _grants)
+        if (g.campus == 'all' || g.campus == home) g,
+    ];
+  }
 
   /// Whether a live contributor grant is held (B7).
   final bool contributor;

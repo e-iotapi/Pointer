@@ -19,4 +19,35 @@ void main() {
     expect(fullBitsAddress('f20230800'), 'f20230800');
     expect(campusOfAddress(fullBitsAddress('f20230800@goa')), 'goa');
   });
+
+  test('MyRoles keeps only grants the rules honour (BRK-001/002/009)', () {
+    Grant g(GrantRole r, String campus) => Grant(
+      role: r,
+      email: '',
+      name: '',
+      campus: campus,
+      scope: 'x',
+      active: true,
+      expiresAt: DateTime(2100),
+    );
+    final all = [
+      g(GrantRole.admin, 'all'),
+      g(GrantRole.dept, 'goa'),
+      g(GrantRole.course, 'hyderabad'),
+    ];
+    final student = MyRoles(
+      email: 'f20230800@goa.bits-pilani.ac.in',
+      grants: all,
+    );
+    expect(student.grants.map((x) => x.role), [
+      GrantRole.admin,
+      GrantRole.dept,
+    ]);
+    expect(student.admin, isTrue);
+    for (final who in ['rmenon@goa.bits-pilani.ac.in', 'someone@gmail.com']) {
+      final r = MyRoles(email: who, grants: all);
+      expect(r.grants, isEmpty, reason: who);
+      expect(r.admin || r.privileged, isFalse, reason: who);
+    }
+  });
 }
