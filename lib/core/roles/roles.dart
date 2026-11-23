@@ -318,8 +318,12 @@ class StaffEntry {
     admin: m['admin'] as bool? ?? false,
     presidentOf: [for (final d in m['presidentOf'] as List? ?? const []) '$d'],
     courses: [for (final c in m['courses'] as List? ?? const []) '$c'],
+    // A damaged `reach` (not a list, or non-map entries) is read as what it
+    // holds that is readable, as the stable app ignored it (backtest probe).
     reach: [
-      for (final r in m['reach'] as List? ?? const []) Reach.fromMap(r as Map),
+      if (m['reach'] case final List l)
+        for (final r in l)
+          if (r is Map) Reach.fromMap(r),
     ],
     expiresAt: asDate(m['expiresAt']),
   );

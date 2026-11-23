@@ -1,14 +1,12 @@
 // Mixed fleet on the emulator: the STABLE app's staff write (no `reach`)
 // followed by the NEW app's revoke of a custom grant whose role was deleted.
-// Skipped in the normal rules suite (it proves a known break); run via
-//   tools/backtest/app/run.sh   (sets BACKTEST_RUN)
+// Was a known break (stable-app-wipes-reach); fixed, now a regression test.
 import { describe, test } from 'node:test';
 import { assertSucceeds } from '@firebase/rules-unit-testing';
 import { collection, deleteDoc, doc, getDoc, serverTimestamp, setDoc, writeBatch } from 'firebase/firestore';
 import { CUSTOM, OWNER, as, bump, customGrant, customRole, days, name, seed, useEmulator } from './helpers.mjs';
 
 useEmulator();
-const run = process.env.BACKTEST_RUN ? {} : { skip: 'known break: run tools/backtest/app/run.sh' };
 
 /// The stable app's _staffInto: a whole-doc set with no `reach`.
 async function stableAppointsCr(email) {
@@ -65,18 +63,18 @@ async function seedHolder(withReach) {
 }
 
 describe('stable app write, then new app revoke of a dangling custom grant', () => {
-  test('control: staff keeps its reach list, revoke of a deleted-role custom grant works', run, async () => {
+  test('control: staff keeps its reach list, revoke of a deleted-role custom grant works', async () => {
     await seedHolder(true);
     await seed((db) => deleteDoc(doc(db, 'roles', 'avg')));
     await assertSucceeds(newAppRevokesCustom(CUSTOM));
   });
 
-  test('BREAK stable-app-wipes-reach: after the stable app appointed a CR, the revoke is refused', run, async () => {
+  test('stable-app-wipes-reach: after the stable app appointed a CR, the revoke still works', async () => {
     await seedHolder(true);
     await assertSucceeds(stableAppointsCr(CUSTOM)); // accepted: old shape has no reach
     const s = (await getDoc(doc(as(OWNER), 'staff', CUSTOM))).data();
     if ('reach' in s) throw new Error('expected the stable app write to drop reach');
     await seed((db) => deleteDoc(doc(db, 'roles', 'avg')));
-    await assertSucceeds(newAppRevokesCustom(CUSTOM, ['EEE F211'])); // fails today: droppedOneReach reads a missing field
+    await assertSucceeds(newAppRevokesCustom(CUSTOM, ['EEE F211']));
   });
 });

@@ -50,4 +50,26 @@ void main() {
       expect(r.admin || r.privileged, isFalse, reason: who);
     }
   });
+
+  test('a damaged staff reach is read, not thrown (backtest probe)', () {
+    for (final bad in <Object?>[
+      'goa',
+      5,
+      ['x', 1],
+    ]) {
+      expect(
+        StaffEntry.fromMap({'email': 'e', 'reach': bad}).reach,
+        isEmpty,
+        reason: '$bad',
+      );
+    }
+    final ok = StaffEntry.fromMap({
+      'email': 'e',
+      'reach': [
+        'x',
+        {'role': 'custom', 'campus': 'goa'},
+      ],
+    });
+    expect(ok.reach, hasLength(1));
+  });
 }

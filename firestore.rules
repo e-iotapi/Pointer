@@ -125,7 +125,9 @@ service cloud.firestore {
     function capIn(r, cap) {
       let p = /databases/$(db)/documents/roles/builtin;
       // The defaults as one string, not a list: every list element counts as an
-      // evaluated expression, and a request has only 1000 of them.
+      // evaluated expression, and a request has only 1000 of them. exists()
+      // first: a get() of the missing doc cost an admin who is also a
+      // president their renewals on the stable app (backtest renew-president).
       return cap in get(p).data[r].caps || (!exists(p) && (r == 'admin'
         ? '|appointPresidents|appointCrs|publicContact|grantTermsCrPresident|mergeProfessors|courseStructures|bulkUpload|degreeRequirements|departmentResources|courseResources|averages|professors|moderateReviews|readAuditAndRoster|contribute|manageRoles|approveContributors|claimElectives|reviewGateSwitch|publishTimetable|publishDirectly|'
         : r == 'president'
@@ -518,7 +520,11 @@ service cloud.firestore {
               : d.scope == 'GEN'
                 // The electives department: no branch, no handover (B2).
                 ? mayAppoint(d) && d.get('programme', null) == null
-                : ((presidentNotSecretary(d.campus, d.scope)
+                // An admin is asked first: an admin who is also this
+                // department's president must not pay for the handover
+                // lookups (budget; backtest renew-president).
+                : ((isAdmin() && capIn('admin', 'appointPresidents') && withinCaps(d, 'admin'))
+                   || (presidentNotSecretary(d.campus, d.scope)
                      && (handsOver(d) || cancelsHandover(d)))
                    || mayAppoint(d))
                   && d.programme is string)
@@ -710,9 +716,13 @@ service cloud.firestore {
     }
 
     // The staff index loses exactly one reach entry in this batch.
+    // A missing list counts as empty: the stable app's staff write leaves
+    // `reach` out (backtest stable-app-wipes-reach), and there is then no
+    // entry left to drop.
     function droppedOneReach(email) {
-      return getAfter(staffPath(email)).data.reach.size()
-        == get(staffPath(email)).data.reach.size() - 1;
+      let b = get(staffPath(email)).data.get('reach', []).size();
+      return getAfter(staffPath(email)).data.get('reach', []).size()
+        == (b > 0 ? b - 1 : 0);
     }
 
     // A custom grant as it was, switched off by me now (the fields that name
@@ -747,8 +757,8 @@ service cloud.firestore {
     // ponytail: rules cannot tell which entry went (the same limit as
     // droppedOneReach); the readers do not use reach.
     function oldReachGone(d) {
-      return getAfter(staffPath(d.email)).data.reach.size()
-        == get(staffPath(d.email)).data.reach.size();
+      return getAfter(staffPath(d.email)).data.get('reach', []).size()
+        == get(staffPath(d.email)).data.get('reach', []).size();
     }
 
     // A custom grant: a student on their own campus, naming a role that
