@@ -1,0 +1,3 @@
+{"admin":["appointPresidents","appointCrs","publicContact","grantTermsCrPresident","mergeProfessors","courseStructures","bulkUpload","degreeRequirements","departmentResources","courseResources","averages","professors","moderateReviews","readAuditAndRoster","contribute","manageRoles","approveContributors","claimElectives","reviewGateSwitch","publishTimetable","publishDirectly"],
+"president":["appointCrs","mergeProfessors","courseStructures","bulkUpload","degreeRequirements","departmentResources","courseResources","averages","professors","moderateReviews","readAuditAndRoster","contribute","approveContributors","claimElectives","publishDirectly"],
+"cr":["courseStructures","courseResources","averages","contribute"]}
