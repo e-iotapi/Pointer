@@ -195,7 +195,7 @@ Future<void> startApp(User user) async {
           onMe: Sync.pullLive,
           loadMe: () => Sync.liveMe,
           saveMe: Sync.setLiveMe,
-          onRoles: refreshMyRoles,
+          onRoles: () => refreshMyRoles().then((_) => checkProfile()), // BRK-012
           loadRoles: liveRolesSeen,
           saveRoles: setLiveRolesSeen,
         );

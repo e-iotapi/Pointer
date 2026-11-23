@@ -283,6 +283,19 @@ void main() {
     expect(profileDue.value, isFalse);
   });
 
+  test('S3b a revoke clears profileDue (BRK-012)', () async {
+    signIn(
+      pres,
+      name: 'Meera Iyer',
+      roles: MyRoles(email: pres, grants: [presidency()]),
+    );
+    await checkProfile();
+    expect(profileDue.value, isTrue);
+    myRoles.value = MyRoles(email: pres);
+    await checkProfile();
+    expect(profileDue.value, isFalse);
+  });
+
   test('S4 the router sends everything to welcome while it is due', () {
     profileDue.value = true;
     expect(profileGate('/reviews'), '/welcome');

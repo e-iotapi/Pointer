@@ -24,7 +24,11 @@ ContactStore? get contactStore => switch (roleStore) {
 Future<void> checkProfile() async {
   final store = contactStore;
   final r = myRoles.value;
-  if (store == null || !r.privileged) return;
+  if (store == null) return;
+  if (!r.privileged) {
+    profileDue.value = false; // a revoke lets the person go (BRK-012)
+    return;
+  }
   try {
     final dir = await store.myDirectory();
     final staff = await store.myStaffContact();
