@@ -129,7 +129,8 @@ Elective _placed(String dept, String id, Elective taken, String discipline) {
   // is cross-listed as.
   if (dept == 'BITS') return Elective.open;
   if (taken == Elective.humanity) return taken;
-  final a = discipline.substring(2, 4), b = discipline.substring(0, 2);
+  final d = discipline.padRight(4, '-');
+  final a = d.substring(2, 4), b = d.substring(0, 2);
   // Any code the course is cross-listed under can place it. The degree's own
   // department is its DEL even when tagged open (its projects are on no DEL
   // list); DELs past the need spill into the open card anyway.
@@ -341,8 +342,9 @@ DegreeAudit degreeAudit(
   DegreeNeeds? needs,
 }) {
   if (discipline == '----') return const DegreeAudit(0, []);
-  final first = discipline.substring(0, 2);
-  final second = discipline.substring(2, 4);
+  final d = discipline.padRight(4, '-');
+  final first = d.substring(0, 2);
+  final second = d.substring(2, 4);
   // As the old page filtered: with no first half, only the second counts.
   final mine =
       all

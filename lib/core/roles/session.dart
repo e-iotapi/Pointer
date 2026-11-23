@@ -200,8 +200,8 @@ void restoreMyRoles({String? email}) {
         owner: m['owner'] as bool,
         grants: [
           for (final g in m['grants'] as List)
-            if (Grant.fromMap(Map<String, dynamic>.from(g as Map)) case final x
-                when x.liveAt(DateTime.now()))
+            if (Grant.tryFromMap(Map<String, dynamic>.from(g as Map))
+                case final x? when x.liveAt(DateTime.now()))
               x,
         ],
         defs:

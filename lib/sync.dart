@@ -349,21 +349,27 @@ class Sync {
   static Future<void> apply(String json) async {
     validate(json);
     final data = Map<String, dynamic>.from(jsonDecode(json));
-    for (final n in _boxes) {
-      if (data[n] is! List) continue;
-      final rows = data[n] as List;
-      final box = _box(n);
+    // Decode every box before clearing any: a bad row must throw while the
+    // local data is still intact (BRK-004), not after a clear.
+    final decoded = <String, Map<dynamic, dynamic>>{
+      for (final n in _boxes)
+        if (data[n] is List)
+          n: {
+            for (final r in data[n] as List)
+              r[0]: n == 'settingsBox'
+                  ? r[1]
+                  : n == 'marksBox'
+                      ? marksFromJson(Map.from(r[1]))
+                      : _course(Map.from(r[1])),
+          },
+    };
+    for (final e in decoded.entries) {
+      final box = _box(e.key);
       await box.clear();
-      if (n == 'settingsBox') {
-        await box.putAll({for (final r in rows) r[0]: r[1]});
-      } else if (n == 'marksBox') {
-        await box.putAll({
-          for (final r in rows) r[0]: marksFromJson(Map.from(r[1])),
-        });
+      if (box is Box<Course>) {
+        await box.putAll(e.value.cast<dynamic, Course>());
       } else {
-        await (box as Box<Course>).putAll({
-          for (final r in rows) r[0]: _course(Map.from(r[1])),
-        });
+        await box.putAll(e.value);
       }
     }
   }

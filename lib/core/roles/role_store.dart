@@ -194,7 +194,7 @@ class RoleStore {
     final at = now ?? DateTime.now();
     final live = [
       for (final d in q.docs)
-        if (Grant.fromMap(d.data()) case final g when g.liveAt(at)) g,
+        if (Grant.tryFromMap(d.data()) case final g? when g.liveAt(at)) g,
     ];
     // Contributor and custom grants are not maintainer roles in [grants]
     // (B7): the first is a student right, the second answers through its role.
@@ -942,7 +942,10 @@ class RoleStore {
             .where('secretary', isEqualTo: true)
             .where('active', isEqualTo: true)
             .get();
-    return [for (final d in q.docs) Grant.fromMap(d.data())];
+    return [
+      for (final d in q.docs)
+        if (Grant.tryFromMap(d.data()) case final g?) g,
+    ];
   }
 
   /// Cancels a running handover: the successor's grant is revoked and mine
@@ -1099,14 +1102,18 @@ class RoleStore {
       Query<Map<String, dynamic>> q = db.collection('grants');
       if (campus != null) q = q.where('campus', whereIn: [campus, 'all']);
       final r = await q.get();
-      return [for (final d in r.docs) Grant.fromMap(d.data())];
+      return [
+        for (final d in r.docs)
+          if (Grant.tryFromMap(d.data()) case final g?) g,
+      ];
     },
     encode: (l) => [for (final g in l) g.toMap()],
     decode: _decodeRoster,
   );
 
   static List<Grant> _decodeRoster(Object? o) => [
-    for (final m in o as List) Grant.fromMap((m as Map).cast()),
+    for (final m in o as List)
+      if (Grant.tryFromMap((m as Map).cast()) case final g?) g,
   ];
 
   /// The saved [roster], read synchronously; null when none is saved.

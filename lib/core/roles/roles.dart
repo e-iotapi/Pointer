@@ -204,6 +204,17 @@ class Grant {
     return d == null ? scopeLabel : customScopeLabel(d);
   }
 
+  /// [fromMap], or null for a document this build can't read (an unknown
+  /// role, a missing or mistyped field): lists skip it instead of failing
+  /// for everyone in them (BRK-008).
+  static Grant? tryFromMap(Map<String, dynamic> m) {
+    try {
+      return fromMap(m);
+    } catch (_) {
+      return null;
+    }
+  }
+
   /// Reads a grant document's data.
   static Grant fromMap(Map<String, dynamic> m) => Grant(
     role: GrantRole.of(m['role'] as String),

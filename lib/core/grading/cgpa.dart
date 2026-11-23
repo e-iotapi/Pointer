@@ -37,9 +37,11 @@ int gradeOf(Course c, Profile profile) => c.gradeFor(profile.id);
 
 /// A discipline code is two two-letter halves ("B3A7"); a course counts when
 /// it belongs to either.
-bool inDiscipline(Course c, String discipline) =>
-    c.discipline == discipline.substring(0, 2) ||
-    c.discipline == discipline.substring(2, 4);
+bool inDiscipline(Course c, String discipline) {
+  // A damaged discipline shorter than 4 matches nothing missing (BRK-007).
+  final d = discipline.padRight(4, '-');
+  return c.discipline == d.substring(0, 2) || c.discipline == d.substring(2, 4);
+}
 
 /// Grade points and credits over some courses; add tallies with `+`.
 class GpaTally {
@@ -85,12 +87,14 @@ GpaTally tally(Iterable<Course> courses, Profile profile) {
   double s1 = 0, dontCount = 0, points = 0, shown = 0;
   for (final c in courses) {
     final g = gradeOf(c, profile);
+    // A damaged credit value (NaN, infinite) counts as none (BRK-006).
+    final credits = c.credits.isFinite ? c.credits : 0.0;
     // Kept in the original's shape — GD added then subtracted — so the
     // floating-point result is identical to what the app always showed.
-    if (g > 0 || g == GradeCode.gd) s1 += c.credits;
-    if (g == GradeCode.gd) dontCount += c.credits;
-    if (g > 0) points += g * c.credits;
-    if (!(g < 0 && g != GradeCode.gd)) shown += c.credits;
+    if (g > 0 || g == GradeCode.gd) s1 += credits;
+    if (g == GradeCode.gd) dontCount += credits;
+    if (g > 0) points += g * credits;
+    if (!(g < 0 && g != GradeCode.gd)) shown += credits;
   }
   return GpaTally(
     points: points,
