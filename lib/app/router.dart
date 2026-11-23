@@ -211,7 +211,13 @@ final List<RouteBase> appRoutes = [
       ),
       GoRoute(
         path: 'welcome',
-        redirect: (_, _) => roleStore == null ? Routes.home : null,
+        // The profile page is a role holder's: a revoke while it is open
+        // sends the person Home (BRK-012).
+        redirect:
+            (_, _) =>
+                roleStore == null || !myRoles.value.privileged
+                    ? Routes.home
+                    : null,
         builder: (_, _) => const RepProfilePage(onSignOut: signOut),
       ),
       GoRoute(

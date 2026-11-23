@@ -296,6 +296,35 @@ void main() {
     expect(profileDue.value, isFalse);
   });
 
+  testWidgets('S3c a revoke while on /welcome lands Home (BRK-012)', (t) async {
+    signIn(
+      pres,
+      name: 'Meera Iyer',
+      roles: MyRoles(email: pres, grants: [presidency()]),
+    );
+    final welcome = appRoutes.first.routes.whereType<GoRoute>().firstWhere(
+      (r) => r.path == 'welcome',
+    );
+    final router = GoRouter(
+      initialLocation: '/welcome',
+      refreshListenable: myRoles,
+      routes: [
+        GoRoute(path: '/', builder: (_, _) => const Text('HOME')),
+        GoRoute(
+          path: '/welcome',
+          redirect: welcome.redirect,
+          builder: (_, _) => const Text('PROFILE'),
+        ),
+      ],
+    );
+    await t.pumpWidget(MaterialApp.router(routerConfig: router));
+    await t.pumpAndSettle();
+    expect(find.text('PROFILE'), findsOneWidget);
+    myRoles.value = MyRoles(email: pres);
+    await t.pumpAndSettle();
+    expect(find.text('HOME'), findsOneWidget);
+  });
+
   test('S4 the router sends everything to welcome while it is due', () {
     profileDue.value = true;
     expect(profileGate('/reviews'), '/welcome');
