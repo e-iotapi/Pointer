@@ -1,4 +1,4 @@
-> **Deprecated (2026-11-23, built):** the tiers, lanes, fixtures, allow-lists and CI wiring below exist. Kept for the reasoning and the before/after timings. Current source of truth: `docs/DEVELOPMENT.md` ("Tests and checks"), `agent_toolchains/README.md` ("Test tiers") and `tools/qa/run.sh`.
+> **Deprecated (2026-11-23, built):** the tiers, lanes, fixtures, allow-lists and CI wiring below exist. Kept for the reasoning and the before/after timings. Current source of truth: `docs/ARCHITECTURE.md` §14 (the tiers, lanes and CI), `docs/DEVELOPMENT.md` ("Tests and checks": commands and timings) and `tools/qa/run.sh`.
 
 # Test architecture plan
 

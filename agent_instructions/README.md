@@ -21,7 +21,6 @@ artifact**, and the plan's UI tasks cite that page. Owner rule, 2026-11-16.
 | `PROPOSED_FEATURES.md` | The owner's 16 features as users see them. Built, except the timetable generator (deferred). |
 | `QUOTA.md` | Firestore reads and writes per user against Spark's caps; `tools/e2e/specs/quota.spec.mjs` writes it. |
 | `DISCIPLINES_GOA_HYD.md` | Reference data: programmes per campus (`lib/core/models/programmes.dart` is built from it). |
-| `TEST_ARCHITECTURE_PLAN.md` | Tiers T0-T4 and `tools/qa/run.sh`: being built. |
 
 ## Deprecated
 
@@ -35,6 +34,7 @@ reads PERF_TEST_PLAN's by id.
 Newly deprecated (2026-11-23; all eight built but now stale in places):
 `BUILDOUT_PLAN`, `BUILDOUT_CONTRACTS`, `UI_IMPLEMENTATION_GUIDE`,
 `UI_CHANGES_BRIEF`, `UI_MAP`, `LOADING_SERVER_PLAN`, `CUSTOM_ROLES_PLAN`,
-`DATA_SYNC_PLAN`. Older: `PLAN`, `UI`, `UI_HANDOFF`, `UI_REBUILD_HANDOFF`,
+`DATA_SYNC_PLAN`; and `TEST_ARCHITECTURE_PLAN` (built: tiers T0–T4 now live in
+`docs/ARCHITECTURE.md` §14 and `docs/DEVELOPMENT.md`). Older: `PLAN`, `UI`, `UI_HANDOFF`, `UI_REBUILD_HANDOFF`,
 `UI_OPT`, `UI_PERF_BASELINE`, `PERF_BASELINE`, `PERF_TEST_PLAN`,
 `PREREGISTERED_10_11`, `MANUAL_QA`, `COURSE_GAPS`.

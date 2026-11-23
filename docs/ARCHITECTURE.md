@@ -697,9 +697,30 @@ account's other sockets, which pull the user document from Firestore.
 
 ## 14. Testing
 
-Suites: Dart unit and widget tests (`flutter test`), Firestore rules on the
-emulator (`test/rules`), the Worker (`server`, vitest) and Playwright specs
-(`tools/e2e`, including `npm run live` against the real Worker). The plan to
-group them into tiers T0 to T4 behind one runner is
-[`agent_instructions/TEST_ARCHITECTURE_PLAN.md`](https://github.com/e-iotapi/Pointer/blob/pointer-dev/agent_instructions/TEST_ARCHITECTURE_PLAN.md);
-until it lands, the commands are in `docs/DEVELOPMENT.md`.
+Every suite runs from one command, `tools/qa/run.sh --tier 0|1|2|3|4[,…]|all`,
+which starts the chosen steps together and prints one pass/fail table (run
+and queued seconds per step; logs in `build/qa/run/`).
+
+| Tier | What | When |
+|---|---|---|
+| T0 fast | analyzer vs `tools/analyze_baseline.txt`, `flutter test`, Worker vitest, tool unit tests, fixture and allow-list checks, `ui_check` (local only) | every push (`check.yml`) |
+| T1 rules | `test/rules` on the emulator, four files at once, one emulator project per file | every push (`check.yml`) |
+| T2 compatibility | `tools/backtest/rules` (old suites and the stable app's writes vs the new rules) and `tools/backtest/app` (new app on old data and device caches, stable app on new data), against `origin/master`, both also fed the shared fixtures | pushes touching the rules or roles (`qa.yml`); before a release |
+| T3 live system | `wrangler dev` Worker + emulator + browsers (`tools/e2e/specs/live`): heads, socket and Firestore reachable, instant cross-user and cross-campus updates, grants reaching the grantee, Worker down, refused token, reconnect, fallback | before a beta release (`release.yml` → `qa.yml`) |
+| T4 production-like | the e2e journeys on the base build and the new build side by side, on fixtures + synthetic people (`tools/prod_mirror`) + seed (`tools/qa/t4.sh`); a journey that passes on the base and fails on the new build is a finding | before a beta release (`release.yml` → `qa.yml`) |
+
+Speed comes from lanes, not more of everything: `tools/qa/heavy.sh` (also
+`/tmp/pointer-heavy.sh`) runs one job in an emulator lane (anything binding
+8085/9099) and one in a compute lane (Flutter tests, builds), each started
+only with 2 GB free. Rules files and Playwright workers (`E2E_WORKERS`, own
+project `demo-e2e-<n>`, read by emulator builds from
+`window.pointerEmulatorProject`) run in parallel inside their lane.
+
+Shared inputs: `test_env/fixtures/prod_shapes.json` (versioned,
+production-shaped documents, partly written by the stable app's own encoders;
+`tools/qa/fixtures.mjs`) and allow-lists of intended differences, one reason
+per entry (`tools/backtest/{rules,app}/allowlist.json`, checked by
+`tools/qa/allowlists.mjs`). CI pins Flutter to the SDK the suites are kept on
+(3.47.5). Commands, timings per tier and options: `docs/DEVELOPMENT.md`;
+the build record and what the tiers found:
+`agent_instructions/deprecated/TEST_ARCHITECTURE_PLAN.md`.
