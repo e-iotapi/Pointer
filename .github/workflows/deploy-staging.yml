@@ -79,7 +79,14 @@ jobs:
 
       - name: Rules and indexes
         if: steps.secrets.outputs.ok == 'true'
-        run: firebase deploy --only firestore:rules,firestore:indexes --project staging --non-interactive
+        # The rules API now and then answers 503 or a 409 "release already
+        # exists" on a healthy deploy; a retry after a pause goes through.
+        run: |
+          for i in 1 2 3; do
+            firebase deploy --only firestore:rules,firestore:indexes --project staging --non-interactive && exit 0
+            echo "::warning::rules deploy attempt $i failed; retrying"; sleep 30
+          done
+          exit 1
 
       # The sync snapshots the seed restores (tools/test_env/out/, gitignored).
       - name: Build seed snapshots
